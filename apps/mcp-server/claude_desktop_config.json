@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mf-rag": {
+      "command": "bun",
+      "args": ["run", "/home/samuel/projects/mf-pdf-rag/apps/mcp-server/src/index.ts"],
+      "env": {
+        "QDRANT_URL": "http://localhost:6333",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "LLM_MODEL": "qwen2.5:7b"
+      }
+    }
+  }
+}

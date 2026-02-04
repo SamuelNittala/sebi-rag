@@ -1,0 +1,15 @@
+{
+  "name": "@mf-rag/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "ollama": "^0.5.0",
+    "@mf-rag/db": "workspace:*",
+    "@mf-rag/vector": "workspace:*",
+    "@mf-rag/types": "workspace:*"
+  }
+}

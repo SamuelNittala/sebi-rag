@@ -1,0 +1,29 @@
+{
+  "name": "@mf-rag/db",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./queries": "./src/queries.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "migrate": "bun src/migrate.ts",
+    "migrate:kit": "drizzle-kit migrate",
+    "generate": "drizzle-kit generate",
+    "push": "drizzle-kit push",
+    "studio": "drizzle-kit studio",
+    "seed": "bun src/seed.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.0",
+    "@mf-rag/types": "workspace:*"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.0",
+    "@types/bun": "^1.1.0"
+  }
+}

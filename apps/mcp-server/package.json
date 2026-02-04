@@ -1,0 +1,16 @@
+{
+  "name": "@mf-rag/mcp-server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts"
+  },
+  "dependencies": {
+    "@mf-rag/core": "workspace:*",
+    "@mf-rag/types": "workspace:*",
+    "@mf-rag/vector": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1769934745975,
+      "tag": "0000_remarkable_angel",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1769944732115,
+      "tag": "0001_gorgeous_fenris",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769961600000,
+      "tag": "0002_pgvector_chunks",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1770134400000,
+      "tag": "0003_rate_limiting",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "test_cases": [
+    {
+      "id": "tc-001",
+      "query": "What is the expense ratio of HDFC Flexi Cap Fund Direct Plan?",
+      "expected_answer_contains": ["TER", "Direct"],
+      "expected_sources": [],
+      "expected_pages": [],
+      "notes": "Sample test case - update with actual PDFs"
+    }
+  ]
+}

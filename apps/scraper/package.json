@@ -1,0 +1,18 @@
+{
+  "name": "@mf-rag/scraper",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "scrape": "bun run src/index.ts scrape",
+    "download": "bun run src/index.ts download",
+    "status": "bun run src/index.ts status",
+    "reset": "bun run src/index.ts reset",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.0"
+  }
+}

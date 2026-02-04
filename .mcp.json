@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "mf-rag": {
+      "command": "bun",
+      "args": ["run", "apps/mcp-server/src/index.ts"],
+      "env": {
+        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/mf_rag",
+        "OLLAMA_BASE_URL": "http://localhost:11434"
+      }
+    }
+  }
+}

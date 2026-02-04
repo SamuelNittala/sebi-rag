@@ -1,0 +1,21 @@
+{
+  "name": "@mf-rag/api",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "build": "bun build src/index.ts --outdir dist",
+    "start": "bun dist/index.js"
+  },
+  "dependencies": {
+    "hono": "^4.4.0",
+    "@hono/zod-validator": "^0.2.0",
+    "zod": "^3.23.0",
+    "pino": "^9.0.0",
+    "pino-pretty": "^11.0.0",
+    "@mf-rag/core": "workspace:*",
+    "@mf-rag/db": "workspace:*",
+    "@mf-rag/vector": "workspace:*",
+    "@mf-rag/types": "workspace:*"
+  }
+}
