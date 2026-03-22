@@ -23,6 +23,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -359,7 +360,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // Handle tool calls
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+async function handleToolCall(request: { params: { name: string; arguments?: Record<string, unknown> } }) {
   const { name, arguments: args } = request.params;
   const startTime = Date.now();
 
@@ -685,14 +686,59 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       isError: true,
     };
   }
-});
+}
+
+// Register handlers on the stdio server instance
+server.setRequestHandler(CallToolRequestSchema, handleToolCall);
 
 // Start server
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("MF-RAG MCP Server running on stdio (LLM-free mode)");
-  console.error(`Embedding: ${config.embedding.model} @ ${config.embedding.baseUrl}`);
+  const transportMode = process.env.MCP_TRANSPORT ?? "stdio";
+
+  if (transportMode === "http") {
+    const port = parseInt(process.env.PORT ?? "3001", 10);
+
+    Bun.serve({
+      port,
+      hostname: "0.0.0.0",
+      async fetch(req) {
+        const url = new URL(req.url);
+
+        if (url.pathname === "/health") {
+          return new Response("ok");
+        }
+
+        if (url.pathname === "/mcp") {
+          const transport = new WebStandardStreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+            enableJsonResponse: true,
+          });
+
+          const reqServer = new Server(
+            { name: "mf-rag", version: "0.3.0" },
+            { capabilities: { tools: {} } },
+          );
+          reqServer.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+          reqServer.setRequestHandler(CallToolRequestSchema, handleToolCall);
+
+          await reqServer.connect(transport);
+          const response = await transport.handleRequest(req);
+          await reqServer.close();
+          return response;
+        }
+
+        return new Response("Not Found", { status: 404 });
+      },
+    });
+
+    console.error(`MF-RAG MCP Server running on HTTP :${port} (LLM-free mode)`);
+    console.error(`Embedding: ${config.embedding.model} @ ${config.embedding.baseUrl}`);
+  } else {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error("MF-RAG MCP Server running on stdio (LLM-free mode)");
+    console.error(`Embedding: ${config.embedding.model} @ ${config.embedding.baseUrl}`);
+  }
 }
 
 main().catch((error) => {

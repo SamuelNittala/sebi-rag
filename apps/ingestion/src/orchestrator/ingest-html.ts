@@ -49,7 +49,7 @@ export interface HtmlIngestConfig {
 }
 
 const DEFAULT_CONFIG: Required<HtmlIngestConfig> = {
-  ollamaUrl: "http://localhost:11434",
+  ollamaUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
   embeddingBatchSize: 10,
 };
 
