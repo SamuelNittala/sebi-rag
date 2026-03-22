@@ -204,6 +204,76 @@ export const documentFundsRelations = relations(documentFunds, ({ one }) => ({
   }),
 }));
 
+// ─── HTML Content Pipeline ───────────────────────────────────────────────────
+
+/**
+ * HTML Documents table - tracks scraped HTML pages and their ingestion status
+ */
+export const htmlDocuments = pgTable(
+  "html_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: varchar("title", { length: 500 }).notNull(),
+    sourceUrl: varchar("source_url", { length: 1000 }).unique().notNull(),
+    sourceSlug: varchar("source_slug", { length: 255 }).notNull(),
+    filePath: varchar("file_path", { length: 500 }).notNull(),
+    fileHash: varchar("file_hash", { length: 64 }).unique().notNull(),
+    contentCategory: varchar("content_category", { length: 50 }).notNull(),
+    source: varchar("source", { length: 100 }).notNull(),
+    chunkCount: integer("chunk_count"),
+    status: varchar("status", { length: 20 }).default("pending").notNull().$type<DocumentStatus>(),
+    errorMessage: text("error_message"),
+    scrapedAt: timestamp("scraped_at", { mode: "date" }).notNull(),
+    ingestedAt: timestamp("ingested_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("html_documents_content_category_idx").on(table.contentCategory),
+    index("html_documents_source_idx").on(table.source),
+    index("html_documents_status_idx").on(table.status),
+  ]
+);
+
+/**
+ * HTML Chunks table - stores embedded chunks from HTML content
+ */
+export const htmlChunks = pgTable(
+  "html_chunks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    embedding: vector("embedding", { dimensions: VECTOR_DIMENSIONS }).notNull(),
+    text: text("text").notNull(),
+    chunkIndex: integer("chunk_index").notNull(),
+    totalChunks: integer("total_chunks").notNull(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => htmlDocuments.id, { onDelete: "cascade" }),
+    documentTitle: varchar("document_title", { length: 500 }).notNull(),
+    sourceUrl: varchar("source_url", { length: 1000 }).notNull(),
+    contentCategory: varchar("content_category", { length: 50 }).notNull(),
+    sectionHeading: text("section_heading"),
+    hasTable: boolean("has_table").default(false).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("html_chunks_document_id_idx").on(table.documentId),
+    index("html_chunks_content_category_idx").on(table.contentCategory),
+    index("html_chunks_document_chunk_idx").on(table.documentId, table.chunkIndex),
+  ]
+);
+
+export const htmlDocumentsRelations = relations(htmlDocuments, ({ many }) => ({
+  htmlChunks: many(htmlChunks),
+}));
+
+export const htmlChunksRelations = relations(htmlChunks, ({ one }) => ({
+  document: one(htmlDocuments, {
+    fields: [htmlChunks.documentId],
+    references: [htmlDocuments.id],
+  }),
+}));
+
 /**
  * API Keys table - stores API keys for rate limiting
  */
@@ -274,3 +344,7 @@ export type ApiKey = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
 export type UsageRecord = typeof usageRecords.$inferSelect;
 export type NewUsageRecord = typeof usageRecords.$inferInsert;
+export type HtmlDocument = typeof htmlDocuments.$inferSelect;
+export type NewHtmlDocument = typeof htmlDocuments.$inferInsert;
+export type HtmlChunk = typeof htmlChunks.$inferSelect;
+export type NewHtmlChunk = typeof htmlChunks.$inferInsert;

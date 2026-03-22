@@ -7,10 +7,10 @@
  * - SQL indexes for efficient filtering
  */
 
-import type { ChunkPayload } from "@mf-rag/types";
+import type { ChunkPayload, HtmlChunkPayload } from "@mf-rag/types";
 
-// Re-export ChunkPayload for convenience
-export type { ChunkPayload };
+// Re-export payload types for convenience
+export type { ChunkPayload, HtmlChunkPayload };
 
 /** BGE-M3 embedding dimensions */
 export const VECTOR_DIMENSIONS = 1024;
@@ -60,4 +60,30 @@ export interface ChunkWithVector {
   id: string;
   vector: number[];
   payload: ChunkPayload;
+}
+
+/**
+ * Search filters for querying HTML chunks.
+ */
+export interface HtmlSearchFilters {
+  content_category?: string;
+  document_id?: string;
+}
+
+/**
+ * Search result from html_chunks table.
+ */
+export interface HtmlSearchResult {
+  id: string;
+  score: number;
+  payload: HtmlChunkPayload;
+}
+
+/**
+ * HTML chunk with embedding vector ready for upsert.
+ */
+export interface HtmlChunkWithVector {
+  id: string;
+  vector: number[];
+  payload: HtmlChunkPayload;
 }

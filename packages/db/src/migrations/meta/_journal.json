@@ -29,6 +29,13 @@
       "when": 1770134400000,
       "tag": "0003_rate_limiting",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774182770153,
+      "tag": "0004_optimal_major_mapleleaf",
+      "breakpoints": true
     }
   ]
 }

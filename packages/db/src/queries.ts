@@ -4,10 +4,13 @@ import {
   documents,
   funds,
   documentFunds,
+  htmlDocuments,
   type NewDocument,
   type NewFund,
+  type NewHtmlDocument,
   type Document,
   type Fund,
+  type HtmlDocument,
   type DocumentStatus,
 } from "./schema.ts";
 
@@ -197,4 +200,97 @@ export async function deleteDocument(db: Database, id: string): Promise<void> {
 
 export async function deleteFund(db: Database, id: string): Promise<void> {
   await db.delete(funds).where(eq(funds.id, id));
+}
+
+// HTML Document operations
+
+export async function createHtmlDocument(
+  db: Database,
+  data: NewHtmlDocument
+): Promise<HtmlDocument> {
+  const [doc] = await db.insert(htmlDocuments).values(data).returning();
+  if (!doc) {
+    throw new Error("Failed to create HTML document");
+  }
+  return doc;
+}
+
+export async function getHtmlDocumentById(
+  db: Database,
+  id: string
+): Promise<HtmlDocument | undefined> {
+  const [doc] = await db.select().from(htmlDocuments).where(eq(htmlDocuments.id, id));
+  return doc;
+}
+
+export async function getHtmlDocumentByHash(
+  db: Database,
+  fileHash: string
+): Promise<HtmlDocument | undefined> {
+  const [doc] = await db
+    .select()
+    .from(htmlDocuments)
+    .where(eq(htmlDocuments.fileHash, fileHash));
+  return doc;
+}
+
+export async function getHtmlDocumentByUrl(
+  db: Database,
+  sourceUrl: string
+): Promise<HtmlDocument | undefined> {
+  const [doc] = await db
+    .select()
+    .from(htmlDocuments)
+    .where(eq(htmlDocuments.sourceUrl, sourceUrl));
+  return doc;
+}
+
+export async function updateHtmlDocumentStatus(
+  db: Database,
+  id: string,
+  status: DocumentStatus,
+  errorMessage?: string
+): Promise<HtmlDocument | undefined> {
+  const updateData: Partial<HtmlDocument> = {
+    status,
+    updatedAt: new Date(),
+  };
+
+  if (errorMessage !== undefined) {
+    updateData.errorMessage = errorMessage;
+  }
+
+  if (status === "completed") {
+    updateData.ingestedAt = new Date();
+  }
+
+  const [doc] = await db
+    .update(htmlDocuments)
+    .set(updateData)
+    .where(eq(htmlDocuments.id, id))
+    .returning();
+
+  return doc;
+}
+
+export async function updateHtmlDocumentChunkCount(
+  db: Database,
+  id: string,
+  chunkCount: number
+): Promise<HtmlDocument | undefined> {
+  const [doc] = await db
+    .update(htmlDocuments)
+    .set({ chunkCount, updatedAt: new Date() })
+    .where(eq(htmlDocuments.id, id))
+    .returning();
+
+  return doc;
+}
+
+export async function getAllHtmlDocuments(db: Database): Promise<HtmlDocument[]> {
+  return db.select().from(htmlDocuments);
+}
+
+export async function deleteHtmlDocument(db: Database, id: string): Promise<void> {
+  await db.delete(htmlDocuments).where(eq(htmlDocuments.id, id));
 }

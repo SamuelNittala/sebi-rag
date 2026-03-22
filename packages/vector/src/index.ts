@@ -27,4 +27,8 @@ export {
   type CollectionInfo,
   type ChunkWithVector,
   type ChunkPayload,
+  type HtmlSearchFilters,
+  type HtmlSearchResult,
+  type HtmlChunkWithVector,
+  type HtmlChunkPayload,
 } from "./schema.ts";

@@ -9,14 +9,17 @@
  */
 
 import { db } from "@mf-rag/db/client";
-import { chunks, VECTOR_DIMENSIONS } from "@mf-rag/db/schema";
+import { chunks, htmlChunks, VECTOR_DIMENSIONS } from "@mf-rag/db/schema";
 import { eq, count, sql } from "drizzle-orm";
-import type { ChunkPayload } from "@mf-rag/types";
+import type { ChunkPayload, HtmlChunkPayload } from "@mf-rag/types";
 import type {
   SearchFilters,
   SearchResult,
   CollectionInfo,
   ChunkWithVector,
+  HtmlSearchFilters,
+  HtmlSearchResult,
+  HtmlChunkWithVector,
 } from "./schema.ts";
 
 export interface VectorClientConfig {
@@ -332,6 +335,162 @@ export class VectorClient {
       .orderBy(chunks.fundName);
 
     return results.map((r) => r.fundName);
+  }
+
+  // ─── HTML Chunks ─────────────────────────────────────────────────────────
+
+  async upsertHtmlChunks(chunksData: HtmlChunkWithVector[]): Promise<boolean> {
+    if (chunksData.length === 0) {
+      return true;
+    }
+
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < chunksData.length; i += BATCH_SIZE) {
+      const batch = chunksData.slice(i, i + BATCH_SIZE);
+
+      const values = batch.map((chunk) => ({
+        id: chunk.id,
+        embedding: chunk.vector,
+        text: chunk.payload.text.replace(/\x00/g, ""),
+        chunkIndex: chunk.payload.chunk_index,
+        totalChunks: chunk.payload.total_chunks,
+        documentId: chunk.payload.document_id,
+        documentTitle: chunk.payload.document_title,
+        sourceUrl: chunk.payload.source_url,
+        contentCategory: chunk.payload.content_category,
+        sectionHeading: chunk.payload.section_heading,
+        hasTable: chunk.payload.has_table,
+      }));
+
+      try {
+        await db.insert(htmlChunks).values(values).onConflictDoUpdate({
+          target: htmlChunks.id,
+          set: {
+            embedding: sql`EXCLUDED.embedding`,
+            text: sql`EXCLUDED.text`,
+            chunkIndex: sql`EXCLUDED.chunk_index`,
+            totalChunks: sql`EXCLUDED.total_chunks`,
+            documentTitle: sql`EXCLUDED.document_title`,
+            sourceUrl: sql`EXCLUDED.source_url`,
+            contentCategory: sql`EXCLUDED.content_category`,
+            sectionHeading: sql`EXCLUDED.section_heading`,
+            hasTable: sql`EXCLUDED.has_table`,
+          },
+        });
+      } catch (error) {
+        const pgError = error as any;
+        console.error(`HTML batch insert failed at offset ${i}:`, pgError.cause?.message ?? pgError.message);
+        throw error;
+      }
+    }
+
+    return true;
+  }
+
+  async searchHtmlSimilar(
+    queryVector: number[],
+    options: {
+      limit?: number;
+      filters?: HtmlSearchFilters;
+      scoreThreshold?: number;
+    } = {}
+  ): Promise<HtmlSearchResult[]> {
+    const { limit = 10, filters, scoreThreshold } = options;
+
+    const vectorStr = `[${queryVector.join(",")}]`;
+
+    const conditions: ReturnType<typeof sql>[] = [];
+    if (filters?.content_category) {
+      conditions.push(sql`AND content_category = ${filters.content_category}`);
+    }
+    if (filters?.document_id) {
+      conditions.push(sql`AND document_id = ${filters.document_id}::uuid`);
+    }
+
+    const conditionsSql = conditions.length > 0 ? sql.join(conditions, sql` `) : sql``;
+
+    const thresholdClause = scoreThreshold
+      ? sql`AND (1 - (embedding <=> ${vectorStr}::vector)) >= ${scoreThreshold}`
+      : sql``;
+
+    type ResultRow = {
+      id: string;
+      score: number;
+      text: string;
+      chunk_index: number;
+      total_chunks: number;
+      document_id: string;
+      document_title: string;
+      source_url: string;
+      content_category: string;
+      section_heading: string | null;
+      has_table: boolean;
+    };
+
+    const results = (await db.execute(sql`
+      SELECT
+        id,
+        1 - (embedding <=> ${vectorStr}::vector) as score,
+        text,
+        chunk_index,
+        total_chunks,
+        document_id,
+        document_title,
+        source_url,
+        content_category,
+        section_heading,
+        has_table
+      FROM html_chunks
+      WHERE 1=1 ${conditionsSql} ${thresholdClause}
+      ORDER BY embedding <=> ${vectorStr}::vector
+      LIMIT ${limit}
+    `)) as ResultRow[];
+
+    return results.map((row) => ({
+      id: row.id,
+      score: row.score,
+      payload: {
+        text: row.text,
+        chunk_index: row.chunk_index,
+        total_chunks: row.total_chunks,
+        document_id: row.document_id,
+        document_title: row.document_title,
+        source_url: row.source_url,
+        content_category: row.content_category as HtmlChunkPayload["content_category"],
+        section_heading: row.section_heading,
+        has_table: row.has_table,
+      },
+    }));
+  }
+
+  async deleteHtmlByDocumentId(documentId: string): Promise<number> {
+    const countResult = await db
+      .select({ count: count() })
+      .from(htmlChunks)
+      .where(eq(htmlChunks.documentId, documentId));
+
+    const chunkCount = countResult[0]?.count ?? 0;
+
+    if (chunkCount === 0) {
+      return 0;
+    }
+
+    await db.delete(htmlChunks).where(eq(htmlChunks.documentId, documentId));
+
+    return chunkCount;
+  }
+
+  async getHtmlCollectionInfo(): Promise<CollectionInfo> {
+    const countResult = await db.select({ count: count() }).from(htmlChunks);
+    const totalCount = countResult[0]?.count ?? 0;
+
+    return {
+      name: "html_chunks",
+      vectors_count: totalCount,
+      indexed_vectors_count: totalCount,
+      points_count: totalCount,
+      status: "green",
+    };
   }
 }
 
