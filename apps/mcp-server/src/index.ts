@@ -36,7 +36,7 @@ import {
   RateLimitError,
   ApiKeyError,
 } from "@mf-rag/core";
-import { VectorClient, type SearchFilters } from "@mf-rag/vector";
+import { VectorClient, type SearchFilters, type HtmlSearchFilters, type HtmlSearchResult } from "@mf-rag/vector";
 import type { ApiKey } from "@mf-rag/db/schema";
 
 // Configuration from environment
@@ -133,16 +133,126 @@ function buildCitations(results: Awaited<ReturnType<typeof vectorClient.searchSi
   return Array.from(citationMap.values());
 }
 
+/**
+ * Build citations from HTML search results, deduplicating by title.
+ */
+function buildHtmlCitations(results: HtmlSearchResult[]) {
+  const citationMap = new Map<string, {
+    title: string;
+    contentCategory: string;
+    sourceUrl: string;
+  }>();
+
+  for (const r of results) {
+    const key = r.payload.source_url;
+    if (!citationMap.has(key)) {
+      citationMap.set(key, {
+        title: r.payload.document_title,
+        contentCategory: r.payload.content_category,
+        sourceUrl: r.payload.source_url,
+      });
+    }
+  }
+
+  return Array.from(citationMap.values());
+}
+
+/**
+ * Search both chunks and html_chunks tables, merge results by score.
+ */
+async function dualSearch(
+  queryVector: number[],
+  options: {
+    limit: number;
+    scoreThreshold: number;
+    pdfFilters?: SearchFilters;
+    htmlFilters?: HtmlSearchFilters;
+    searchPdf?: boolean;
+    searchHtml?: boolean;
+  }
+) {
+  const { limit, scoreThreshold, pdfFilters, htmlFilters, searchPdf = true, searchHtml = true } = options;
+
+  // Run both searches in parallel
+  const [pdfResults, htmlResults] = await Promise.all([
+    searchPdf
+      ? vectorClient.searchSimilar(queryVector, {
+          limit,
+          filters: pdfFilters && Object.keys(pdfFilters).length > 0 ? pdfFilters : undefined,
+          scoreThreshold,
+        })
+      : Promise.resolve([]),
+    searchHtml
+      ? vectorClient.searchHtmlSimilar(queryVector, {
+          limit,
+          filters: htmlFilters && Object.keys(htmlFilters).length > 0 ? htmlFilters : undefined,
+          scoreThreshold,
+        })
+      : Promise.resolve([]),
+  ]);
+
+  // Merge and sort by score, take top N
+  type MergedResult = {
+    score: number;
+    source_type: "scheme_document" | "knowledge_base";
+    text: string;
+    sectionHeader: string | null;
+    // PDF-specific
+    fundName?: string;
+    docType?: string;
+    pageNumbers?: number[];
+    // HTML-specific
+    documentTitle?: string;
+    contentCategory?: string;
+    sourceUrl?: string;
+  };
+
+  const merged: MergedResult[] = [];
+
+  for (const r of pdfResults) {
+    merged.push({
+      score: r.score,
+      source_type: "scheme_document",
+      text: r.payload.text,
+      sectionHeader: r.payload.section_header,
+      fundName: r.payload.fund_name,
+      docType: r.payload.doc_type,
+      pageNumbers: r.payload.page_numbers,
+    });
+  }
+
+  for (const r of htmlResults) {
+    merged.push({
+      score: r.score,
+      source_type: "knowledge_base",
+      text: r.payload.text,
+      sectionHeader: r.payload.section_heading,
+      documentTitle: r.payload.document_title,
+      contentCategory: r.payload.content_category,
+      sourceUrl: r.payload.source_url,
+    });
+  }
+
+  merged.sort((a, b) => b.score - a.score);
+
+  return {
+    results: merged.slice(0, limit),
+    pdfResults,
+    htmlResults,
+  };
+}
+
 // Tool definitions
 const TOOLS: Tool[] = [
   {
     name: "query_mutual_funds",
     description:
-      "Ask a question about mutual fund documents and get an answer with citations. " +
+      "Ask a question about mutual funds and get an answer with citations. " +
+      "Searches both scheme documents (SID/KIM/Factsheet) and general knowledge content " +
+      "(education articles, procedural guides). " +
       "Use this for questions about expense ratios, investment objectives, risk factors, " +
-      "fund managers, NAV, returns, and other scheme information. " +
-      "IMPORTANT: Always include the citations in your response to the user, " +
-      "showing the scheme name, document type, page numbers, and SEBI URL for each source.",
+      "fund managers, NAV, returns, SIP, KYC, and how to invest. " +
+      "IMPORTANT: Always include the citations in your response to the user.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -152,17 +262,22 @@ const TOOLS: Tool[] = [
         },
         scheme_name: {
           type: "string",
-          description: "Optional: Filter by specific scheme name (e.g., 'HDFC Focused 30 Fund')",
+          description: "Optional: Filter by specific scheme name (e.g., 'HDFC Focused 30 Fund'). Only searches scheme documents.",
         },
         scheme_type: {
           type: "string",
           enum: ["Equity", "Debt", "Hybrid", "Other"],
-          description: "Optional: Filter by scheme type",
+          description: "Optional: Filter by scheme type. Only searches scheme documents.",
         },
         doc_type: {
           type: "string",
           enum: ["SID", "KIM", "Factsheet"],
-          description: "Optional: Filter by document type",
+          description: "Optional: Filter by document type. Only searches scheme documents.",
+        },
+        content_category: {
+          type: "string",
+          enum: ["education", "procedural", "regulatory"],
+          description: "Optional: Filter by content category. Only searches knowledge base articles.",
         },
       },
       required: ["question"],
@@ -172,6 +287,7 @@ const TOOLS: Tool[] = [
     name: "search_mutual_fund_docs",
     description:
       "Search for relevant document chunks without generating an answer. " +
+      "Searches both scheme documents and knowledge base articles. " +
       "Use this for exploratory searches or when you need raw document excerpts.",
     inputSchema: {
       type: "object" as const,
@@ -182,12 +298,17 @@ const TOOLS: Tool[] = [
         },
         scheme_name: {
           type: "string",
-          description: "Optional: Filter by specific scheme name",
+          description: "Optional: Filter by specific scheme name. Only searches scheme documents.",
         },
         scheme_type: {
           type: "string",
           enum: ["Equity", "Debt", "Hybrid", "Other"],
-          description: "Optional: Filter by scheme type",
+          description: "Optional: Filter by scheme type. Only searches scheme documents.",
+        },
+        content_category: {
+          type: "string",
+          enum: ["education", "procedural", "regulatory"],
+          description: "Optional: Filter by content category. Only searches knowledge base articles.",
         },
         limit: {
           type: "number",
@@ -248,47 +369,70 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     switch (name) {
       case "query_mutual_funds": {
-        const { question, scheme_name, scheme_type, doc_type } = args as {
+        const { question, scheme_name, scheme_type, doc_type, content_category } = args as {
           question: string;
           scheme_name?: string;
           scheme_type?: string;
           doc_type?: string;
+          content_category?: string;
         };
 
-        // Build filters
-        const filters: SearchFilters = {};
-        if (scheme_name) filters.fund_name = scheme_name;
-        if (scheme_type) filters.scheme_type = scheme_type;
-        if (doc_type) filters.doc_type = doc_type;
+        // Determine which tables to search based on filters
+        const hasPdfFilters = !!(scheme_name || scheme_type || doc_type);
+        const hasHtmlFilters = !!content_category;
+        const searchPdf = !hasHtmlFilters;
+        const searchHtml = !hasPdfFilters;
+
+        const pdfFilters: SearchFilters = {};
+        if (scheme_name) pdfFilters.fund_name = scheme_name;
+        if (scheme_type) pdfFilters.scheme_type = scheme_type;
+        if (doc_type) pdfFilters.doc_type = doc_type;
+
+        const htmlFilters: HtmlSearchFilters = {};
+        if (content_category) htmlFilters.content_category = content_category;
 
         // 1. Embed the query
         const queryVector = await embedder.embed(question);
 
-        // 2. Search pgvector
-        const results = await vectorClient.searchSimilar(queryVector, {
+        // 2. Dual-table search
+        const { results: merged, pdfResults, htmlResults } = await dualSearch(queryVector, {
           limit: config.search.defaultLimit,
-          filters: Object.keys(filters).length > 0 ? filters : undefined,
           scoreThreshold: config.search.scoreThreshold,
+          pdfFilters,
+          htmlFilters,
+          searchPdf,
+          searchHtml,
         });
 
         // 3. Build response with chunks and citations
-        const chunks = results.map((r, i) => ({
+        const chunks = merged.map((r, i) => ({
           rank: i + 1,
           score: parseFloat(r.score.toFixed(3)),
-          text: r.payload.text,
-          fundName: r.payload.fund_name,
-          docType: r.payload.doc_type,
-          pageNumbers: r.payload.page_numbers,
-          sectionHeader: r.payload.section_header,
+          source_type: r.source_type,
+          text: r.text,
+          sectionHeader: r.sectionHeader,
+          // PDF fields (present when source_type is "scheme_document")
+          ...(r.source_type === "scheme_document" && {
+            fundName: r.fundName,
+            docType: r.docType,
+            pageNumbers: r.pageNumbers,
+          }),
+          // HTML fields (present when source_type is "knowledge_base")
+          ...(r.source_type === "knowledge_base" && {
+            documentTitle: r.documentTitle,
+            contentCategory: r.contentCategory,
+            sourceUrl: r.sourceUrl,
+          }),
         }));
 
-        const citations = buildCitations(results);
+        const pdfCitations = buildCitations(pdfResults);
+        const htmlCitations = buildHtmlCitations(htmlResults);
         const responseTimeMs = Date.now() - startTime;
 
         // Record usage
         await recordUsage(apiKey, name, {
           responseTimeMs,
-          chunksRetrieved: results.length,
+          chunksRetrieved: merged.length,
         });
 
         return {
@@ -298,10 +442,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify(
                 {
                   chunks,
-                  citations,
+                  citations: {
+                    scheme_documents: pdfCitations,
+                    knowledge_base: htmlCitations,
+                  },
                   metadata: {
                     queryTimeMs: responseTimeMs,
-                    chunksRetrieved: results.length,
+                    chunksRetrieved: merged.length,
+                    sources: {
+                      scheme_documents: pdfResults.length,
+                      knowledge_base: htmlResults.length,
+                    },
                   },
                 },
                 null,
@@ -313,35 +464,52 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "search_mutual_fund_docs": {
-        const { query, scheme_name, scheme_type, limit = 5 } = args as {
+        const { query, scheme_name, scheme_type, content_category: searchCategory, limit = 5 } = args as {
           query: string;
           scheme_name?: string;
           scheme_type?: string;
+          content_category?: string;
           limit?: number;
         };
 
-        // Build filters
-        const filters: SearchFilters = {};
-        if (scheme_name) filters.fund_name = scheme_name;
-        if (scheme_type) filters.scheme_type = scheme_type;
+        const hasPdfFilters = !!(scheme_name || scheme_type);
+        const hasHtmlFilters = !!searchCategory;
+
+        const pdfFilters: SearchFilters = {};
+        if (scheme_name) pdfFilters.fund_name = scheme_name;
+        if (scheme_type) pdfFilters.scheme_type = scheme_type;
+
+        const htmlFilters: HtmlSearchFilters = {};
+        if (searchCategory) htmlFilters.content_category = searchCategory;
 
         // 1. Embed the query
         const queryVector = await embedder.embed(query);
 
-        // 2. Search pgvector
-        const results = await vectorClient.searchSimilar(queryVector, {
+        // 2. Dual-table search
+        const { results: merged } = await dualSearch(queryVector, {
           limit,
-          filters: Object.keys(filters).length > 0 ? filters : undefined,
           scoreThreshold: config.search.scoreThreshold,
+          pdfFilters,
+          htmlFilters,
+          searchPdf: !hasHtmlFilters,
+          searchHtml: !hasPdfFilters,
         });
 
-        const searchResults = results.map((r, i) => ({
+        const searchResults = merged.map((r, i) => ({
           rank: i + 1,
           score: r.score.toFixed(3),
-          scheme: r.payload.fund_name,
-          document: r.payload.doc_type,
-          pages: r.payload.page_numbers,
-          excerpt: r.payload.text.slice(0, 300) + (r.payload.text.length > 300 ? "..." : ""),
+          source_type: r.source_type,
+          ...(r.source_type === "scheme_document" && {
+            scheme: r.fundName,
+            document: r.docType,
+            pages: r.pageNumbers,
+          }),
+          ...(r.source_type === "knowledge_base" && {
+            title: r.documentTitle,
+            category: r.contentCategory,
+            url: r.sourceUrl,
+          }),
+          excerpt: r.text.slice(0, 300) + (r.text.length > 300 ? "..." : ""),
         }));
 
         const responseTimeMs = Date.now() - startTime;
@@ -349,7 +517,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // Record usage
         await recordUsage(apiKey, name, {
           responseTimeMs,
-          chunksRetrieved: results.length,
+          chunksRetrieved: merged.length,
         });
 
         return {
