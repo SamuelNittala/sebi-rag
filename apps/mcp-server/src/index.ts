@@ -40,6 +40,7 @@ import {
 import { VectorClient, type SearchFilters, type HtmlSearchFilters, type HtmlSearchResult } from "@mf-rag/vector";
 import type { ApiKey } from "@mf-rag/db/schema";
 import { resolveRetrievalScope } from "./retrieval-scope.ts";
+import { adjustRetrievalScore, type RetrievalRankingProfile } from "./retrieval-ranking.ts";
 
 // Configuration from environment
 const config = {
@@ -171,9 +172,10 @@ async function dualSearch(
     htmlFilters?: HtmlSearchFilters;
     searchPdf?: boolean;
     searchHtml?: boolean;
+    rankingProfile?: RetrievalRankingProfile;
   }
 ) {
-  const { limit, scoreThreshold, pdfFilters, htmlFilters, searchPdf = true, searchHtml = true } = options;
+  const { limit, scoreThreshold, pdfFilters, htmlFilters, searchPdf = true, searchHtml = true, rankingProfile } = options;
 
   // Run both searches in parallel
   const [pdfResults, htmlResults] = await Promise.all([
@@ -203,6 +205,7 @@ async function dualSearch(
     fundName?: string;
     docType?: string;
     pageNumbers?: number[];
+    documentFilename?: string;
     // HTML-specific
     documentTitle?: string;
     contentCategory?: string;
@@ -212,20 +215,36 @@ async function dualSearch(
   const merged: MergedResult[] = [];
 
   for (const r of pdfResults) {
-    merged.push({
+    const score = adjustRetrievalScore({
       score: r.score,
+      sourceType: "scheme_document",
+      text: r.payload.text,
+      sectionHeader: r.payload.section_header,
+      documentFilename: r.payload.document_filename,
+      docType: r.payload.doc_type,
+    }, rankingProfile);
+    merged.push({
+      score,
       source_type: "scheme_document",
       text: r.payload.text,
       sectionHeader: r.payload.section_header,
       fundName: r.payload.fund_name,
       docType: r.payload.doc_type,
       pageNumbers: r.payload.page_numbers,
+      documentFilename: r.payload.document_filename,
     });
   }
 
   for (const r of htmlResults) {
-    merged.push({
+    const score = adjustRetrievalScore({
       score: r.score,
+      sourceType: "knowledge_base",
+      text: r.payload.text,
+      sectionHeader: r.payload.section_heading,
+      contentCategory: r.payload.content_category,
+    }, rankingProfile);
+    merged.push({
+      score,
       source_type: "knowledge_base",
       text: r.payload.text,
       sectionHeader: r.payload.section_heading,
@@ -420,6 +439,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           htmlFilters: scope.htmlFilters,
           searchPdf: scope.searchPdf,
           searchHtml: scope.searchHtml,
+          rankingProfile: scope.rankingProfile,
         });
 
         // 3. Build response with chunks and citations
@@ -512,6 +532,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           htmlFilters: scope.htmlFilters,
           searchPdf: scope.searchPdf,
           searchHtml: scope.searchHtml,
+          rankingProfile: scope.rankingProfile,
         });
 
         const searchResults = merged.map((r, i) => ({

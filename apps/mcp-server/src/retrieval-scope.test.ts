@@ -67,6 +67,35 @@ describe("resolveRetrievalScope", () => {
     expect(scope.pdfFilters.source_collection).toBe("mirae_sif");
   });
 
+  test("treats Platinum SIF as an umbrella instead of an exact strategy name", () => {
+    const scope = resolveRetrievalScope({
+      question: "Which strategy is currently available under Platinum SIF?",
+      topic: "sif",
+      amc_name: "Mirae Asset",
+      scheme_name: "Platinum SIF",
+    });
+
+    expect(scope.searchPdf).toBe(true);
+    expect(scope.searchHtml).toBe(true);
+    expect(scope.rankingProfile).toBe("mirae_sif_overview");
+    expect(scope.pdfFilters).toEqual({
+      knowledge_domain: "sif",
+      source_collection: "mirae_sif",
+    });
+    expect(scope.htmlFilters).toEqual({
+      knowledge_domain: "sif",
+      source_collection: "mirae_sif",
+    });
+  });
+
+  test("uses the overview ranking profile for a Platinum SIF introduction", () => {
+    const scope = resolveRetrievalScope({
+      question: "Tell me about Platinum SIF",
+    });
+
+    expect(scope.rankingProfile).toBe("mirae_sif_overview");
+  });
+
   test("preserves the existing broad search for an unrelated generic question", () => {
     const scope = resolveRetrievalScope({
       question: "How does SIP investing work?",

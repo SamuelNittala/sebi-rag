@@ -25,6 +25,7 @@ import { extractTables, type TableExtractionResult } from "../parsers/table-pars
 
 // Chunker
 import { semanticChunk, type ChunkInput, type Chunk, type ChunkResult } from "../chunkers/semantic-chunker.ts";
+import { removeDisposableSifChunks } from "../chunkers/disposable-content.ts";
 
 // Metadata extractor
 import { extractMetadata, type ExtractedMetadata, type DocType } from "../metadata/extractor.ts";
@@ -241,7 +242,7 @@ export async function ingestDocument(
       })),
     };
 
-    const chunkResult: ChunkResult = semanticChunk(chunkInput);
+    let chunkResult: ChunkResult = semanticChunk(chunkInput);
 
     if (chunkResult.chunks.length === 0) {
       await updateDocumentStatus(db, documentId, "failed", "No content extracted from PDF");
@@ -274,6 +275,20 @@ export async function ingestDocument(
       sourceUrl: resolve(filepath),
       title: `${metadata.fundName ?? ""} ${firstPagesText.slice(0, 1500)}`,
     });
+    if (knowledgeScope.sourceCollection === "mirae_sif") {
+      chunkResult = removeDisposableSifChunks(chunkResult, filename);
+    }
+
+    if (chunkResult.chunks.length === 0) {
+      await updateDocumentStatus(db, documentId, "failed", "No relevant content extracted from PDF");
+      return {
+        documentId,
+        filename,
+        status: "failed",
+        error: "No relevant content extracted from PDF",
+        duration: Date.now() - startTime,
+      };
+    }
 
     // Update document with extracted info
     await db
