@@ -12,3 +12,5 @@ export {
   type DocType,
   type SchemeType,
 } from "./extractor";
+
+export * from "./knowledge-scope.ts";

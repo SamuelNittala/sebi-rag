@@ -178,6 +178,73 @@ This is content under the introduction section.`,
 
       expect(result.chunks[0].sectionHeader).toContain("SECTION I");
     });
+
+    test("recognizes short title-case KIM labels as section boundaries", () => {
+      const input: ChunkInput = {
+        pages: [{
+          pageNumber: 1,
+          text: `Investment objective
+
+The strategy seeks long-term capital appreciation through equity and debt exposure.
+
+Minimum Investment Threshold
+
+The minimum aggregate investment is INR 10 lakh at PAN level.`,
+        }],
+      };
+
+      const result = semanticChunk(input, { minTokens: 1 });
+
+      expect(result.chunks.some((chunk) => chunk.sectionHeader === "Investment objective")).toBe(true);
+      expect(result.chunks.some((chunk) => chunk.sectionHeader === "Minimum Investment Threshold")).toBe(true);
+    });
+
+    test("preserves a short complete fact under its own explicit heading", () => {
+      const input: ChunkInput = {
+        pages: [{
+          pageNumber: 1,
+          text: `Performance Track Record
+
+No performance track record is available.
+
+Fund Manager
+
+The strategy is managed by Example Manager with extensive investment experience.`,
+        }],
+      };
+
+      const result = semanticChunk(input, { minTokens: 1 });
+      const trackRecord = result.chunks.find(
+        (chunk) => chunk.sectionHeader === "Performance Track Record"
+      );
+
+      expect(trackRecord).toBeDefined();
+      expect(trackRecord!.text).toContain("No performance track record is available.");
+      expect(trackRecord!.text).not.toContain("Fund Manager");
+    });
+
+    test("retains the section heading on every continuation chunk", () => {
+      const longAnswer = Array(180)
+        .fill("Redemption requests are processed according to the disclosed interval rules.")
+        .join(" ");
+      const input: ChunkInput = {
+        pages: [{
+          pageNumber: 1,
+          text: `### How do investors redeem their units?\n\n${longAnswer}`,
+        }],
+      };
+
+      const result = semanticChunk(input, {
+        targetTokens: 100,
+        maxTokens: 120,
+        minTokens: 1,
+      });
+
+      expect(result.chunks.length).toBeGreaterThan(1);
+      expect(result.chunks.every(
+        (chunk) => chunk.sectionHeader === "How do investors redeem their units?"
+      )).toBe(true);
+    });
   });
 
   describe("atomic unit preservation", () => {
@@ -590,7 +657,7 @@ Second paragraph of text content.`,
       expect(result.chunks[0].text).toBe("Just one sentence here.");
     });
 
-    test("handles huge table that exceeds tableMaxTokens", () => {
+    test("splits a huge table into complete row groups without truncating rows", () => {
       // Create an extremely large table
       const rows = Array(200)
         .fill(null)
@@ -608,11 +675,22 @@ ${rows}`;
         tables: [{ pageNumber: 1, markdown: hugeTable }],
       };
 
-      // With a small tableMaxTokens, it should truncate or handle gracefully
+      // A small table limit forces multiple row-group children.
       const result = semanticChunk(input, { tableMaxTokens: 100 });
 
-      // Should still produce valid output
-      expect(result.chunks.length).toBeGreaterThan(0);
+      const tableChunks = result.chunks.filter((chunk) => chunk.hasTable);
+      expect(tableChunks.length).toBeGreaterThan(1);
+      expect(tableChunks.every((chunk) => !chunk.text.includes("[TABLE TRUNCATED]"))).toBe(true);
+      expect(tableChunks.every((chunk) => chunk.text.includes("| Name | Value | Description |"))).toBe(true);
+
+      for (let rowIndex = 0; rowIndex < 200; rowIndex++) {
+        const marker = `| Long item name ${rowIndex} |`;
+        const occurrences = tableChunks.reduce(
+          (count, chunk) => count + (chunk.text.includes(marker) ? 1 : 0),
+          0
+        );
+        expect(occurrences).toBe(1);
+      }
     });
 
     test("handles input with only tables, no text", () => {

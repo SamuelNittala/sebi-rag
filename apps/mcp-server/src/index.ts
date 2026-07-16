@@ -39,6 +39,7 @@ import {
 } from "@mf-rag/core";
 import { VectorClient, type SearchFilters, type HtmlSearchFilters, type HtmlSearchResult } from "@mf-rag/vector";
 import type { ApiKey } from "@mf-rag/db/schema";
+import { resolveRetrievalScope } from "./retrieval-scope.ts";
 
 // Configuration from environment
 const config = {
@@ -261,6 +262,15 @@ const TOOLS: Tool[] = [
           type: "string",
           description: "The question to ask about mutual funds",
         },
+        topic: {
+          type: "string",
+          enum: ["sif"],
+          description: "Optional recognized knowledge topic. The MCP validates and maps it to internal retrieval scope.",
+        },
+        amc_name: {
+          type: "string",
+          description: "Optional AMC explicitly mentioned by the user (for example, 'Mirae Asset').",
+        },
         scheme_name: {
           type: "string",
           description: "Optional: Filter by specific scheme name (e.g., 'HDFC Focused 30 Fund'). Only searches scheme documents.",
@@ -277,7 +287,7 @@ const TOOLS: Tool[] = [
         },
         content_category: {
           type: "string",
-          enum: ["education", "procedural", "regulatory"],
+          enum: ["education", "procedural", "regulatory", "product", "faq", "form_instructions"],
           description: "Optional: Filter by content category. Only searches knowledge base articles.",
         },
       },
@@ -297,6 +307,15 @@ const TOOLS: Tool[] = [
           type: "string",
           description: "Search query",
         },
+        topic: {
+          type: "string",
+          enum: ["sif"],
+          description: "Optional recognized knowledge topic.",
+        },
+        amc_name: {
+          type: "string",
+          description: "Optional AMC explicitly mentioned by the user.",
+        },
         scheme_name: {
           type: "string",
           description: "Optional: Filter by specific scheme name. Only searches scheme documents.",
@@ -308,7 +327,7 @@ const TOOLS: Tool[] = [
         },
         content_category: {
           type: "string",
-          enum: ["education", "procedural", "regulatory"],
+          enum: ["education", "procedural", "regulatory", "product", "faq", "form_instructions"],
           description: "Optional: Filter by content category. Only searches knowledge base articles.",
         },
         limit: {
@@ -370,27 +389,25 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
 
     switch (name) {
       case "query_mutual_funds": {
-        const { question, scheme_name, scheme_type, doc_type, content_category } = args as {
+        const { question, topic, amc_name, scheme_name, scheme_type, doc_type, content_category } = args as {
           question: string;
+          topic?: string;
+          amc_name?: string;
           scheme_name?: string;
           scheme_type?: string;
           doc_type?: string;
           content_category?: string;
         };
 
-        // Determine which tables to search based on filters
-        const hasPdfFilters = !!(scheme_name || scheme_type || doc_type);
-        const hasHtmlFilters = !!content_category;
-        const searchPdf = !hasHtmlFilters;
-        const searchHtml = !hasPdfFilters;
-
-        const pdfFilters: SearchFilters = {};
-        if (scheme_name) pdfFilters.fund_name = scheme_name;
-        if (scheme_type) pdfFilters.scheme_type = scheme_type;
-        if (doc_type) pdfFilters.doc_type = doc_type;
-
-        const htmlFilters: HtmlSearchFilters = {};
-        if (content_category) htmlFilters.content_category = content_category;
+        const scope = resolveRetrievalScope({
+          question,
+          topic,
+          amc_name,
+          scheme_name,
+          scheme_type,
+          doc_type,
+          content_category,
+        });
 
         // 1. Embed the query
         const queryVector = await embedder.embed(question);
@@ -399,10 +416,10 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
         const { results: merged, pdfResults, htmlResults } = await dualSearch(queryVector, {
           limit: config.search.defaultLimit,
           scoreThreshold: config.search.scoreThreshold,
-          pdfFilters,
-          htmlFilters,
-          searchPdf,
-          searchHtml,
+          pdfFilters: scope.pdfFilters,
+          htmlFilters: scope.htmlFilters,
+          searchPdf: scope.searchPdf,
+          searchHtml: scope.searchHtml,
         });
 
         // 3. Build response with chunks and citations
@@ -465,23 +482,24 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
       }
 
       case "search_mutual_fund_docs": {
-        const { query, scheme_name, scheme_type, content_category: searchCategory, limit = 5 } = args as {
+        const { query, topic, amc_name, scheme_name, scheme_type, content_category: searchCategory, limit = 5 } = args as {
           query: string;
+          topic?: string;
+          amc_name?: string;
           scheme_name?: string;
           scheme_type?: string;
           content_category?: string;
           limit?: number;
         };
 
-        const hasPdfFilters = !!(scheme_name || scheme_type);
-        const hasHtmlFilters = !!searchCategory;
-
-        const pdfFilters: SearchFilters = {};
-        if (scheme_name) pdfFilters.fund_name = scheme_name;
-        if (scheme_type) pdfFilters.scheme_type = scheme_type;
-
-        const htmlFilters: HtmlSearchFilters = {};
-        if (searchCategory) htmlFilters.content_category = searchCategory;
+        const scope = resolveRetrievalScope({
+          question: query,
+          topic,
+          amc_name,
+          scheme_name,
+          scheme_type,
+          content_category: searchCategory,
+        });
 
         // 1. Embed the query
         const queryVector = await embedder.embed(query);
@@ -490,10 +508,10 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
         const { results: merged } = await dualSearch(queryVector, {
           limit,
           scoreThreshold: config.search.scoreThreshold,
-          pdfFilters,
-          htmlFilters,
-          searchPdf: !hasHtmlFilters,
-          searchHtml: !hasPdfFilters,
+          pdfFilters: scope.pdfFilters,
+          htmlFilters: scope.htmlFilters,
+          searchPdf: scope.searchPdf,
+          searchHtml: scope.searchHtml,
         });
 
         const searchResults = merged.map((r, i) => ({

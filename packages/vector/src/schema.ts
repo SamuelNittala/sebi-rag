@@ -31,6 +31,9 @@ export interface SearchFilters {
   document_id?: string;
   date_from?: string;
   date_to?: string;
+  knowledge_domain?: string;
+  source_collection?: string;
+  amc_slug?: string;
 }
 
 /**
@@ -68,6 +71,9 @@ export interface ChunkWithVector {
 export interface HtmlSearchFilters {
   content_category?: string;
   document_id?: string;
+  knowledge_domain?: string;
+  source_collection?: string;
+  amc_slug?: string;
 }
 
 /**

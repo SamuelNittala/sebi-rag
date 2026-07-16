@@ -58,3 +58,18 @@ describe("AMFI source configs", () => {
     expect(allAmfiSources).toHaveLength(2);
   });
 });
+
+describe("Mirae SIF source config", () => {
+  test("includes the Platinum fund page and uses product content", async () => {
+    const { miraeSifFund } = await import("../sources/mirae-sif.ts");
+
+    expect(miraeSifFund.name).toBe("mirae-sif");
+    expect(miraeSifFund.contentCategory).toBe("product");
+    expect(miraeSifFund.pages).toEqual([
+      {
+        url: "https://platinumsif.miraeassetmf.co.in/fund?schemeCode=3166",
+        slug: "platinum-hybrid-long-short-fund",
+      },
+    ]);
+  });
+});

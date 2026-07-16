@@ -1,4 +1,12 @@
-export type ContentCategory = "education" | "procedural" | "regulatory";
+import type { KnowledgeDomain, SourceCollection } from "./knowledge-scope.ts";
+
+export type ContentCategory =
+  | "education"
+  | "procedural"
+  | "regulatory"
+  | "product"
+  | "faq"
+  | "form_instructions";
 
 export interface HtmlChunkPayload {
   text: string;
@@ -10,4 +18,7 @@ export interface HtmlChunkPayload {
   content_category: ContentCategory;
   section_heading: string | null;
   has_table: boolean;
+  knowledge_domain?: KnowledgeDomain;
+  source_collection?: SourceCollection;
+  amc_slug?: string | null;
 }

@@ -10,18 +10,20 @@
 
 import { HtmlScraper } from "./html-scraper.ts";
 import { allAmfiSources } from "./sources/amfi.ts";
+import { allMiraeSifSources } from "./sources/mirae-sif.ts";
 
 async function main() {
   const args = process.argv.slice(2);
   const sourceFilter = args.includes("--source") ? args[args.indexOf("--source") + 1] : undefined;
 
+  const allSources = [...allAmfiSources, ...allMiraeSifSources];
   const sources = sourceFilter
-    ? allAmfiSources.filter((s) => s.name === sourceFilter)
-    : allAmfiSources;
+    ? allSources.filter((s) => s.name === sourceFilter)
+    : allSources;
 
   if (sources.length === 0) {
     console.error(`No source found matching "${sourceFilter}"`);
-    console.error(`Available sources: ${allAmfiSources.map((s) => s.name).join(", ")}`);
+    console.error(`Available sources: ${allSources.map((s) => s.name).join(", ")}`);
     process.exit(1);
   }
 

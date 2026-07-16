@@ -28,6 +28,8 @@ import {
 
 // Embedder
 import { createEmbedder, type Embedder, type EmbeddingInput } from "../embedding/embedder.ts";
+import { buildContextualEmbeddingText } from "../embedding/contextual-input.ts";
+import { resolveKnowledgeScope } from "../metadata/knowledge-scope.ts";
 
 // Database
 import {
@@ -116,6 +118,11 @@ export async function ingestHtmlDocument(
 
     const parsed: ParsedHtmlDocument = await parseHtmlFile(filePath);
     const { frontmatter } = parsed;
+    const knowledgeScope = resolveKnowledgeScope({
+      source: frontmatter.source,
+      sourceUrl: frontmatter.source_url,
+      title: frontmatter.title,
+    });
 
     // Create document record
     const doc = await createHtmlDocument(db, {
@@ -126,6 +133,9 @@ export async function ingestHtmlDocument(
       fileHash,
       contentCategory: frontmatter.content_category,
       source: frontmatter.source,
+      knowledgeDomain: knowledgeScope.knowledgeDomain,
+      sourceCollection: knowledgeScope.sourceCollection,
+      amcSlug: knowledgeScope.amcSlug,
       status: "processing" as DocumentStatus,
       scrapedAt: new Date(frontmatter.scraped_at),
     });
@@ -158,7 +168,15 @@ export async function ingestHtmlDocument(
     });
 
     const embeddingInputs: EmbeddingInput[] = chunkResult.chunks.map((chunk) => ({
-      text: chunk.text,
+      text: buildContextualEmbeddingText(chunk.text, {
+        document: frontmatter.title,
+        section: chunk.sectionHeader,
+        contentType: chunk.hasTable
+          ? "table row"
+          : chunk.sectionHeader?.endsWith("?")
+            ? "FAQ"
+            : "article",
+      }),
       chunkIndex: chunk.chunkIndex,
     }));
 
@@ -203,6 +221,9 @@ export async function ingestHtmlDocument(
         content_category: frontmatter.content_category,
         section_heading: chunk.sectionHeader,
         has_table: chunk.hasTable,
+        knowledge_domain: knowledgeScope.knowledgeDomain,
+        source_collection: knowledgeScope.sourceCollection,
+        amc_slug: knowledgeScope.amcSlug,
       };
 
       return {

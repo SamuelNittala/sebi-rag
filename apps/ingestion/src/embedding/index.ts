@@ -17,3 +17,5 @@ export {
   type ProgressCallback,
   type Embedder,
 } from "./embedder.ts";
+
+export * from "./contextual-input.ts";

@@ -87,6 +87,9 @@ export class VectorClient {
         sectionHeader: chunk.payload.section_header,
         sebiSchemeId: chunk.payload.sebi_scheme_id,
         sebiUrl: chunk.payload.sebi_url,
+        knowledgeDomain: chunk.payload.knowledge_domain ?? "mutual_fund",
+        sourceCollection: chunk.payload.source_collection ?? "default_corpus",
+        amcSlug: chunk.payload.amc_slug ?? null,
       }));
 
       await db.insert(chunks).values(values).onConflictDoUpdate({
@@ -108,6 +111,9 @@ export class VectorClient {
           sectionHeader: sql`EXCLUDED.section_header`,
           sebiSchemeId: sql`EXCLUDED.sebi_scheme_id`,
           sebiUrl: sql`EXCLUDED.sebi_url`,
+          knowledgeDomain: sql`EXCLUDED.knowledge_domain`,
+          sourceCollection: sql`EXCLUDED.source_collection`,
+          amcSlug: sql`EXCLUDED.amc_slug`,
         },
       });
     }
@@ -165,6 +171,9 @@ export class VectorClient {
       section_header: string | null;
       sebi_scheme_id: string;
       sebi_url: string;
+      knowledge_domain: string;
+      source_collection: string;
+      amc_slug: string | null;
     };
 
     const results = (await db.execute(sql`
@@ -186,7 +195,10 @@ export class VectorClient {
         has_table,
         section_header,
         sebi_scheme_id,
-        sebi_url
+        sebi_url,
+        knowledge_domain,
+        source_collection,
+        amc_slug
       FROM chunks
       WHERE 1=1 ${conditions} ${thresholdClause}
       ORDER BY embedding <=> ${vectorStr}::vector
@@ -216,6 +228,9 @@ export class VectorClient {
         section_header: row.section_header,
         sebi_scheme_id: row.sebi_scheme_id,
         sebi_url: row.sebi_url,
+        knowledge_domain: row.knowledge_domain as ChunkPayload["knowledge_domain"],
+        source_collection: row.source_collection as ChunkPayload["source_collection"],
+        amc_slug: row.amc_slug,
       } as ChunkPayload,
     }));
   }
@@ -253,6 +268,15 @@ export class VectorClient {
     }
     if (filters.date_to) {
       parts.push(sql`AND document_date <= ${filters.date_to}`);
+    }
+    if (filters.knowledge_domain) {
+      parts.push(sql`AND knowledge_domain = ${filters.knowledge_domain}`);
+    }
+    if (filters.source_collection) {
+      parts.push(sql`AND source_collection = ${filters.source_collection}`);
+    }
+    if (filters.amc_slug) {
+      parts.push(sql`AND amc_slug = ${filters.amc_slug}`);
     }
 
     return sql.join(parts, sql` `);
@@ -358,6 +382,9 @@ export class VectorClient {
         documentTitle: chunk.payload.document_title,
         sourceUrl: chunk.payload.source_url,
         contentCategory: chunk.payload.content_category,
+        knowledgeDomain: chunk.payload.knowledge_domain ?? "mutual_fund",
+        sourceCollection: chunk.payload.source_collection ?? "default_corpus",
+        amcSlug: chunk.payload.amc_slug ?? null,
         sectionHeading: chunk.payload.section_heading,
         hasTable: chunk.payload.has_table,
       }));
@@ -373,6 +400,9 @@ export class VectorClient {
             documentTitle: sql`EXCLUDED.document_title`,
             sourceUrl: sql`EXCLUDED.source_url`,
             contentCategory: sql`EXCLUDED.content_category`,
+            knowledgeDomain: sql`EXCLUDED.knowledge_domain`,
+            sourceCollection: sql`EXCLUDED.source_collection`,
+            amcSlug: sql`EXCLUDED.amc_slug`,
             sectionHeading: sql`EXCLUDED.section_heading`,
             hasTable: sql`EXCLUDED.has_table`,
           },
@@ -406,6 +436,15 @@ export class VectorClient {
     if (filters?.document_id) {
       conditions.push(sql`AND document_id = ${filters.document_id}::uuid`);
     }
+    if (filters?.knowledge_domain) {
+      conditions.push(sql`AND knowledge_domain = ${filters.knowledge_domain}`);
+    }
+    if (filters?.source_collection) {
+      conditions.push(sql`AND source_collection = ${filters.source_collection}`);
+    }
+    if (filters?.amc_slug) {
+      conditions.push(sql`AND amc_slug = ${filters.amc_slug}`);
+    }
 
     const conditionsSql = conditions.length > 0 ? sql.join(conditions, sql` `) : sql``;
 
@@ -425,6 +464,9 @@ export class VectorClient {
       content_category: string;
       section_heading: string | null;
       has_table: boolean;
+      knowledge_domain: string;
+      source_collection: string;
+      amc_slug: string | null;
     };
 
     const results = (await db.execute(sql`
@@ -439,7 +481,10 @@ export class VectorClient {
         source_url,
         content_category,
         section_heading,
-        has_table
+        has_table,
+        knowledge_domain,
+        source_collection,
+        amc_slug
       FROM html_chunks
       WHERE 1=1 ${conditionsSql} ${thresholdClause}
       ORDER BY embedding <=> ${vectorStr}::vector
@@ -459,6 +504,9 @@ export class VectorClient {
         content_category: row.content_category as HtmlChunkPayload["content_category"],
         section_heading: row.section_heading,
         has_table: row.has_table,
+        knowledge_domain: row.knowledge_domain as HtmlChunkPayload["knowledge_domain"],
+        source_collection: row.source_collection as HtmlChunkPayload["source_collection"],
+        amc_slug: row.amc_slug,
       },
     }));
   }

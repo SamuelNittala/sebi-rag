@@ -39,6 +39,9 @@ export interface ChunkPayload {
   sebi_scheme_id: string;
   /** SEBI detail page URL for verification */
   sebi_url: string;
+  knowledge_domain?: "mutual_fund" | "sif";
+  source_collection?: "default_corpus" | "mirae_sif" | "sebi_regulatory";
+  amc_slug?: string | null;
 }
 
 export interface ChunkConfig {

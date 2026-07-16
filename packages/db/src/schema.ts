@@ -152,6 +152,13 @@ export const chunks = pgTable(
     sectionHeader: text("section_header"),
     sebiSchemeId: varchar("sebi_scheme_id", { length: 50 }).notNull(),
     sebiUrl: varchar("sebi_url", { length: 500 }).notNull(),
+    knowledgeDomain: varchar("knowledge_domain", { length: 50 })
+      .default("mutual_fund")
+      .notNull(),
+    sourceCollection: varchar("source_collection", { length: 100 })
+      .default("default_corpus")
+      .notNull(),
+    amcSlug: varchar("amc_slug", { length: 100 }),
     // Timestamps
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -163,6 +170,8 @@ export const chunks = pgTable(
     index("chunks_scheme_type_idx").on(table.schemeType),
     index("chunks_doc_type_idx").on(table.docType),
     index("chunks_sebi_scheme_id_idx").on(table.sebiSchemeId),
+    index("chunks_knowledge_domain_idx").on(table.knowledgeDomain),
+    index("chunks_source_collection_idx").on(table.sourceCollection),
     // Unique constraint for idempotent upserts
     index("chunks_document_chunk_idx").on(table.documentId, table.chunkIndex),
   ]
@@ -220,6 +229,13 @@ export const htmlDocuments = pgTable(
     fileHash: varchar("file_hash", { length: 64 }).unique().notNull(),
     contentCategory: varchar("content_category", { length: 50 }).notNull(),
     source: varchar("source", { length: 100 }).notNull(),
+    knowledgeDomain: varchar("knowledge_domain", { length: 50 })
+      .default("mutual_fund")
+      .notNull(),
+    sourceCollection: varchar("source_collection", { length: 100 })
+      .default("default_corpus")
+      .notNull(),
+    amcSlug: varchar("amc_slug", { length: 100 }),
     chunkCount: integer("chunk_count"),
     status: varchar("status", { length: 20 }).default("pending").notNull().$type<DocumentStatus>(),
     errorMessage: text("error_message"),
@@ -252,6 +268,13 @@ export const htmlChunks = pgTable(
     documentTitle: varchar("document_title", { length: 500 }).notNull(),
     sourceUrl: varchar("source_url", { length: 1000 }).notNull(),
     contentCategory: varchar("content_category", { length: 50 }).notNull(),
+    knowledgeDomain: varchar("knowledge_domain", { length: 50 })
+      .default("mutual_fund")
+      .notNull(),
+    sourceCollection: varchar("source_collection", { length: 100 })
+      .default("default_corpus")
+      .notNull(),
+    amcSlug: varchar("amc_slug", { length: 100 }),
     sectionHeading: text("section_heading"),
     hasTable: boolean("has_table").default(false).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
@@ -259,6 +282,8 @@ export const htmlChunks = pgTable(
   (table) => [
     index("html_chunks_document_id_idx").on(table.documentId),
     index("html_chunks_content_category_idx").on(table.contentCategory),
+    index("html_chunks_knowledge_domain_idx").on(table.knowledgeDomain),
+    index("html_chunks_source_collection_idx").on(table.sourceCollection),
     index("html_chunks_document_chunk_idx").on(table.documentId, table.chunkIndex),
   ]
 );

@@ -28,9 +28,12 @@ import { semanticChunk, type ChunkInput, type Chunk, type ChunkResult } from "..
 
 // Metadata extractor
 import { extractMetadata, type ExtractedMetadata, type DocType } from "../metadata/extractor.ts";
+import { resolveKnowledgeScope } from "../metadata/knowledge-scope.ts";
 
 // Embedder
 import { createEmbedder, type Embedder, type EmbeddingInput } from "../embedding/embedder.ts";
+import { buildContextualEmbeddingText } from "../embedding/contextual-input.ts";
+import type { KnowledgeScope } from "@mf-rag/types";
 
 // Database
 import {
@@ -60,13 +63,15 @@ export interface IngestConfig {
   ollamaUrl?: string;
   /** Batch size for embedding generation (default: 10) */
   embeddingBatchSize?: number;
+  /** Optional trusted scope override for targeted ingestion jobs. */
+  knowledgeScope?: KnowledgeScope;
 }
 
 /**
  * Default configuration values
  */
-export const DEFAULT_INGEST_CONFIG: Required<IngestConfig> = {
-  ollamaUrl: "http://localhost:11434",
+export const DEFAULT_INGEST_CONFIG: Required<Omit<IngestConfig, "knowledgeScope">> = {
+  ollamaUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
   embeddingBatchSize: 10,
 };
 
@@ -264,6 +269,11 @@ export async function ingestDocument(
       firstPageText: firstPagesText,
       fullText: parsedPdf.rawText,
     });
+    const knowledgeScope = fullConfig.knowledgeScope ?? resolveKnowledgeScope({
+      source: "pdf",
+      sourceUrl: resolve(filepath),
+      title: `${metadata.fundName ?? ""} ${firstPagesText.slice(0, 1500)}`,
+    });
 
     // Update document with extracted info
     await db
@@ -286,7 +296,13 @@ export async function ingestDocument(
 
     // Prepare embedding inputs
     const embeddingInputs: EmbeddingInput[] = chunkResult.chunks.map((chunk) => ({
-      text: chunk.text,
+      text: buildContextualEmbeddingText(chunk.text, {
+        fund: metadata.fundName,
+        document: metadata.docType === "Unknown" ? filename : metadata.docType,
+        section: chunk.sectionHeader,
+        pages: chunk.pageNumbers,
+        contentType: chunk.hasTable ? "table row" : "document text",
+      }),
       chunkIndex: chunk.chunkIndex,
     }));
 
@@ -352,6 +368,9 @@ export async function ingestDocument(
         section_header: chunk.sectionHeader,
         sebi_scheme_id: sebiMetadata.sebiSchemeId,
         sebi_url: sebiMetadata.sebiUrl,
+        knowledge_domain: knowledgeScope.knowledgeDomain,
+        source_collection: knowledgeScope.sourceCollection,
+        amc_slug: knowledgeScope.amcSlug,
       };
 
       return {

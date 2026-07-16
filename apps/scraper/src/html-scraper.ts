@@ -10,6 +10,10 @@ import { load as cheerioLoad } from "cheerio";
 import { resolve, dirname } from "path";
 import { mkdir } from "fs/promises";
 import type { ContentCategory } from "@mf-rag/types";
+import {
+  extractMiraeSifFaqMarkdown,
+  mergeMiraeSifFaqMarkdown,
+} from "./mirae-sif-extractor.ts";
 
 export interface HtmlSourceConfig {
   name: string;
@@ -179,7 +183,13 @@ export class HtmlScraper {
     }
 
     // Convert to markdown
-    const markdown = this.turndown.turndown(contentHtml).trim();
+    let markdown = this.turndown.turndown(contentHtml).trim();
+    if (source.name === "mirae-sif") {
+      const faqMarkdown = extractMiraeSifFaqMarkdown(html);
+      if (faqMarkdown) {
+        markdown = mergeMiraeSifFaqMarkdown(markdown, faqMarkdown);
+      }
+    }
 
     if (markdown.length < MIN_CONTENT_LENGTH) {
       return {

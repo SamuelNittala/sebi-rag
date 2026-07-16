@@ -36,6 +36,13 @@
       "when": 1774182770153,
       "tag": "0004_optimal_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784111944199,
+      "tag": "0005_mirae_sif_scope",
+      "breakpoints": true
     }
   ]
 }

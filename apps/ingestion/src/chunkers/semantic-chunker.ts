@@ -86,6 +86,52 @@ const SECTION_BOUNDARY_PATTERNS: RegExp[] = [
   /^[A-Z][A-Z\s]{10,}$/m,
 ];
 
+const KIM_LABEL_HEADINGS = [
+  "Investment objective",
+  "Investment Approach",
+  "Risk Profile of the Investment Strategy",
+  "Minimum Investment Threshold",
+  "Load Structure",
+  "Unitholders’ Information",
+  "Unitholders' Information",
+  "Performance Track Record",
+  "Fund Manager",
+] as const;
+
+function normalizeHeading(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function extractKimLabelHeading(text: string): string | null {
+  const lines = text.trim().split("\n").map((line) => line.trim()).filter(Boolean);
+  const candidates = [lines[0] ?? "", `${lines[0] ?? ""} ${lines[1] ?? ""}`]
+    .map(normalizeHeading);
+
+  for (const candidate of candidates) {
+    const known = KIM_LABEL_HEADINGS.find(
+      (heading) => heading.toLowerCase() === candidate.toLowerCase()
+    );
+    if (known) return candidate;
+  }
+
+  return null;
+}
+
+function findKimLabelBoundaries(text: string): number[] {
+  const positions: number[] = [];
+  for (const heading of KIM_LABEL_HEADINGS) {
+    const words = heading.split(/\s+/).map(
+      (word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    );
+    const pattern = new RegExp(`^${words.join("\\s+")}[ \\t]*$`, "gim");
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > 0) positions.push(match.index);
+    }
+  }
+  return positions;
+}
+
 /**
  * Patterns for noise removal (page numbers, etc.)
  */
@@ -104,6 +150,9 @@ const NOISE_PATTERNS: RegExp[] = [
 function extractSectionHeader(text: string): string | null {
   const lines = text.trim().split("\n");
   const firstLine = lines[0]?.trim() || "";
+
+  const kimLabel = extractKimLabelHeading(text);
+  if (kimLabel) return kimLabel;
 
   // Check for SECTION headers
   if (/^SECTION\s+[IVXLCDM]+/i.test(firstLine)) {
@@ -217,6 +266,7 @@ function splitAtSectionBoundaries(text: string): string[] {
 
   // Find all section boundary positions
   const boundaryPositions: number[] = [];
+  boundaryPositions.push(...findKimLabelBoundaries(text));
 
   // Special handling for numbered sections (1., 2., etc.)
   const numberedSectionPattern = /\n([1-9]\d*\.\s+\S)/g;
@@ -361,6 +411,43 @@ function processTablesWithContext(
 }
 
 /**
+ * Split an oversized Markdown table between complete rows. The table marker,
+ * contextual title, header, and separator are repeated in every child so each
+ * child remains independently retrievable. A single oversized row is retained
+ * intact rather than silently losing cells.
+ */
+function splitTableRows(tableText: string, maxTokens: number): string[] {
+  const lines = tableText.split("\n");
+  const headerIndex = lines.findIndex((line) => line.trim().startsWith("|"));
+  if (headerIndex < 0 || headerIndex + 2 >= lines.length) return [tableText];
+
+  const prefix = lines.slice(0, headerIndex);
+  const header = lines.slice(headerIndex, headerIndex + 2);
+  const rows = lines.slice(headerIndex + 2).filter((line) => line.trim());
+  if (rows.length === 0) return [tableText];
+
+  const base = [...prefix, ...header];
+  const children: string[] = [];
+  let currentRows: string[] = [];
+
+  for (const row of rows) {
+    const candidate = [...base, ...currentRows, row].join("\n");
+    if (currentRows.length > 0 && estimateTokenCount(candidate) > maxTokens) {
+      children.push([...base, ...currentRows].join("\n"));
+      currentRows = [row];
+      continue;
+    }
+    currentRows.push(row);
+  }
+
+  if (currentRows.length > 0) {
+    children.push([...base, ...currentRows].join("\n"));
+  }
+
+  return children;
+}
+
+/**
  * Main chunking function
  */
 export function semanticChunk(
@@ -472,16 +559,14 @@ export function semanticChunk(
         currentSectionHeader = segment.sectionHeader;
         flushChunk(true);
       } else {
-        // Table too large, truncate with warning
-        const truncatedTable = segment.text.slice(
-          0,
-          estimatePositionForTokens(segment.text, config.tableMaxTokens)
-        );
-        currentText = truncatedTable + "\n[TABLE TRUNCATED]";
-        currentPages.add(segment.pageNumber);
-        currentIsTable = true;
-        currentSectionHeader = segment.sectionHeader;
-        flushChunk(true);
+        // Preserve every row by emitting independently retrievable row groups.
+        for (const tableChild of splitTableRows(segment.text, config.tableMaxTokens)) {
+          currentText = tableChild;
+          currentPages.add(segment.pageNumber);
+          currentIsTable = true;
+          currentSectionHeader = segment.sectionHeader;
+          flushChunk(true);
+        }
       }
     } else {
       // Handle text segment
@@ -529,7 +614,6 @@ export function semanticChunk(
         } else {
           // Need to split the segment to respect maxTokens
           let remainingText = segment.text;
-          let isFirstPart = true;
 
           while (remainingText.trim()) {
             const currentTokensNow = estimateTokenCount(currentText);
@@ -540,7 +624,7 @@ export function semanticChunk(
               // Rest fits in current chunk
               currentText += (currentText ? "\n\n" : "") + remainingText;
               currentPages.add(segment.pageNumber);
-              if (isFirstPart && segment.sectionHeader) {
+              if (segment.sectionHeader) {
                 currentSectionHeader = segment.sectionHeader;
               }
               break;
@@ -575,7 +659,7 @@ export function semanticChunk(
             if (chunk) {
               currentText += (currentText ? "\n\n" : "") + chunk;
               currentPages.add(segment.pageNumber);
-              if (isFirstPart && segment.sectionHeader) {
+              if (segment.sectionHeader) {
                 currentSectionHeader = segment.sectionHeader;
               }
 
@@ -593,8 +677,6 @@ export function semanticChunk(
                 }
               }
             }
-
-            isFirstPart = false;
           }
         }
       } else {
@@ -631,14 +713,22 @@ export function semanticChunk(
     const chunk = chunks[i];
 
     // If chunk is too short, try to merge with next or previous
-    if (chunk.text.length < MIN_CHUNK_LENGTH && !chunk.hasTable) {
+    if (
+      chunk.text.length < MIN_CHUNK_LENGTH
+      && !chunk.hasTable
+      && chunk.sectionHeader === null
+    ) {
       // Try to merge with previous chunk (preferred)
       if (mergedChunks.length > 0) {
         const prevChunk = mergedChunks[mergedChunks.length - 1];
 
         // Merge if previous chunk is also short OR won't become too long
         const combinedLength = prevChunk.text.length + chunk.text.length;
-        if (combinedLength <= config.maxTokens * 4) {
+        if (
+          prevChunk.sectionHeader === chunk.sectionHeader
+          && !prevChunk.hasTable
+          && combinedLength <= config.maxTokens * 4
+        ) {
           // Merge into previous chunk
           prevChunk.text += "\n\n" + chunk.text;
           prevChunk.pageNumbers = [
@@ -655,7 +745,11 @@ export function semanticChunk(
         const nextChunk = chunks[i + 1];
         const combinedLength = chunk.text.length + nextChunk.text.length;
 
-        if (combinedLength <= config.maxTokens * 4) {
+        if (
+          nextChunk.sectionHeader === chunk.sectionHeader
+          && !nextChunk.hasTable
+          && combinedLength <= config.maxTokens * 4
+        ) {
           // Merge current and next, then add
           mergedChunks.push({
             text: chunk.text + "\n\n" + nextChunk.text,
