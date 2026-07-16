@@ -90,6 +90,8 @@ export class VectorClient {
         knowledgeDomain: chunk.payload.knowledge_domain ?? "mutual_fund",
         sourceCollection: chunk.payload.source_collection ?? "default_corpus",
         amcSlug: chunk.payload.amc_slug ?? null,
+        ingestionRunId: chunk.payload.ingestion_run_id ?? null,
+        publicationStatus: chunk.payload.publication_status ?? "published",
       }));
 
       await db.insert(chunks).values(values).onConflictDoUpdate({
@@ -114,6 +116,8 @@ export class VectorClient {
           knowledgeDomain: sql`EXCLUDED.knowledge_domain`,
           sourceCollection: sql`EXCLUDED.source_collection`,
           amcSlug: sql`EXCLUDED.amc_slug`,
+          ingestionRunId: sql`EXCLUDED.ingestion_run_id`,
+          publicationStatus: sql`EXCLUDED.publication_status`,
         },
       });
     }
@@ -200,7 +204,7 @@ export class VectorClient {
         source_collection,
         amc_slug
       FROM chunks
-      WHERE 1=1 ${conditions} ${thresholdClause}
+      WHERE publication_status = 'published' ${conditions} ${thresholdClause}
       ORDER BY embedding <=> ${vectorStr}::vector
       LIMIT ${limit}
     `)) as ResultRow[];
@@ -385,6 +389,8 @@ export class VectorClient {
         knowledgeDomain: chunk.payload.knowledge_domain ?? "mutual_fund",
         sourceCollection: chunk.payload.source_collection ?? "default_corpus",
         amcSlug: chunk.payload.amc_slug ?? null,
+        ingestionRunId: chunk.payload.ingestion_run_id ?? null,
+        publicationStatus: chunk.payload.publication_status ?? "published",
         sectionHeading: chunk.payload.section_heading,
         hasTable: chunk.payload.has_table,
       }));
@@ -405,6 +411,8 @@ export class VectorClient {
             amcSlug: sql`EXCLUDED.amc_slug`,
             sectionHeading: sql`EXCLUDED.section_heading`,
             hasTable: sql`EXCLUDED.has_table`,
+            ingestionRunId: sql`EXCLUDED.ingestion_run_id`,
+            publicationStatus: sql`EXCLUDED.publication_status`,
           },
         });
       } catch (error) {
@@ -486,7 +494,7 @@ export class VectorClient {
         source_collection,
         amc_slug
       FROM html_chunks
-      WHERE 1=1 ${conditionsSql} ${thresholdClause}
+      WHERE publication_status = 'published' ${conditionsSql} ${thresholdClause}
       ORDER BY embedding <=> ${vectorStr}::vector
       LIMIT ${limit}
     `)) as ResultRow[];

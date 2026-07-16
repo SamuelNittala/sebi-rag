@@ -1,4 +1,4 @@
-export type RetrievalRankingProfile = "mirae_sif_overview";
+export type RetrievalRankingProfile = "mirae_sif_overview" | "mirae_sif_fund_manager";
 
 export interface RetrievalRankingCandidate {
   score: number;
@@ -15,6 +15,14 @@ const PRODUCT_OVERVIEW = /^#\s+Platinum Hybrid Long-Short Fund\b/i;
 const PRESENTATION_OVERVIEW = /Platinum SIF marks a strategic evolution|Introducing\s+Platinum Hybrid\s+Long-Short Fund/i;
 const SAI_OVERVIEW = /^STATEMENT OF ADDITIONAL INFORMATION|This Statement of Additional Information.*Platinum SIF/is;
 const KIM_OVERVIEW = /^KEY INFORMATION MEMORANDUM|Name of SIF\s+Platinum SIF/i;
+const STRATEGY_MANAGER_ASSIGNMENT = /WHO\s+MANAGES\s+THE\s+INVESTMENT\s+STRATEGY/i;
+
+export function retrievalCandidateLimit(
+  resultLimit: number,
+  profile?: RetrievalRankingProfile,
+): number {
+  return profile ? resultLimit * 3 : resultLimit;
+}
 
 function overviewBoost(candidate: RetrievalRankingCandidate): number {
   const sectionEvidence = `${candidate.sectionHeader ?? ""}\n${candidate.text}`;
@@ -32,6 +40,12 @@ export function adjustRetrievalScore(
   candidate: RetrievalRankingCandidate,
   profile?: RetrievalRankingProfile,
 ): number {
+  if (profile === "mirae_sif_fund_manager") {
+    const evidence = `${candidate.sectionHeader ?? ""}\n${candidate.text}`;
+    return STRATEGY_MANAGER_ASSIGNMENT.test(evidence)
+      ? Math.min(1, candidate.score + 0.15)
+      : candidate.score;
+  }
   if (profile !== "mirae_sif_overview") return candidate.score;
   return Math.min(1, candidate.score + overviewBoost(candidate));
 }

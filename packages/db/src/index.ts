@@ -8,6 +8,7 @@ export * from "./schema.ts";
 
 // Re-export query helpers
 export * from "./queries.ts";
+export * from "./review-queries.ts";
 
 // Re-export drizzle-orm utilities for consumers to use the same version
 export { eq, and, or, sql, desc, asc } from "drizzle-orm";

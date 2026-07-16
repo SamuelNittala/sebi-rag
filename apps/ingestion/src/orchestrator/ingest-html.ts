@@ -30,6 +30,8 @@ import {
 import { createEmbedder, type Embedder, type EmbeddingInput } from "../embedding/embedder.ts";
 import { buildContextualEmbeddingText } from "../embedding/contextual-input.ts";
 import { resolveKnowledgeScope } from "../metadata/knowledge-scope.ts";
+import { prepareChunkReview } from "../review/review-preparation.ts";
+import { classifyDocumentScope, strategyIdForScope } from "../review/review-metadata.ts";
 
 // Database
 import {
@@ -38,6 +40,7 @@ import {
   getHtmlDocumentByHash,
   updateHtmlDocumentStatus,
   updateHtmlDocumentChunkCount,
+  stageInspectionReview,
   type DocumentStatus,
 } from "@mf-rag/db";
 
@@ -48,18 +51,23 @@ import type { HtmlChunkPayload, HtmlChunkWithVector } from "@mf-rag/vector";
 export interface HtmlIngestConfig {
   ollamaUrl?: string;
   embeddingBatchSize?: number;
+  reviewGate?: "required" | "disabled";
+  reviewExisting?: boolean;
 }
 
 const DEFAULT_CONFIG: Required<HtmlIngestConfig> = {
   ollamaUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
   embeddingBatchSize: 10,
+  reviewGate: "required",
+  reviewExisting: false,
 };
 
 export interface HtmlIngestResult {
   documentId: string;
   filename: string;
   title: string;
-  status: "completed" | "failed" | "skipped";
+  status: "completed" | "failed" | "skipped" | "review_required";
+  reviewRunId?: string;
   chunkCount?: number;
   error?: string;
   duration?: number;
@@ -104,7 +112,7 @@ export async function ingestHtmlDocument(
 
     // Check for duplicate
     const existing = await getHtmlDocumentByHash(db, fileHash);
-    if (existing) {
+    if (existing && !fullConfig.reviewExisting) {
       return {
         documentId: existing.id,
         filename,
@@ -112,6 +120,10 @@ export async function ingestHtmlDocument(
         status: "skipped",
         duration: Date.now() - startTime,
       };
+    }
+
+    if (existing && fullConfig.reviewGate !== "required") {
+      throw new Error("reviewExisting can only be used with the required review gate.");
     }
 
     onProgress?.({ stage: "parsing", detail: "Parsing markdown", percentage: 10 });
@@ -124,8 +136,9 @@ export async function ingestHtmlDocument(
       title: frontmatter.title,
     });
 
-    // Create document record
-    const doc = await createHtmlDocument(db, {
+    // Reinspection reuses the source document and leaves its published vectors
+    // untouched until the approved candidate version is atomically promoted.
+    const doc = existing ?? await createHtmlDocument(db, {
       title: frontmatter.title,
       sourceUrl: frontmatter.source_url,
       sourceSlug: basename(filePath, ".md"),
@@ -140,6 +153,7 @@ export async function ingestHtmlDocument(
       scrapedAt: new Date(frontmatter.scraped_at),
     });
     documentId = doc.id;
+    if (existing) await updateHtmlDocumentStatus(db, documentId, "processing");
 
     // --- STAGE 2: Chunk ---
     onProgress?.({ stage: "chunking", detail: "Creating chunks from headings", percentage: 30 });
@@ -155,6 +169,57 @@ export async function ingestHtmlDocument(
         title: frontmatter.title,
         status: "failed",
         error: "No content extracted",
+        duration: Date.now() - startTime,
+      };
+    }
+
+    if (fullConfig.reviewGate === "required") {
+      onProgress?.({ stage: "inspection", detail: "Inspecting every candidate chunk", percentage: 40 });
+      const documentScope = classifyDocumentScope({
+        filename,
+        documentType: frontmatter.content_category,
+        sourceCollection: knowledgeScope.sourceCollection,
+        fundName: frontmatter.title,
+      });
+      const prepared = prepareChunkReview({
+        document: {
+          id: documentId,
+          filename,
+          pageCount: parsed.sections.length,
+          pageNumberBase: 0,
+        },
+        chunks: chunkResult.chunks,
+        metadata: {
+          documentScope,
+          strategyId: strategyIdForScope(documentScope, frontmatter.title),
+          sourceCollection: knowledgeScope.sourceCollection,
+          fundName: frontmatter.title,
+          documentType: frontmatter.content_category,
+          sourceUrl: frontmatter.source_url,
+          knowledgeDomain: knowledgeScope.knowledgeDomain,
+          amcSlug: knowledgeScope.amcSlug,
+        },
+      });
+      const reviewRun = await stageInspectionReview(db, {
+        sourceType: "html",
+        sourceDocumentId: documentId,
+        sourceName: frontmatter.title,
+        sourceLocation: frontmatter.source_url,
+        fileHash,
+        parserVersion: "html-markdown-v1",
+        chunkerVersion: "semantic-v1",
+        report: prepared.report,
+        candidates: prepared.candidates,
+      });
+      await updateHtmlDocumentChunkCount(db, documentId, chunkResult.totalChunks);
+      await updateHtmlDocumentStatus(db, documentId, "review_required");
+      return {
+        documentId,
+        reviewRunId: reviewRun.id,
+        filename,
+        title: frontmatter.title,
+        status: "review_required",
+        chunkCount: chunkResult.totalChunks,
         duration: Date.now() - startTime,
       };
     }

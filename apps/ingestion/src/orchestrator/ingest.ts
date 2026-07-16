@@ -30,6 +30,11 @@ import { removeDisposableSifChunks } from "../chunkers/disposable-content.ts";
 // Metadata extractor
 import { extractMetadata, type ExtractedMetadata, type DocType } from "../metadata/extractor.ts";
 import { resolveKnowledgeScope } from "../metadata/knowledge-scope.ts";
+import { prepareChunkReview } from "../review/review-preparation.ts";
+import {
+  classifyDocumentScope,
+  strategyIdForScope,
+} from "../review/review-metadata.ts";
 
 // Embedder
 import { createEmbedder, type Embedder, type EmbeddingInput } from "../embedding/embedder.ts";
@@ -49,6 +54,7 @@ import {
   getFundByName,
   getFundBySebiSchemeId,
   linkDocumentToFund,
+  stageInspectionReview,
   type DocumentStatus,
   type Fund,
 } from "@mf-rag/db";
@@ -66,6 +72,10 @@ export interface IngestConfig {
   embeddingBatchSize?: number;
   /** Optional trusted scope override for targeted ingestion jobs. */
   knowledgeScope?: KnowledgeScope;
+  /** Require inspection and human approval before embedding (default: required). */
+  reviewGate?: "required" | "disabled";
+  /** Re-run parsing and inspection for an already known file without deleting its published vectors. */
+  reviewExisting?: boolean;
 }
 
 /**
@@ -74,6 +84,8 @@ export interface IngestConfig {
 export const DEFAULT_INGEST_CONFIG: Required<Omit<IngestConfig, "knowledgeScope">> = {
   ollamaUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
   embeddingBatchSize: 10,
+  reviewGate: "required",
+  reviewExisting: false,
 };
 
 /**
@@ -85,7 +97,9 @@ export interface IngestResult {
   /** Original filename */
   filename: string;
   /** Processing status */
-  status: "completed" | "failed" | "skipped";
+  status: "completed" | "failed" | "skipped" | "review_required";
+  /** Review run awaiting approval before embedding. */
+  reviewRunId?: string;
   /** Number of chunks created (only for completed) */
   chunkCount?: number;
   /** Error message (only for failed) */
@@ -99,7 +113,7 @@ export interface IngestResult {
  */
 export interface IngestProgress {
   /** Current processing stage */
-  stage: "parsing" | "chunking" | "metadata" | "embedding" | "storing";
+  stage: "parsing" | "chunking" | "metadata" | "inspection" | "embedding" | "storing";
   /** Optional detail message */
   detail?: string;
   /** Progress percentage (0-100) */
@@ -196,7 +210,7 @@ export async function ingestDocument(
 
     // Check for duplicate
     const existingDoc = await getDocumentByHash(db, fileHash);
-    if (existingDoc) {
+    if (existingDoc && !fullConfig.reviewExisting) {
       return {
         documentId: existingDoc.id,
         filename,
@@ -205,8 +219,13 @@ export async function ingestDocument(
       };
     }
 
-    // Create document record with pending status
-    const doc = await createDocument(db, {
+    if (existingDoc && fullConfig.reviewGate !== "required") {
+      throw new Error("reviewExisting can only be used with the required review gate.");
+    }
+
+    // Reinspection reuses the document identity so the current published vector
+    // version remains available until the reviewed replacement is promoted.
+    const doc = existingDoc ?? await createDocument(db, {
       filename,
       filepath: resolve(filepath),
       fileHash,
@@ -300,6 +319,58 @@ export async function ingestDocument(
         updatedAt: new Date(),
       })
       .where(eq(documents.id, documentId));
+
+    if (fullConfig.reviewGate === "required") {
+      onProgress?.({ stage: "inspection", detail: "Inspecting every candidate chunk", percentage: 45 });
+      const sebiMetadata = await lookupSebiMetadata(filepath, metadata.fundName ?? undefined);
+      const documentScope = classifyDocumentScope({
+        filename,
+        documentType: metadata.docType,
+        sourceCollection: knowledgeScope.sourceCollection,
+        fundName: metadata.fundName,
+      });
+      const prepared = prepareChunkReview({
+        document: { id: documentId, filename, pageCount: parsedPdf.pageCount },
+        chunks: chunkResult.chunks,
+        metadata: {
+          documentScope,
+          strategyId: strategyIdForScope(documentScope, metadata.fundName),
+          sourceCollection: knowledgeScope.sourceCollection,
+          fundName: metadata.fundName,
+          documentType: metadata.docType,
+          amcName: sebiMetadata.amcName || metadata.amcName,
+          schemeType: sebiMetadata.schemeType || metadata.schemeType,
+          schemeCategory: sebiMetadata.schemeCategory || metadata.schemeCategory,
+          documentDate: metadata.documentDate?.toISOString().split("T")[0] ?? null,
+          sebiSchemeId: sebiMetadata.sebiSchemeId,
+          sebiUrl: sebiMetadata.sebiUrl,
+          knowledgeDomain: knowledgeScope.knowledgeDomain,
+          amcSlug: knowledgeScope.amcSlug,
+        },
+      });
+      const reviewRun = await stageInspectionReview(db, {
+        sourceType: "pdf",
+        sourceDocumentId: documentId,
+        sourceName: filename,
+        sourceLocation: resolve(filepath),
+        fileHash,
+        parserVersion: "unpdf-pdfplumber-v1",
+        chunkerVersion: "semantic-v1",
+        report: prepared.report,
+        candidates: prepared.candidates,
+      });
+      await updateDocumentChunkCount(db, documentId, chunkResult.totalChunks);
+      await updateDocumentStatus(db, documentId, "review_required");
+      onProgress?.({ stage: "inspection", detail: "Ready for human review", percentage: 50 });
+      return {
+        documentId,
+        reviewRunId: reviewRun.id,
+        filename,
+        status: "review_required",
+        chunkCount: chunkResult.totalChunks,
+        duration: Date.now() - startTime,
+      };
+    }
 
     // --- STAGE 4: Embedding ---
     onProgress?.({ stage: "embedding", detail: "Generating embeddings", percentage: 50 });

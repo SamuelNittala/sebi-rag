@@ -67,7 +67,7 @@ describe("Mirae SIF source config", () => {
     expect(miraeSifFund.contentCategory).toBe("product");
     expect(miraeSifFund.pages).toEqual([
       {
-        url: "https://platinumsif.miraeassetmf.co.in/fund?schemeCode=3166",
+        url: "https://sif-dev.example.com/fund?schemeCode=3166",
         slug: "platinum-hybrid-long-short-fund",
       },
     ]);

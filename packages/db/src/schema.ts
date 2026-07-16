@@ -8,14 +8,27 @@ import {
   timestamp,
   primaryKey,
   index,
+  uniqueIndex,
   boolean,
   jsonb,
   real,
   customType,
 } from "drizzle-orm/pg-core";
+import type {
+  CandidateChunkMetadata,
+  ChunkFlagSeverity,
+  ChunkFlagStatus,
+  ReviewRunStatus,
+  ReviewSourceType,
+} from "@mf-rag/types";
 
 // Custom type for pgvector
-const vector = customType<{ data: number[]; driverData: string }>({
+const vector = customType<{
+  data: number[];
+  driverData: string;
+  config: { dimensions: number };
+  configRequired: true;
+}>({
   dataType(config) {
     return `vector(${config?.dimensions ?? 1024})`;
   },
@@ -36,6 +49,7 @@ import { relations } from "drizzle-orm";
 export const documentStatuses = [
   "pending",
   "processing",
+  "review_required",
   "completed",
   "failed",
 ] as const;
@@ -159,6 +173,10 @@ export const chunks = pgTable(
       .default("default_corpus")
       .notNull(),
     amcSlug: varchar("amc_slug", { length: 100 }),
+    ingestionRunId: uuid("ingestion_run_id"),
+    publicationStatus: varchar("publication_status", { length: 20 })
+      .default("published")
+      .notNull(),
     // Timestamps
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -172,6 +190,7 @@ export const chunks = pgTable(
     index("chunks_sebi_scheme_id_idx").on(table.sebiSchemeId),
     index("chunks_knowledge_domain_idx").on(table.knowledgeDomain),
     index("chunks_source_collection_idx").on(table.sourceCollection),
+    index("chunks_publication_status_idx").on(table.publicationStatus),
     // Unique constraint for idempotent upserts
     index("chunks_document_chunk_idx").on(table.documentId, table.chunkIndex),
   ]
@@ -277,6 +296,10 @@ export const htmlChunks = pgTable(
     amcSlug: varchar("amc_slug", { length: 100 }),
     sectionHeading: text("section_heading"),
     hasTable: boolean("has_table").default(false).notNull(),
+    ingestionRunId: uuid("ingestion_run_id"),
+    publicationStatus: varchar("publication_status", { length: 20 })
+      .default("published")
+      .notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
@@ -284,6 +307,7 @@ export const htmlChunks = pgTable(
     index("html_chunks_content_category_idx").on(table.contentCategory),
     index("html_chunks_knowledge_domain_idx").on(table.knowledgeDomain),
     index("html_chunks_source_collection_idx").on(table.sourceCollection),
+    index("html_chunks_publication_status_idx").on(table.publicationStatus),
     index("html_chunks_document_chunk_idx").on(table.documentId, table.chunkIndex),
   ]
 );
@@ -296,6 +320,179 @@ export const htmlChunksRelations = relations(htmlChunks, ({ one }) => ({
   document: one(htmlDocuments, {
     fields: [htmlChunks.documentId],
     references: [htmlDocuments.id],
+  }),
+}));
+
+// ─── Pre-embedding Chunk Review ─────────────────────────────────────────────
+
+/**
+ * One immutable parse/chunk/inspection attempt for a source document.
+ * Candidate chunks remain outside the production vector tables until approval.
+ */
+export const ingestionRuns = pgTable(
+  "ingestion_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceType: varchar("source_type", { length: 20 }).notNull().$type<ReviewSourceType>(),
+    sourceDocumentId: uuid("source_document_id").notNull(),
+    sourceName: varchar("source_name", { length: 500 }).notNull(),
+    sourceLocation: varchar("source_location", { length: 1000 }),
+    fileHash: varchar("file_hash", { length: 64 }).notNull(),
+    parserVersion: varchar("parser_version", { length: 50 }).notNull(),
+    chunkerVersion: varchar("chunker_version", { length: 50 }).notNull(),
+    inspectorVersion: varchar("inspector_version", { length: 50 }).notNull(),
+    status: varchar("status", { length: 30 }).notNull().$type<ReviewRunStatus>(),
+    candidateChunkCount: integer("candidate_chunk_count").default(0).notNull(),
+    inspectedChunkCount: integer("inspected_chunk_count").default(0).notNull(),
+    flaggedChunkCount: integer("flagged_chunk_count").default(0).notNull(),
+    criticalCount: integer("critical_count").default(0).notNull(),
+    blockingCount: integer("blocking_count").default(0).notNull(),
+    reviewer: varchar("reviewer", { length: 255 }),
+    reviewNote: text("review_note"),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("ingestion_runs_source_document_idx").on(table.sourceType, table.sourceDocumentId),
+    index("ingestion_runs_status_idx").on(table.status),
+    index("ingestion_runs_created_at_idx").on(table.createdAt),
+  ],
+);
+
+/** Candidate text and metadata awaiting human approval and embedding. */
+export const chunkCandidates = pgTable(
+  "chunk_candidates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.id, { onDelete: "cascade" }),
+    chunkIndex: integer("chunk_index").notNull(),
+    text: text("text").notNull(),
+    pageNumbers: jsonb("page_numbers").$type<number[]>().notNull(),
+    tokenCount: integer("token_count").notNull(),
+    hasTable: boolean("has_table").default(false).notNull(),
+    sectionHeader: text("section_header"),
+    metadata: jsonb("metadata").$type<CandidateChunkMetadata>().notNull(),
+    contentHash: varchar("content_hash", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("chunk_candidates_run_chunk_uidx").on(table.ingestionRunId, table.chunkIndex),
+    index("chunk_candidates_run_idx").on(table.ingestionRunId),
+  ],
+);
+
+/** Versioned, explainable findings produced by the deterministic inspector. */
+export const chunkFlags = pgTable(
+  "chunk_flags",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.id, { onDelete: "cascade" }),
+    chunkCandidateId: uuid("chunk_candidate_id")
+      .references(() => chunkCandidates.id, { onDelete: "cascade" }),
+    chunkIndex: integer("chunk_index"),
+    ruleCode: varchar("rule_code", { length: 100 }).notNull(),
+    severity: varchar("severity", { length: 20 }).notNull().$type<ChunkFlagSeverity>(),
+    blocksApproval: boolean("blocks_approval").default(false).notNull(),
+    message: text("message").notNull(),
+    evidence: jsonb("evidence").$type<Record<string, unknown>>().default({}).notNull(),
+    status: varchar("status", { length: 20 }).default("open").notNull().$type<ChunkFlagStatus>(),
+    reviewer: varchar("reviewer", { length: 255 }),
+    reviewerNote: text("reviewer_note"),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("chunk_flags_run_idx").on(table.ingestionRunId),
+    index("chunk_flags_candidate_idx").on(table.chunkCandidateId),
+    index("chunk_flags_status_idx").on(table.status),
+    index("chunk_flags_severity_idx").on(table.severity),
+  ],
+);
+
+/** Append-only before/after history for reviewer-authored candidate text edits. */
+export const chunkCandidateEdits = pgTable(
+  "chunk_candidate_edits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.id, { onDelete: "cascade" }),
+    chunkCandidateId: uuid("chunk_candidate_id")
+      .notNull()
+      .references(() => chunkCandidates.id, { onDelete: "cascade" }),
+    chunkIndex: integer("chunk_index").notNull(),
+    beforeText: text("before_text").notNull(),
+    afterText: text("after_text").notNull(),
+    beforeContentHash: varchar("before_content_hash", { length: 64 }).notNull(),
+    afterContentHash: varchar("after_content_hash", { length: 64 }).notNull(),
+    editor: varchar("editor", { length: 255 }).notNull(),
+    note: text("note").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("chunk_candidate_edits_run_idx").on(table.ingestionRunId, table.createdAt),
+    index("chunk_candidate_edits_candidate_idx").on(table.chunkCandidateId, table.createdAt),
+  ],
+);
+
+/** Append-only reviewer and workflow audit history. */
+export const reviewEvents = pgTable(
+  "review_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.id, { onDelete: "cascade" }),
+    chunkFlagId: uuid("chunk_flag_id").references(() => chunkFlags.id, { onDelete: "set null" }),
+    eventType: varchar("event_type", { length: 50 }).notNull(),
+    actor: varchar("actor", { length: 255 }).notNull(),
+    note: text("note"),
+    details: jsonb("details").$type<Record<string, unknown>>().default({}).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [index("review_events_run_idx").on(table.ingestionRunId, table.createdAt)],
+);
+
+export const ingestionRunsRelations = relations(ingestionRuns, ({ many }) => ({
+  candidates: many(chunkCandidates),
+  flags: many(chunkFlags),
+  edits: many(chunkCandidateEdits),
+  events: many(reviewEvents),
+}));
+
+export const chunkCandidatesRelations = relations(chunkCandidates, ({ one, many }) => ({
+  ingestionRun: one(ingestionRuns, {
+    fields: [chunkCandidates.ingestionRunId],
+    references: [ingestionRuns.id],
+  }),
+  flags: many(chunkFlags),
+  edits: many(chunkCandidateEdits),
+}));
+
+export const chunkCandidateEditsRelations = relations(chunkCandidateEdits, ({ one }) => ({
+  ingestionRun: one(ingestionRuns, {
+    fields: [chunkCandidateEdits.ingestionRunId],
+    references: [ingestionRuns.id],
+  }),
+  candidate: one(chunkCandidates, {
+    fields: [chunkCandidateEdits.chunkCandidateId],
+    references: [chunkCandidates.id],
+  }),
+}));
+
+export const chunkFlagsRelations = relations(chunkFlags, ({ one }) => ({
+  ingestionRun: one(ingestionRuns, {
+    fields: [chunkFlags.ingestionRunId],
+    references: [ingestionRuns.id],
+  }),
+  candidate: one(chunkCandidates, {
+    fields: [chunkFlags.chunkCandidateId],
+    references: [chunkCandidates.id],
   }),
 }));
 
@@ -373,3 +570,13 @@ export type HtmlDocument = typeof htmlDocuments.$inferSelect;
 export type NewHtmlDocument = typeof htmlDocuments.$inferInsert;
 export type HtmlChunk = typeof htmlChunks.$inferSelect;
 export type NewHtmlChunk = typeof htmlChunks.$inferInsert;
+export type IngestionRun = typeof ingestionRuns.$inferSelect;
+export type NewIngestionRun = typeof ingestionRuns.$inferInsert;
+export type ChunkCandidate = typeof chunkCandidates.$inferSelect;
+export type NewChunkCandidate = typeof chunkCandidates.$inferInsert;
+export type ChunkCandidateEdit = typeof chunkCandidateEdits.$inferSelect;
+export type NewChunkCandidateEdit = typeof chunkCandidateEdits.$inferInsert;
+export type ChunkFlag = typeof chunkFlags.$inferSelect;
+export type NewChunkFlag = typeof chunkFlags.$inferInsert;
+export type ReviewEvent = typeof reviewEvents.$inferSelect;
+export type NewReviewEvent = typeof reviewEvents.$inferInsert;

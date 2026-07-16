@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 
-import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 
 import { resolveKnowledgeScope } from "../apps/ingestion/src/metadata/knowledge-scope.ts";
@@ -17,11 +16,6 @@ function optionValue(name: string, fallback: string): string {
   return index >= 0 && process.argv[index + 1]
     ? resolve(process.argv[index + 1]!)
     : resolve(fallback);
-}
-
-async function fileHash(filePath: string): Promise<string> {
-  const bytes = await Bun.file(filePath).arrayBuffer();
-  return createHash("sha256").update(Buffer.from(bytes)).digest("hex");
 }
 
 async function scan(directory: string, pattern: string): Promise<string[]> {
@@ -54,27 +48,20 @@ async function scopedHtmlFiles(directory: string): Promise<string[]> {
 }
 
 async function replacePdf(filePath: string): Promise<void> {
-  const { db, deleteDocument, getDocumentByHash } = await import("@mf-rag/db");
   const { ingestDocument } = await import("../apps/ingestion/src/orchestrator/ingest.ts");
-  const existing = await getDocumentByHash(db, await fileHash(filePath));
-  if (existing) await deleteDocument(db, existing.id);
 
   const result = await ingestDocument(filePath, {
     knowledgeScope: MIRAE_SCOPE,
     ollamaUrl: process.env.OLLAMA_BASE_URL,
+    reviewExisting: true,
   });
   const error = result.error ? `: ${result.error}` : "";
   console.log(`[${result.status}] PDF ${filePath} (${result.chunkCount ?? 0} chunks)${error}`);
 }
 
 async function replaceHtml(filePath: string): Promise<void> {
-  const { db, deleteHtmlDocument, getHtmlDocumentByUrl } = await import("@mf-rag/db");
   const { ingestHtmlDocument } = await import("../apps/ingestion/src/orchestrator/ingest-html.ts");
-  const parsed = await parseHtmlFile(filePath);
-  const existing = await getHtmlDocumentByUrl(db, parsed.frontmatter.source_url);
-  if (existing) await deleteHtmlDocument(db, existing.id);
-
-  const result = await ingestHtmlDocument(filePath);
+  const result = await ingestHtmlDocument(filePath, { reviewExisting: true });
   const error = result.error ? `: ${result.error}` : "";
   console.log(`[${result.status}] HTML ${filePath} (${result.chunkCount ?? 0} chunks)${error}`);
 }
@@ -90,7 +77,7 @@ async function main(): Promise<void> {
   console.log(`SIF HTML/regulatory sources: ${htmlFiles.length}`);
 
   if (!apply) {
-    console.log("Dry run only. Re-run with --apply to replace and re-embed these sources.");
+    console.log("Dry run only. Re-run with --apply to inspect these sources for review.");
     return;
   }
 

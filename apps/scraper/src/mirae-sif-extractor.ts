@@ -71,8 +71,12 @@ function extractJsonArray(text: string, marker: string): string | null {
   return null;
 }
 
+function stripLeakedFlightFrame(markdown: string): string {
+  return markdown.replace(/\d+:\["\$","\$L[0-9a-z]+",null,\{.*$/is, "").trim();
+}
+
 function formatAnswer(answer: string): string {
-  return answer
+  return stripLeakedFlightFrame(answer)
     .replace(/\r/g, "")
     .replace(/\s*#\s*/g, "\n\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -141,10 +145,11 @@ export function mergeMiraeSifFaqMarkdown(
   }
 
   const productMarkdown = renderedMarkdown.slice(0, faqStart).trim();
-  const renderedFaqMarkdown = renderedMarkdown
-    .slice(faqStart)
-    .replace(/^Got Questions\?\s+We've Got Answers!\s+/i, "")
-    .trim();
+  const renderedFaqMarkdown = stripLeakedFlightFrame(
+    renderedMarkdown
+      .slice(faqStart)
+      .replace(/^Got Questions\?\s+We've Got Answers!\s+/i, "")
+  );
   const renderedKeys = new Set(
     [...renderedFaqMarkdown.matchAll(/^###\s+(.+)$/gm)]
       .map((match) => match[1]?.trim().toLowerCase())

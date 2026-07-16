@@ -21,4 +21,6 @@ export interface HtmlChunkPayload {
   knowledge_domain?: KnowledgeDomain;
   source_collection?: SourceCollection;
   amc_slug?: string | null;
+  ingestion_run_id?: string | null;
+  publication_status?: "staged" | "published" | "retired";
 }

@@ -40,7 +40,11 @@ import {
 import { VectorClient, type SearchFilters, type HtmlSearchFilters, type HtmlSearchResult } from "@mf-rag/vector";
 import type { ApiKey } from "@mf-rag/db/schema";
 import { resolveRetrievalScope } from "./retrieval-scope.ts";
-import { adjustRetrievalScore, type RetrievalRankingProfile } from "./retrieval-ranking.ts";
+import {
+  adjustRetrievalScore,
+  retrievalCandidateLimit,
+  type RetrievalRankingProfile,
+} from "./retrieval-ranking.ts";
 
 // Configuration from environment
 const config = {
@@ -176,19 +180,20 @@ async function dualSearch(
   }
 ) {
   const { limit, scoreThreshold, pdfFilters, htmlFilters, searchPdf = true, searchHtml = true, rankingProfile } = options;
+  const candidateLimit = retrievalCandidateLimit(limit, rankingProfile);
 
   // Run both searches in parallel
   const [pdfResults, htmlResults] = await Promise.all([
     searchPdf
       ? vectorClient.searchSimilar(queryVector, {
-          limit,
+          limit: candidateLimit,
           filters: pdfFilters && Object.keys(pdfFilters).length > 0 ? pdfFilters : undefined,
           scoreThreshold,
         })
       : Promise.resolve([]),
     searchHtml
       ? vectorClient.searchHtmlSimilar(queryVector, {
-          limit,
+          limit: candidateLimit,
           filters: htmlFilters && Object.keys(htmlFilters).length > 0 ? htmlFilters : undefined,
           scoreThreshold,
         })

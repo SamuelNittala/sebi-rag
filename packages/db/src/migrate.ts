@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/bun-sql";
 import { migrate } from "drizzle-orm/bun-sql/migrator";
 import { SQL } from "bun";
+import { resolve } from "node:path";
 
 // Get database URL from environment (Bun auto-loads .env)
 const databaseUrl = process.env.DATABASE_URL;
@@ -18,7 +19,7 @@ async function runMigrations() {
 
   try {
     await migrate(db, {
-      migrationsFolder: "./packages/db/src/migrations",
+      migrationsFolder: resolve(import.meta.dir, "migrations"),
     });
     console.log("Migrations completed successfully!");
   } catch (error) {

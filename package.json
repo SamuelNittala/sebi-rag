@@ -23,6 +23,7 @@
     "db:migrate": "bun run --cwd packages/db migrate",
     "db:seed": "bun run --cwd packages/db seed",
     "benchmark": "bun run scripts/benchmark.ts",
+    "review:publish": "bun run scripts/publish-reviewed-run.ts",
     "reingest:mirae-sif": "bun run scripts/reingest-mirae-sif.ts"
   },
   "devDependencies": {

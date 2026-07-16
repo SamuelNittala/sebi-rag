@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { adjustRetrievalScore } from "./retrieval-ranking.ts";
+import { adjustRetrievalScore, retrievalCandidateLimit } from "./retrieval-ranking.ts";
 
 describe("adjustRetrievalScore", () => {
   test("does not alter normal semantic-search scores", () => {
@@ -66,5 +66,22 @@ describe("adjustRetrievalScore", () => {
     }, "mirae_sif_overview");
 
     expect(score).toBe(0.61);
+  });
+
+  test("promotes strategy-specific manager assignments for fund-manager questions", () => {
+    const score = adjustRetrievalScore({
+      score: 0.59,
+      sourceType: "scheme_document",
+      text: "E. WHO MANAGES THE INVESTMENT STRATEGY? Name Mr. Gaurik Shah",
+      sectionHeader: "E. WHO MANAGES THE INVESTMENT STRATEGY?",
+      documentFilename: "ISID-Platinum-Hybrid-Long-Short-Fund.pdf",
+    }, "mirae_sif_fund_manager");
+
+    expect(score).toBeGreaterThan(0.7);
+  });
+
+  test("fetches a wider candidate pool before manager reranking", () => {
+    expect(retrievalCandidateLimit(10, "mirae_sif_fund_manager")).toBe(30);
+    expect(retrievalCandidateLimit(10)).toBe(10);
   });
 });

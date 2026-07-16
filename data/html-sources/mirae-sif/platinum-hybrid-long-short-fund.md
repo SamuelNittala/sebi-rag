@@ -1,9 +1,9 @@
 ---
 title: "Platinum Hybrid Long-Short Fund"
-source_url: "https://platinumsif.miraeassetmf.co.in/fund?schemeCode=3166"
+source_url: "https://sif-dev.example.com/fund?schemeCode=3166"
 content_category: product
 source: mirae-sif
-scraped_at: "2026-07-16T07:34:18.157Z"
+scraped_at: "2026-07-16T17:54:27.953Z"
 ---
 
 # Platinum Hybrid Long-Short Fund
@@ -16,21 +16,231 @@ INVEST NOW
 
 [Image: icon]
 
-Loading Key Parameters...
+## Investment Objective
 
-Loading Why This Fund...
+The Investment Strategy shall seek to generate regular income through investment in derivative strategies, arbitrage opportunities and debt and money market instruments and to generate long-term capital appreciation by investing in unhedged equity and equity related instruments. There is no assurance that the investment objective of the Investment Strategy will be achieved.
 
-Loading How It Works...
+Monthly AUM
 
-Loading Why You Should Invest...
+\-
 
-Loading Fund Facts...
+Fund Age
 
-Loading Downloads...
+\-
 
-Loading Product Label...
+Benchmark Index
 
-Loading Video Section...
+Nifty 50 Hybrid composite debt 50:50
+
+Base Expense Ratio
+
+\-
+
+Exit Load
+
+\-
+
+Taxation
+
+[Click here](https://cms-dev.example.com/wp-content/uploads/2026/05/tax-reckoner-2026-27.pdf) to view
+
+Additional Benchmark
+
+\-
+
+Total Expense Ratio
+
+\-
+
+## Investment Strategy
+
+The Fund invests in a mix of controlled equity exposure - collar strategy (5-70%), special situations (0-10%), arbitrage (5-70%), and debt (25-35%) aiming to deliver relatively consistent performance across market phases through a differentiated approach. The Fund will be very agile in terms of changing allocation between Collar and Arbitrage strategy dynamically with a view to deliver risk-adjusted returns across market phases. While return enhancement will be sought through Collar Strategy & Special Situations, stability will be sought through Debt & Arbitrage.
+
+## How it works
+
+The Platinum Hybrid Long-Short Fund follows an actively managed, multi-asset strategy that dynamically allocates across equity, debt, and arbitrage opportunities.The fund aims to balance growth and stability by adjusting exposures based on evolving market conditions. The equity portion is managed using controlled exposure strategies, including collar strategies and selective participation in special situations, to capture upside while limiting downside risk. Alongside, arbitrage positions are used to generate relatively stable, market-neutral returns through fully hedged strategies. The debt allocation focuses on high-quality instruments to provide accrual income and reduce overall portfolio volatility. The portfolio is actively monitored and rebalanced to maintain optimal allocation, manage risk efficiently, and enhance return potential across different market cycles.
+
+[Image: A circular diagram illustrating 'How it works' with 'Stability & Yield Enhancement' at the center. Three interconnected circles represent: 'Controlled Equity (5-70%)' with 'Collar Strategy' and 'Special Situations (0-10%)', 'Arbitrage (5-70%)' with 'Fully Hedged Exposure', and 'Debt (25-35%)' with 'High Quality / Accrual']
+
+## Why you should Invest?
+
+This fund is suitable for investors seeking tax-efficient returns compared to traditional fixed-income avenues. It is also well-suited for conservative investors looking for relatively stable performance across different market phases. Investors with a medium-term investment horizon of 1–2 years or more may find this strategy aligned with their goals. Additionally, it caters to those seeking better downside protection compared to hybrid funds that have a more directional equity exposure.
+
+*   Downside Protection – Positioned to provide relatively lower drawdowns vs Hybrid Funds with unhedged directional equity exposure.
+*   Relatively Stable Returns – Seeks to deliver relatively stable returns over 1-2 years.
+*   Risk Mitigation – Robust Risk Management Framework to help minimize downside risk and achieve more consistent outcomes.
+*   Equity Taxation – Tax efficient vs Cat III AIFs following similar strategies and Debt Mutual Funds.
+*   Flexible Allocation – Agility to swiftly change allocation between arbitrage and protected derivative strategies.
+
+## Fund Details
+
+The Investment Strategy shall seek to generate regular income through investment in derivative strategies, arbitrage opportunities and debt and money market instruments and to generate long-term capital appreciation by investing in unhedged equity and equity related instruments. There is no assurance that the investment objective of the Investment Strategy will be achieved.
+
+## Fund Facts
+
+Minimum Investment Amount
+
+Minimum of ₹ 10,00,000/- and in multiples of ₹ 1,000/- thereafter.
+
+Minimum Additional Investment:
+
+₹ 10,000/- and in multiples of ₹ 1,000/- thereafter
+
+SIP (Systematic Investment Plan) Amount
+
+₹ 50,000/- and in multiples of ₹ 1/- thereafter subject to that the minimum investment amount by an investor should not be less than ₹ 10,00,000/-.
+
+Inception Date:
+
+11 Jun, 2026
+
+Plans And Options
+
+Plans - Regular Plan and Direct Plan.
+Options - Growth Option & Income Distribution cum & Reinvestment option
+
+Category:
+
+Hybrid Long-Short Fund
+
+Investment Strategy Code
+
+PSIF/I/H/HLSF/26/04/0001/MIRA
+
+Structure:
+
+Interval investment strategy under SIF
+
+### Fund Managers
+
+*   [Image: photo of fund manager: Mr. Gaurik Shah]
+
+    Mr. Gaurik Shah
+
+
+### Exit Load
+
+*   \-If redeemed within 90 days from the date of allotment: 1%
+*   \-If redeemed after 90 days from the date of allotment: NIL
+
+Subscription Frequency:
+
+Daily (all business days)
+
+Redemption Frequency:
+
+Twice in a week (Monday & Thursday)
+
+Notice Period For Redemption
+
+NIL
+
+## Download SIF Resources
+
+[Image: icon for SAI]
+
+SAI
+
+[Image: icon for KIM]
+
+KIM
+
+[Image: icon for ISID]
+
+ISID
+
+[Image: icon for Transaction Forms]
+
+Transaction Forms
+
+[Image: icon for Platinum Hybrid Long-Short Fund Presentation]
+
+Platinum Hybrid Long-Short Fund Presentation
+
+[Image: icon for Platinum Hybrid Long-Short Fund Four Pagers]
+
+Platinum Hybrid Long-Short Fund Four Pagers
+
+[Image: icon for Platinum Hybrid Long-Short Fund One Pager]
+
+Platinum Hybrid Long-Short Fund One Pager
+
+## Risk Band
+
+This product is suitable for investors who are seeking\*
+
+*   Regular Income and Long term capital appreciation
+
+*   Investment predominantly in equity and debt securities, including limited short exposure in equity and debt through derivatives
+
+
+\*Investors should consult their financial advisors if they are not clear about the suitability of the product.
+
+Platinum Hybrid Long-Short Fund
+
+Risk Band
+
+Risk Level - 2
+
+Lower Risk
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Current risk level: 2 out of 5. Lower risk.
+
+Higher Risk
+
+Lower Risk
+
+Higher Risk
+
+NIFTY 50 Hybrid Composite Debt 50:50 Index
+
+Benchmark Risk - Band
+
+Risk Level - 3
+
+Lower Risk
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Current risk level: 3 out of 5. Moderate risk.
+
+Higher Risk
+
+Lower Risk
+
+Higher Risk
+
+Disclaimers
+
+The above product labelling assigned during the New Fund Offer (NFO) is based on internal assessment of the characteristics of the investment strategy or model portfolio and the same may vary post NFO when the actual investments are made.
+
+Watch!
+
+Understand how Platinum Hybrid Long-Short Fund work
+
+(An interval investment strategy investing in equity and debt securities, including limited short exposure in equity and debt through derivatives)
+
+[Image: Thumbnail for Introducing Platinum SIF by Mirae Asset Mutual Fund]
+
+Introducing Platinum SIF by Mirae Asset Mutual Fund
 
 ## Got Questions? We've Got Answers!
 
@@ -230,7 +440,7 @@ as are applicable from time to time.
 
 In all other cases the amounts due on redemption / repurchases (subject to tax deduction
 at source) will be paid by means of a rupee cheque payable at the NRO/NRSR account
-of the investor as applicable.9:["$","$L14",null,{"data":{
+of the investor as applicable.
 
 
 

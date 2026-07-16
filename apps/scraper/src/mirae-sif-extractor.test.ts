@@ -39,6 +39,17 @@ describe("extractMiraeSifFaqMarkdown", () => {
     expect(extractMiraeSifFaqMarkdown("<main>No FAQs</main>")).toBe("");
   });
 
+  test("strips a leaked flight frame from an extracted FAQ answer", () => {
+    const contaminatedAnswer = 'Submit the redemption request.9:["$","$L15",null,{"data":{';
+    const flightData = `9:{"data":{"faqs":[{"question":"How do I redeem?","answer":${JSON.stringify(contaminatedAnswer)}}]}}`;
+    const html = `<script>self.__next_f.push([1,${JSON.stringify(flightData)}])</script>`;
+
+    const markdown = extractMiraeSifFaqMarkdown(html);
+
+    expect(markdown).toContain("Submit the redemption request.");
+    expect(markdown).not.toContain("$L15");
+  });
+
   test("repairs the source's split SIP question and answer fields", () => {
     const flightData = `9:{"data":{"faqs":[{"question":"What happens below the threshold?","answer":"A passive breach is allowed. #Does SIF offer SIP, SWP and STP?"},{"question":"Yes. SIP facility is available under the SIF.","answer":"The minimum threshold must be fulfilled."}]}}`;
     const html = `<script>self.__next_f.push([1,${JSON.stringify(flightData)}])</script>`;
@@ -62,5 +73,16 @@ describe("mergeMiraeSifFaqMarkdown", () => {
     expect(merged).toContain("Rendered answer.");
     expect(merged).not.toContain("Payload answer.");
     expect(merged).toContain("### Where is NAV?");
+  });
+
+  test("removes a leaked Next.js flight frame and restores later extracted FAQs", () => {
+    const rendered = `# Fund\n\nGot Questions?\n\nWe've Got Answers!\n\n### How do I redeem?\n\nSubmit the redemption request.9:["$","$L15",null,{"data":{`;
+    const extracted = `### How do I redeem?\n\nSubmit the redemption request.9:["$","$L15",null,{"data":{\n\n### What is the derivatives limit?\n\nUp to 25% of net assets.`;
+
+    const merged = mergeMiraeSifFaqMarkdown(rendered, extracted);
+
+    expect(merged).toContain("Submit the redemption request.");
+    expect(merged).not.toContain('$L15');
+    expect(merged).toContain("### What is the derivatives limit?");
   });
 });

@@ -151,6 +151,35 @@ bun scripts/compare-direct-vs-rag.ts "What is the expense ratio?"
 bun scripts/test-jailbreak-direct.ts
 ```
 
+### Pre-embedding chunk review
+
+PDF and HTML ingestion now stop after deterministic inspection by default. The
+candidate chunks and all findings are stored outside the searchable vector set,
+so a malformed chunk cannot reach retrieval before review.
+
+```bash
+# 1. Run migrations and configure REVIEW_USERNAME / REVIEW_PASSWORD
+bun run db:migrate
+
+# 2. Ingest; the result includes a review run ID
+bun run apps/ingestion/src/index.ts path/to/document.pdf
+
+# 3. Start the API and review every flag for the document at /review
+bun run dev
+
+# 4. After UI approval, embed, stage, and atomically publish that version
+bun run review:publish <review-run-id> --actor <reviewer-name>
+```
+
+The review screen shows every flagged chunk for a document on one page, with
+previous and next chunk context, source pages, inferred scope, rule evidence,
+and an audit-logged reviewer decision. Use **Edit all candidate chunks** to
+correct extracted text before approval. Each save requires a reason, records
+the complete before/after revision, and reinspects the entire document because
+an edit can affect neighboring chunk boundaries. Retrieval only reads `published` rows;
+staged and retired versions are excluded. `bun run reingest:mirae-sif --apply`
+creates review runs without deleting the currently published Mirae SIF vectors.
+
 ## Data Source
 
 Official mutual fund documents from [SEBI](https://www.sebi.gov.in/) (Securities and Exchange Board of India):
@@ -180,6 +209,8 @@ See [deployment docs](docs/) for details.
 | `EMBEDDING_MODEL` | `bge-m3` | Embedding model |
 | `ENABLE_RATE_LIMITING` | `false` | Enable API key limits |
 | `MF_RAG_API_KEY` | - | API key for rate limiting |
+| `REVIEW_USERNAME` | - | Basic-auth username for the internal `/review` UI |
+| `REVIEW_PASSWORD` | - | Basic-auth password for the internal `/review` UI |
 
 ## Security
 

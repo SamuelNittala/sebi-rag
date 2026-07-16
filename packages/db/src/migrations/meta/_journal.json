@@ -43,6 +43,27 @@
       "when": 1784111944199,
       "tag": "0005_mirae_sif_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784207528383,
+      "tag": "0006_glorious_cobalt_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784212358444,
+      "tag": "0007_short_the_hunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784217376938,
+      "tag": "0008_loud_black_widow",
+      "breakpoints": true
     }
   ]
 }

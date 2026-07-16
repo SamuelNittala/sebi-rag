@@ -6,3 +6,4 @@ export * from "./query.ts";
 export * from "./response.ts";
 export * from "./html-chunk.ts";
 export * from "./knowledge-scope.ts";
+export * from "./chunk-review.ts";

@@ -42,6 +42,8 @@ export interface ChunkPayload {
   knowledge_domain?: "mutual_fund" | "sif";
   source_collection?: "default_corpus" | "mirae_sif" | "sebi_regulatory";
   amc_slug?: string | null;
+  ingestion_run_id?: string | null;
+  publication_status?: "staged" | "published" | "retired";
 }
 
 export interface ChunkConfig {

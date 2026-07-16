@@ -44,6 +44,7 @@ if (import.meta.main) {
     console.log("Options:");
     console.log("  --dir       Process all PDFs in directory");
     console.log("  --ollama    Ollama URL (default: http://localhost:11434)");
+    console.log("  --review-existing  Reinspect an existing document without deleting published vectors");
     process.exit(0);
   }
 
@@ -53,6 +54,7 @@ if (import.meta.main) {
 
   const config = {
     ollamaUrl: ollamaIdx !== -1 ? args[ollamaIdx + 1] : undefined,
+    reviewExisting: args.includes("--review-existing"),
   };
 
   // Get path (first non-flag argument)
@@ -78,10 +80,12 @@ if (import.meta.main) {
 
       console.log("\n--- Summary ---");
       const completed = results.filter((r) => r.status === "completed").length;
+      const reviewRequired = results.filter((r) => r.status === "review_required").length;
       const skipped = results.filter((r) => r.status === "skipped").length;
       const failed = results.filter((r) => r.status === "failed").length;
 
       console.log(`Completed: ${completed}`);
+      console.log(`Awaiting review: ${reviewRequired}`);
       console.log(`Skipped (duplicates): ${skipped}`);
       console.log(`Failed: ${failed}`);
 
@@ -100,6 +104,9 @@ if (import.meta.main) {
       console.log("\n--- Result ---");
       console.log(`Status: ${result.status}`);
       console.log(`Document ID: ${result.documentId || "N/A"}`);
+      if (result.reviewRunId) {
+        console.log(`Review run ID: ${result.reviewRunId}`);
+      }
       if (result.chunkCount) {
         console.log(`Chunks: ${result.chunkCount}`);
       }

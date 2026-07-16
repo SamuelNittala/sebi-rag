@@ -4,7 +4,8 @@
   "type": "module",
   "main": "src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./chunk-inspection": "./src/chunk-inspection/index.ts"
   },
   "dependencies": {
     "ollama": "^0.5.0",

@@ -14,6 +14,7 @@ import {
   extractMiraeSifFaqMarkdown,
   mergeMiraeSifFaqMarkdown,
 } from "./mirae-sif-extractor.ts";
+import { resolveNextStreamedHtml } from "./next-stream-html.ts";
 
 export interface HtmlSourceConfig {
   name: string;
@@ -137,9 +138,10 @@ export class HtmlScraper {
     }
 
     const html = await response.text();
+    const resolvedHtml = resolveNextStreamedHtml(html);
 
     // Extract content using cheerio
-    const $ = cheerioLoad(html);
+    const $ = cheerioLoad(resolvedHtml);
 
     // Remove navigation, footer, cookie banners, sidebars
     $("nav, footer, header, .cookie-banner, .sidebar, .menu, .breadcrumb, .social-share, .related-posts, .comments").remove();

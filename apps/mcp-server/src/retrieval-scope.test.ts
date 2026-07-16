@@ -96,6 +96,14 @@ describe("resolveRetrievalScope", () => {
     expect(scope.rankingProfile).toBe("mirae_sif_overview");
   });
 
+  test("uses strategy-manager ranking for an umbrella fund-manager question", () => {
+    const scope = resolveRetrievalScope({
+      question: "Who is the fund manager for Platinum SIF?",
+    });
+
+    expect(scope.rankingProfile).toBe("mirae_sif_fund_manager");
+  });
+
   test("preserves the existing broad search for an unrelated generic question", () => {
     const scope = resolveRetrievalScope({
       question: "How does SIP investing work?",

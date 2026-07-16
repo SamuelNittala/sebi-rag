@@ -24,6 +24,7 @@ const MIRAE_PATTERN = /\bmirae(?:\s+asset)?\b/i;
 const PLATINUM_SIF_PATTERN = /\bplatinum\b.*\b(?:fund|long-short|sif)\b/i;
 const SIF_UMBRELLA_SCHEME_PATTERN = /^(?:(?:mirae(?:\s+asset)?|platinum)\s+)*(?:sif|speciali[sz]ed\s+investment\s+fund)$/i;
 const OVERVIEW_QUESTION_PATTERN = /\b(?:tell me about|overview|what is|which (?:investment )?strateg(?:y|ies)|available strateg(?:y|ies))\b/i;
+const FUND_MANAGER_QUESTION_PATTERN = /\b(?:fund manager|who manages)\b/i;
 
 function isSifUmbrellaSchemeName(schemeName?: string): boolean {
   return SIF_UMBRELLA_SCHEME_PATTERN.test(schemeName?.trim() ?? "");
@@ -77,8 +78,12 @@ export function resolveRetrievalScope(
   const hasHtmlArguments = Boolean(request.content_category);
   const sifRequest = isSifRequest(request);
   const miraeRequest = isMiraeRequest(request);
-  const rankingProfile = sifRequest && miraeRequest && OVERVIEW_QUESTION_PATTERN.test(request.question)
-    ? "mirae_sif_overview"
+  const rankingProfile = sifRequest && miraeRequest
+    ? FUND_MANAGER_QUESTION_PATTERN.test(request.question)
+      ? "mirae_sif_fund_manager"
+      : OVERVIEW_QUESTION_PATTERN.test(request.question)
+        ? "mirae_sif_overview"
+        : undefined
     : undefined;
 
   if (sifRequest && miraeRequest) {

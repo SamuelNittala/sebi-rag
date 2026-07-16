@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
     "./queries": "./src/queries.ts",
+    "./review-queries": "./src/review-queries.ts",
     "./client": "./src/client.ts"
   },
   "scripts": {

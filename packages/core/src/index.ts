@@ -9,3 +9,4 @@ export * from "./fund-detector/index.ts";
 export * from "./validator/index.ts";
 export * from "./rag/index.ts";
 export * from "./rate-limiter/index.ts";
+export * from "./chunk-inspection/index.ts";
