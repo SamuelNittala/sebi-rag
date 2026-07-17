@@ -37,16 +37,17 @@ import {
   RateLimitError,
   ApiKeyError,
 } from "@mf-rag/core";
-import { VectorClient, type SearchFilters, type HtmlSearchFilters, type HtmlSearchResult } from "@mf-rag/vector";
+import { VectorClient, type SearchFilters, type HtmlSearchFilters } from "@mf-rag/vector";
 import type { ApiKey } from "@mf-rag/db/schema";
 import { resolveRetrievalScope } from "./retrieval-scope.ts";
-import {
-  adjustRetrievalScore,
-  retrievalCandidateLimit,
-  type RetrievalRankingProfile,
-} from "./retrieval-ranking.ts";
+import { searchHybridDocuments, type MergedResult } from "./hybrid-search.ts";
 
 // Configuration from environment
+function positiveNumber(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 const config = {
   embedding: {
     baseUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
@@ -55,6 +56,8 @@ const config = {
   search: {
     defaultLimit: 10,
     scoreThreshold: 0.5,
+    candidateLimit: positiveNumber(process.env.RETRIEVAL_CANDIDATE_LIMIT, 40),
+    rrfK: positiveNumber(process.env.RETRIEVAL_RRF_K, 60),
   },
   rateLimiting: {
     enabled: process.env.ENABLE_RATE_LIMITING === "true",
@@ -113,7 +116,7 @@ async function recordUsage(
 /**
  * Build citations from search results, deduplicating by fund + docType.
  */
-function buildCitations(results: Awaited<ReturnType<typeof vectorClient.searchSimilar>>) {
+function buildCitations(results: MergedResult[]) {
   const citationMap = new Map<string, {
     fundName: string;
     docType: string;
@@ -121,18 +124,18 @@ function buildCitations(results: Awaited<ReturnType<typeof vectorClient.searchSi
     sebiUrl: string;
   }>();
 
-  for (const r of results) {
-    const key = `${r.payload.fund_name}|${r.payload.doc_type}`;
+  for (const result of results.filter((item) => item.source_type === "scheme_document")) {
+    const key = `${result.fundName}|${result.docType}`;
     const existing = citationMap.get(key);
     if (existing) {
-      const pages = new Set([...existing.pageNumbers, ...r.payload.page_numbers]);
+      const pages = new Set([...existing.pageNumbers, ...(result.pageNumbers ?? [])]);
       existing.pageNumbers = Array.from(pages).sort((a, b) => a - b);
     } else {
       citationMap.set(key, {
-        fundName: r.payload.fund_name,
-        docType: r.payload.doc_type,
-        pageNumbers: [...r.payload.page_numbers],
-        sebiUrl: r.payload.sebi_url,
+        fundName: result.fundName ?? "",
+        docType: result.docType ?? "",
+        pageNumbers: [...(result.pageNumbers ?? [])],
+        sebiUrl: result.sebiUrl ?? "",
       });
     }
   }
@@ -143,129 +146,25 @@ function buildCitations(results: Awaited<ReturnType<typeof vectorClient.searchSi
 /**
  * Build citations from HTML search results, deduplicating by title.
  */
-function buildHtmlCitations(results: HtmlSearchResult[]) {
+function buildHtmlCitations(results: MergedResult[]) {
   const citationMap = new Map<string, {
     title: string;
     contentCategory: string;
     sourceUrl: string;
   }>();
 
-  for (const r of results) {
-    const key = r.payload.source_url;
+  for (const result of results.filter((item) => item.source_type === "knowledge_base")) {
+    const key = result.sourceUrl ?? "";
     if (!citationMap.has(key)) {
       citationMap.set(key, {
-        title: r.payload.document_title,
-        contentCategory: r.payload.content_category,
-        sourceUrl: r.payload.source_url,
+        title: result.documentTitle ?? "",
+        contentCategory: result.contentCategory ?? "",
+        sourceUrl: result.sourceUrl ?? "",
       });
     }
   }
 
   return Array.from(citationMap.values());
-}
-
-/**
- * Search both chunks and html_chunks tables, merge results by score.
- */
-async function dualSearch(
-  queryVector: number[],
-  options: {
-    limit: number;
-    scoreThreshold: number;
-    pdfFilters?: SearchFilters;
-    htmlFilters?: HtmlSearchFilters;
-    searchPdf?: boolean;
-    searchHtml?: boolean;
-    rankingProfile?: RetrievalRankingProfile;
-  }
-) {
-  const { limit, scoreThreshold, pdfFilters, htmlFilters, searchPdf = true, searchHtml = true, rankingProfile } = options;
-  const candidateLimit = retrievalCandidateLimit(limit, rankingProfile);
-
-  // Run both searches in parallel
-  const [pdfResults, htmlResults] = await Promise.all([
-    searchPdf
-      ? vectorClient.searchSimilar(queryVector, {
-          limit: candidateLimit,
-          filters: pdfFilters && Object.keys(pdfFilters).length > 0 ? pdfFilters : undefined,
-          scoreThreshold,
-        })
-      : Promise.resolve([]),
-    searchHtml
-      ? vectorClient.searchHtmlSimilar(queryVector, {
-          limit: candidateLimit,
-          filters: htmlFilters && Object.keys(htmlFilters).length > 0 ? htmlFilters : undefined,
-          scoreThreshold,
-        })
-      : Promise.resolve([]),
-  ]);
-
-  // Merge and sort by score, take top N
-  type MergedResult = {
-    score: number;
-    source_type: "scheme_document" | "knowledge_base";
-    text: string;
-    sectionHeader: string | null;
-    // PDF-specific
-    fundName?: string;
-    docType?: string;
-    pageNumbers?: number[];
-    documentFilename?: string;
-    // HTML-specific
-    documentTitle?: string;
-    contentCategory?: string;
-    sourceUrl?: string;
-  };
-
-  const merged: MergedResult[] = [];
-
-  for (const r of pdfResults) {
-    const score = adjustRetrievalScore({
-      score: r.score,
-      sourceType: "scheme_document",
-      text: r.payload.text,
-      sectionHeader: r.payload.section_header,
-      documentFilename: r.payload.document_filename,
-      docType: r.payload.doc_type,
-    }, rankingProfile);
-    merged.push({
-      score,
-      source_type: "scheme_document",
-      text: r.payload.text,
-      sectionHeader: r.payload.section_header,
-      fundName: r.payload.fund_name,
-      docType: r.payload.doc_type,
-      pageNumbers: r.payload.page_numbers,
-      documentFilename: r.payload.document_filename,
-    });
-  }
-
-  for (const r of htmlResults) {
-    const score = adjustRetrievalScore({
-      score: r.score,
-      sourceType: "knowledge_base",
-      text: r.payload.text,
-      sectionHeader: r.payload.section_heading,
-      contentCategory: r.payload.content_category,
-    }, rankingProfile);
-    merged.push({
-      score,
-      source_type: "knowledge_base",
-      text: r.payload.text,
-      sectionHeader: r.payload.section_heading,
-      documentTitle: r.payload.document_title,
-      contentCategory: r.payload.content_category,
-      sourceUrl: r.payload.source_url,
-    });
-  }
-
-  merged.sort((a, b) => b.score - a.score);
-
-  return {
-    results: merged.slice(0, limit),
-    pdfResults,
-    htmlResults,
-  };
 }
 
 // Tool definitions
@@ -437,9 +336,11 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
         const queryVector = await embedder.embed(question);
 
         // 2. Dual-table search
-        const { results: merged, pdfResults, htmlResults } = await dualSearch(queryVector, {
+        const { results: merged, retrieval } = await searchHybridDocuments(vectorClient, question, queryVector, {
           limit: config.search.defaultLimit,
           scoreThreshold: config.search.scoreThreshold,
+          candidateLimit: config.search.candidateLimit,
+          rrfK: config.search.rrfK,
           pdfFilters: scope.pdfFilters,
           htmlFilters: scope.htmlFilters,
           searchPdf: scope.searchPdf,
@@ -454,6 +355,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           source_type: r.source_type,
           text: r.text,
           sectionHeader: r.sectionHeader,
+          retrievalTrace: r.retrievalTrace,
           // PDF fields (present when source_type is "scheme_document")
           ...(r.source_type === "scheme_document" && {
             fundName: r.fundName,
@@ -468,8 +370,8 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           }),
         }));
 
-        const pdfCitations = buildCitations(pdfResults);
-        const htmlCitations = buildHtmlCitations(htmlResults);
+        const pdfCitations = buildCitations(merged);
+        const htmlCitations = buildHtmlCitations(merged);
         const responseTimeMs = Date.now() - startTime;
 
         // Record usage
@@ -493,9 +395,10 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
                     queryTimeMs: responseTimeMs,
                     chunksRetrieved: merged.length,
                     sources: {
-                      scheme_documents: pdfResults.length,
-                      knowledge_base: htmlResults.length,
+                      scheme_documents: merged.filter((item) => item.source_type === "scheme_document").length,
+                      knowledge_base: merged.filter((item) => item.source_type === "knowledge_base").length,
                     },
+                    retrieval,
                   },
                 },
                 null,
@@ -530,9 +433,11 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
         const queryVector = await embedder.embed(query);
 
         // 2. Dual-table search
-        const { results: merged } = await dualSearch(queryVector, {
+        const { results: merged, retrieval } = await searchHybridDocuments(vectorClient, query, queryVector, {
           limit,
           scoreThreshold: config.search.scoreThreshold,
+          candidateLimit: config.search.candidateLimit,
+          rrfK: config.search.rrfK,
           pdfFilters: scope.pdfFilters,
           htmlFilters: scope.htmlFilters,
           searchPdf: scope.searchPdf,
@@ -555,6 +460,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
             url: r.sourceUrl,
           }),
           excerpt: r.text.slice(0, 300) + (r.text.length > 300 ? "..." : ""),
+          retrievalTrace: r.retrievalTrace,
         }));
 
         const responseTimeMs = Date.now() - startTime;
@@ -572,7 +478,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
               text: JSON.stringify(
                 {
                   results: searchResults,
-                  metadata: { queryTimeMs: responseTimeMs },
+                  metadata: { queryTimeMs: responseTimeMs, retrieval },
                 },
                 null,
                 2

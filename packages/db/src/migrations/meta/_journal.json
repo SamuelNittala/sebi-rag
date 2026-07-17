@@ -64,6 +64,20 @@
       "when": 1784217376938,
       "tag": "0008_loud_black_widow",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784278671306,
+      "tag": "0009_careful_tigra",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784285129895,
+      "tag": "0010_quick_vision",
+      "breakpoints": true
     }
   ]
 }

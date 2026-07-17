@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./chunk-inspection": "./src/chunk-inspection/index.ts"
+    "./chunk-inspection": "./src/chunk-inspection/index.ts",
+    "./metadata-review": "./src/metadata-review/index.ts"
   },
   "dependencies": {
     "ollama": "^0.5.0",

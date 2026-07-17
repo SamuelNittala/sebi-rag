@@ -1,13 +1,16 @@
 import { createHash } from "node:crypto";
 
 import {
+  and,
   chunks,
   db,
   eq,
   getReviewRunDetail,
   htmlChunks,
+  ingestionRuns,
   markReviewRunFailed,
   publishReviewRun,
+  reviewEvents,
   sql,
   updateReviewRunStatus,
   type Database,
@@ -21,6 +24,7 @@ import {
   type Embedder,
   type EmbeddingInput,
 } from "../embedding/embedder.ts";
+import { assertMetadataReviewSnapshot } from "./metadata-publication.ts";
 
 export interface ReviewPublicationProgress {
   stage: "embedding" | "staging" | "publishing";
@@ -63,13 +67,93 @@ function requiredMetadataString(metadata: CandidateChunkMetadata, key: string): 
   return value;
 }
 
+async function publishApprovedMetadataReview(
+  database: Database,
+  detail: NonNullable<Awaited<ReturnType<typeof getReviewRunDetail>>>,
+  actor: string,
+  onProgress?: (progress: ReviewPublicationProgress) => void,
+): Promise<IngestionRun> {
+  if (detail.run.status !== "approved") {
+    throw new Error("Metadata review run must be approved before publication.");
+  }
+  const total = detail.candidates.length;
+  onProgress?.({ stage: "publishing", completed: 0, total });
+  return database.transaction(async (tx) => {
+    const sourceRows = detail.run.sourceType === "pdf"
+      ? await tx.select({ id: chunks.id, text: chunks.text }).from(chunks).where(and(
+          eq(chunks.documentId, detail.run.sourceDocumentId),
+          eq(chunks.publicationStatus, "published"),
+        ))
+      : await tx.select({ id: htmlChunks.id, text: htmlChunks.text }).from(htmlChunks).where(and(
+          eq(htmlChunks.documentId, detail.run.sourceDocumentId),
+          eq(htmlChunks.publicationStatus, "published"),
+        ));
+    assertMetadataReviewSnapshot(detail.candidates, sourceRows);
+    let completed = 0;
+    for (const candidate of detail.candidates) {
+      const sourceChunkId = requiredMetadataString(candidate.metadata, "sourceChunkId");
+      const updated = detail.run.sourceType === "pdf"
+        ? await tx.update(chunks).set({ retrievalMetadata: candidate.metadata }).where(and(
+            eq(chunks.id, sourceChunkId),
+            eq(chunks.documentId, detail.run.sourceDocumentId),
+            eq(chunks.publicationStatus, "published"),
+          )).returning({ id: chunks.id })
+        : await tx.update(htmlChunks).set({ retrievalMetadata: candidate.metadata }).where(and(
+            eq(htmlChunks.id, sourceChunkId),
+            eq(htmlChunks.documentId, detail.run.sourceDocumentId),
+            eq(htmlChunks.publicationStatus, "published"),
+          )).returning({ id: htmlChunks.id });
+      if (updated.length !== 1) throw new Error(`Failed to update metadata for source chunk ${sourceChunkId}.`);
+      completed += 1;
+      onProgress?.({ stage: "publishing", completed, total });
+    }
+    if (detail.run.sourceType === "pdf") {
+      await tx.execute(sql`
+        UPDATE ${chunks}
+        SET retrieval_metadata = (${chunks.retrievalMetadata} #>> '{}')::jsonb
+        WHERE ${chunks.documentId} = ${detail.run.sourceDocumentId}
+          AND ${chunks.publicationStatus} = 'published'
+          AND jsonb_typeof(${chunks.retrievalMetadata}) = 'string'
+      `);
+    } else {
+      await tx.execute(sql`
+        UPDATE ${htmlChunks}
+        SET retrieval_metadata = (${htmlChunks.retrievalMetadata} #>> '{}')::jsonb
+        WHERE ${htmlChunks.documentId} = ${detail.run.sourceDocumentId}
+          AND ${htmlChunks.publicationStatus} = 'published'
+          AND jsonb_typeof(${htmlChunks.retrievalMetadata}) = 'string'
+      `);
+    }
+    const [published] = await tx.update(ingestionRuns).set({
+      status: "published",
+      updatedAt: new Date(),
+    }).where(eq(ingestionRuns.id, detail.run.id)).returning();
+    if (!published) throw new Error("Failed to publish metadata review run.");
+    const [event] = await tx.insert(reviewEvents).values({
+      ingestionRunId: detail.run.id,
+      eventType: "metadata_published",
+      actor,
+      details: { updatedChunks: total, embeddingsChanged: false },
+    }).returning({ id: reviewEvents.id });
+    if (event) {
+      await tx.execute(sql`
+        UPDATE ${reviewEvents}
+        SET details = (${reviewEvents.details} #>> '{}')::jsonb
+        WHERE ${reviewEvents.id} = ${event.id}
+          AND jsonb_typeof(${reviewEvents.details}) = 'string'
+      `);
+    }
+    return published;
+  });
+}
+
 async function normalizePublishedPageNumbers(
   database: Database,
   runId: string,
 ): Promise<void> {
   await database.execute(sql`
     UPDATE ${chunks}
-    SET ${chunks.pageNumbers} = (${chunks.pageNumbers} #>> '{}')::jsonb
+    SET page_numbers = (${chunks.pageNumbers} #>> '{}')::jsonb
     WHERE ${chunks.ingestionRunId} = ${runId}
       AND jsonb_typeof(${chunks.pageNumbers}) = 'string'
   `);
@@ -87,6 +171,15 @@ export async function publishApprovedReviewRun(
   }
   if (detail.candidates.length !== detail.run.candidateChunkCount) {
     throw new Error("Approved candidate count changed before embedding.");
+  }
+
+  if (detail.run.reviewPurpose === "metadata") {
+    return publishApprovedMetadataReview(
+      database,
+      detail,
+      options.actor,
+      options.onProgress,
+    );
   }
 
   const embedder = options.embedder ?? createEmbedder({

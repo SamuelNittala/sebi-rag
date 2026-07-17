@@ -21,6 +21,16 @@ import type {
   HtmlSearchResult,
   HtmlChunkWithVector,
 } from "./schema.ts";
+import { tokenizeBm25Query } from "./bm25.ts";
+
+function parseJsonObject<T>(value: T | string | null): T | null {
+  if (typeof value !== "string") return value;
+  return JSON.parse(value) as T;
+}
+
+function postgresTextArray(tokens: string[]): string {
+  return `{${tokens.join(",")}}`;
+}
 
 export interface VectorClientConfig {
   // These are kept for backwards compatibility but ignored
@@ -92,6 +102,7 @@ export class VectorClient {
         amcSlug: chunk.payload.amc_slug ?? null,
         ingestionRunId: chunk.payload.ingestion_run_id ?? null,
         publicationStatus: chunk.payload.publication_status ?? "published",
+        retrievalMetadata: chunk.payload.retrieval_metadata ?? null,
       }));
 
       await db.insert(chunks).values(values).onConflictDoUpdate({
@@ -118,6 +129,7 @@ export class VectorClient {
           amcSlug: sql`EXCLUDED.amc_slug`,
           ingestionRunId: sql`EXCLUDED.ingestion_run_id`,
           publicationStatus: sql`EXCLUDED.publication_status`,
+          retrievalMetadata: sql`EXCLUDED.retrieval_metadata`,
         },
       });
     }
@@ -178,6 +190,7 @@ export class VectorClient {
       knowledge_domain: string;
       source_collection: string;
       amc_slug: string | null;
+      retrieval_metadata: ChunkPayload["retrieval_metadata"] | string | null;
     };
 
     const results = (await db.execute(sql`
@@ -202,7 +215,8 @@ export class VectorClient {
         sebi_url,
         knowledge_domain,
         source_collection,
-        amc_slug
+        amc_slug,
+        retrieval_metadata
       FROM chunks
       WHERE publication_status = 'published' ${conditions} ${thresholdClause}
       ORDER BY embedding <=> ${vectorStr}::vector
@@ -235,7 +249,177 @@ export class VectorClient {
         knowledge_domain: row.knowledge_domain as ChunkPayload["knowledge_domain"],
         source_collection: row.source_collection as ChunkPayload["source_collection"],
         amc_slug: row.amc_slug,
+        retrieval_metadata: parseJsonObject(row.retrieval_metadata),
       } as ChunkPayload,
+    }));
+  }
+
+  async searchLexical(
+    query: string,
+    options: {
+      limit?: number;
+      filters?: SearchFilters;
+    } = {},
+  ): Promise<SearchResult[]> {
+    const tokens = tokenizeBm25Query(query);
+    if (tokens.length === 0) return [];
+    const { limit = 40, filters } = options;
+    const conditions = this.buildConditions(filters);
+    const tokenArray = postgresTextArray(tokens);
+
+    type ResultRow = {
+      id: string;
+      score: number;
+      text: string;
+      chunk_index: number;
+      total_chunks: number;
+      document_id: string;
+      document_filename: string;
+      page_numbers: number[] | string;
+      fund_name: string;
+      amc_name: string;
+      scheme_type: string;
+      scheme_category: string;
+      doc_type: string;
+      document_date: string;
+      has_table: boolean;
+      section_header: string | null;
+      sebi_scheme_id: string;
+      sebi_url: string;
+      knowledge_domain: string;
+      source_collection: string;
+      amc_slug: string | null;
+      retrieval_metadata: ChunkPayload["retrieval_metadata"] | string | null;
+    };
+
+    const results = (await db.execute(sql`
+      WITH candidate_corpus AS (
+        SELECT chunk_search_documents.search_tokens
+        FROM chunks
+        JOIN chunk_search_documents ON chunk_search_documents.chunk_id = chunks.id
+        WHERE publication_status = 'published' ${conditions}
+      ),
+      corpus_stats AS (
+        SELECT
+          count(*)::double precision AS document_count,
+          GREATEST(COALESCE(avg(cardinality(search_tokens)), 1), 1)::double precision
+            AS average_document_length
+        FROM candidate_corpus
+      ),
+      document_frequency AS MATERIALIZED (
+        SELECT
+          query_token,
+          (
+            SELECT count(*)::double precision
+            FROM candidate_corpus
+            WHERE search_tokens @> ARRAY[query_token]
+          ) AS document_frequency
+        FROM unnest(${tokenArray}::text[]) AS query_tokens(query_token)
+      ),
+      matched_documents AS (
+        SELECT
+          chunk_search_documents.chunk_id,
+          chunk_search_documents.search_tokens,
+          cardinality(chunk_search_documents.search_tokens)::double precision
+            AS document_length
+        FROM chunks
+        JOIN chunk_search_documents ON chunk_search_documents.chunk_id = chunks.id
+        WHERE publication_status = 'published' ${conditions}
+          AND chunk_search_documents.search_tokens && ${tokenArray}::text[]
+      ),
+      document_terms AS (
+        SELECT
+          matched_documents.chunk_id,
+          matched_documents.document_length,
+          matched_term.query_token,
+          count(*)::double precision AS term_frequency
+        FROM matched_documents
+        CROSS JOIN LATERAL unnest(matched_documents.search_tokens)
+          AS matched_term(query_token)
+        WHERE matched_term.query_token = ANY(${tokenArray}::text[])
+        GROUP BY
+          matched_documents.chunk_id,
+          matched_documents.document_length,
+          matched_term.query_token
+      ),
+      scored AS (
+        SELECT
+          document_terms.chunk_id,
+          sum(
+            ln(1 + (
+              corpus_stats.document_count - document_frequency.document_frequency + 0.5
+            ) / (document_frequency.document_frequency + 0.5))
+            * (document_terms.term_frequency * 2.2)
+            / (
+              document_terms.term_frequency
+              + 1.2 * (
+                0.25 + 0.75 * document_terms.document_length
+                  / corpus_stats.average_document_length
+              )
+            )
+          )::double precision AS score
+        FROM document_terms
+        JOIN document_frequency USING (query_token)
+        CROSS JOIN corpus_stats
+        GROUP BY document_terms.chunk_id
+        ORDER BY score DESC, document_terms.chunk_id
+        LIMIT ${limit}
+      )
+      SELECT
+        chunks.id,
+        scored.score,
+        text,
+        chunk_index,
+        total_chunks,
+        document_id,
+        document_filename,
+        page_numbers,
+        fund_name,
+        amc_name,
+        scheme_type,
+        scheme_category,
+        doc_type,
+        document_date,
+        has_table,
+        section_header,
+        sebi_scheme_id,
+        sebi_url,
+        knowledge_domain,
+        source_collection,
+        amc_slug,
+        retrieval_metadata
+      FROM scored
+      JOIN chunks ON chunks.id = scored.chunk_id
+      ORDER BY scored.score DESC, chunks.id
+    `)) as ResultRow[];
+
+    return results.map((row) => ({
+      id: row.id,
+      score: row.score,
+      payload: {
+        text: row.text,
+        chunk_index: row.chunk_index,
+        total_chunks: row.total_chunks,
+        document_id: row.document_id,
+        document_filename: row.document_filename,
+        page_numbers: typeof row.page_numbers === "string"
+          ? JSON.parse(row.page_numbers)
+          : row.page_numbers,
+        fund_name: row.fund_name,
+        amc_name: row.amc_name,
+        scheme_type: row.scheme_type,
+        scheme_category: row.scheme_category,
+        doc_type: row.doc_type,
+        document_date: row.document_date,
+        has_table: row.has_table,
+        section_header: row.section_header,
+        sebi_scheme_id: row.sebi_scheme_id,
+        sebi_url: row.sebi_url,
+        knowledge_domain: row.knowledge_domain as ChunkPayload["knowledge_domain"],
+        source_collection: row.source_collection as ChunkPayload["source_collection"],
+        amc_slug: row.amc_slug,
+        retrieval_metadata: parseJsonObject(row.retrieval_metadata),
+      },
     }));
   }
 
@@ -391,6 +575,7 @@ export class VectorClient {
         amcSlug: chunk.payload.amc_slug ?? null,
         ingestionRunId: chunk.payload.ingestion_run_id ?? null,
         publicationStatus: chunk.payload.publication_status ?? "published",
+        retrievalMetadata: chunk.payload.retrieval_metadata ?? null,
         sectionHeading: chunk.payload.section_heading,
         hasTable: chunk.payload.has_table,
       }));
@@ -413,6 +598,7 @@ export class VectorClient {
             hasTable: sql`EXCLUDED.has_table`,
             ingestionRunId: sql`EXCLUDED.ingestion_run_id`,
             publicationStatus: sql`EXCLUDED.publication_status`,
+            retrievalMetadata: sql`EXCLUDED.retrieval_metadata`,
           },
         });
       } catch (error) {
@@ -475,6 +661,7 @@ export class VectorClient {
       knowledge_domain: string;
       source_collection: string;
       amc_slug: string | null;
+      retrieval_metadata: HtmlChunkPayload["retrieval_metadata"] | string | null;
     };
 
     const results = (await db.execute(sql`
@@ -492,7 +679,8 @@ export class VectorClient {
         has_table,
         knowledge_domain,
         source_collection,
-        amc_slug
+        amc_slug,
+        retrieval_metadata
       FROM html_chunks
       WHERE publication_status = 'published' ${conditionsSql} ${thresholdClause}
       ORDER BY embedding <=> ${vectorStr}::vector
@@ -515,8 +703,178 @@ export class VectorClient {
         knowledge_domain: row.knowledge_domain as HtmlChunkPayload["knowledge_domain"],
         source_collection: row.source_collection as HtmlChunkPayload["source_collection"],
         amc_slug: row.amc_slug,
+        retrieval_metadata: parseJsonObject(row.retrieval_metadata),
       },
     }));
+  }
+
+  async searchHtmlLexical(
+    query: string,
+    options: {
+      limit?: number;
+      filters?: HtmlSearchFilters;
+    } = {},
+  ): Promise<HtmlSearchResult[]> {
+    const tokens = tokenizeBm25Query(query);
+    if (tokens.length === 0) return [];
+    const { limit = 40, filters } = options;
+    const conditions = this.buildHtmlConditions(filters);
+    const tokenArray = postgresTextArray(tokens);
+
+    type ResultRow = {
+      id: string;
+      score: number;
+      text: string;
+      chunk_index: number;
+      total_chunks: number;
+      document_id: string;
+      document_title: string;
+      source_url: string;
+      content_category: string;
+      section_heading: string | null;
+      has_table: boolean;
+      knowledge_domain: string;
+      source_collection: string;
+      amc_slug: string | null;
+      retrieval_metadata: HtmlChunkPayload["retrieval_metadata"] | string | null;
+    };
+
+    const results = (await db.execute(sql`
+      WITH candidate_corpus AS (
+        SELECT html_chunk_search_documents.search_tokens
+        FROM html_chunks
+        JOIN html_chunk_search_documents
+          ON html_chunk_search_documents.chunk_id = html_chunks.id
+        WHERE publication_status = 'published' ${conditions}
+      ),
+      corpus_stats AS (
+        SELECT
+          count(*)::double precision AS document_count,
+          GREATEST(COALESCE(avg(cardinality(search_tokens)), 1), 1)::double precision
+            AS average_document_length
+        FROM candidate_corpus
+      ),
+      document_frequency AS MATERIALIZED (
+        SELECT
+          query_token,
+          (
+            SELECT count(*)::double precision
+            FROM candidate_corpus
+            WHERE search_tokens @> ARRAY[query_token]
+          ) AS document_frequency
+        FROM unnest(${tokenArray}::text[]) AS query_tokens(query_token)
+      ),
+      matched_documents AS (
+        SELECT
+          html_chunk_search_documents.chunk_id,
+          html_chunk_search_documents.search_tokens,
+          cardinality(html_chunk_search_documents.search_tokens)::double precision
+            AS document_length
+        FROM html_chunks
+        JOIN html_chunk_search_documents
+          ON html_chunk_search_documents.chunk_id = html_chunks.id
+        WHERE publication_status = 'published' ${conditions}
+          AND html_chunk_search_documents.search_tokens && ${tokenArray}::text[]
+      ),
+      document_terms AS (
+        SELECT
+          matched_documents.chunk_id,
+          matched_documents.document_length,
+          matched_term.query_token,
+          count(*)::double precision AS term_frequency
+        FROM matched_documents
+        CROSS JOIN LATERAL unnest(matched_documents.search_tokens)
+          AS matched_term(query_token)
+        WHERE matched_term.query_token = ANY(${tokenArray}::text[])
+        GROUP BY
+          matched_documents.chunk_id,
+          matched_documents.document_length,
+          matched_term.query_token
+      ),
+      scored AS (
+        SELECT
+          document_terms.chunk_id,
+          sum(
+            ln(1 + (
+              corpus_stats.document_count - document_frequency.document_frequency + 0.5
+            ) / (document_frequency.document_frequency + 0.5))
+            * (document_terms.term_frequency * 2.2)
+            / (
+              document_terms.term_frequency
+              + 1.2 * (
+                0.25 + 0.75 * document_terms.document_length
+                  / corpus_stats.average_document_length
+              )
+            )
+          )::double precision AS score
+        FROM document_terms
+        JOIN document_frequency USING (query_token)
+        CROSS JOIN corpus_stats
+        GROUP BY document_terms.chunk_id
+        ORDER BY score DESC, document_terms.chunk_id
+        LIMIT ${limit}
+      )
+      SELECT
+        html_chunks.id,
+        scored.score,
+        text,
+        chunk_index,
+        total_chunks,
+        document_id,
+        document_title,
+        source_url,
+        content_category,
+        section_heading,
+        has_table,
+        knowledge_domain,
+        source_collection,
+        amc_slug,
+        retrieval_metadata
+      FROM scored
+      JOIN html_chunks ON html_chunks.id = scored.chunk_id
+      ORDER BY scored.score DESC, html_chunks.id
+    `)) as ResultRow[];
+
+    return results.map((row) => ({
+      id: row.id,
+      score: row.score,
+      payload: {
+        text: row.text,
+        chunk_index: row.chunk_index,
+        total_chunks: row.total_chunks,
+        document_id: row.document_id,
+        document_title: row.document_title,
+        source_url: row.source_url,
+        content_category: row.content_category as HtmlChunkPayload["content_category"],
+        section_heading: row.section_heading,
+        has_table: row.has_table,
+        knowledge_domain: row.knowledge_domain as HtmlChunkPayload["knowledge_domain"],
+        source_collection: row.source_collection as HtmlChunkPayload["source_collection"],
+        amc_slug: row.amc_slug,
+        retrieval_metadata: parseJsonObject(row.retrieval_metadata),
+      },
+    }));
+  }
+
+  private buildHtmlConditions(filters?: HtmlSearchFilters) {
+    if (!filters) return sql``;
+    const conditions: ReturnType<typeof sql>[] = [];
+    if (filters.content_category) {
+      conditions.push(sql`AND content_category = ${filters.content_category}`);
+    }
+    if (filters.document_id) {
+      conditions.push(sql`AND document_id = ${filters.document_id}::uuid`);
+    }
+    if (filters.knowledge_domain) {
+      conditions.push(sql`AND knowledge_domain = ${filters.knowledge_domain}`);
+    }
+    if (filters.source_collection) {
+      conditions.push(sql`AND source_collection = ${filters.source_collection}`);
+    }
+    if (filters.amc_slug) {
+      conditions.push(sql`AND amc_slug = ${filters.amc_slug}`);
+    }
+    return conditions.length > 0 ? sql.join(conditions, sql` `) : sql``;
   }
 
   async deleteHtmlByDocumentId(documentId: string): Promise<number> {

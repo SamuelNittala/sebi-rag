@@ -19,6 +19,7 @@ import type {
   ChunkFlagSeverity,
   ChunkFlagStatus,
   ReviewRunStatus,
+  ReviewPurpose,
   ReviewSourceType,
 } from "@mf-rag/types";
 
@@ -177,6 +178,7 @@ export const chunks = pgTable(
     publicationStatus: varchar("publication_status", { length: 20 })
       .default("published")
       .notNull(),
+    retrievalMetadata: jsonb("retrieval_metadata").$type<CandidateChunkMetadata>(),
     // Timestamps
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -208,6 +210,17 @@ export const chunksRelations = relations(chunks, ({ one }) => ({
     references: [documents.id],
   }),
 }));
+
+export const chunkSearchDocuments = pgTable(
+  "chunk_search_documents",
+  {
+    chunkId: uuid("chunk_id")
+      .primaryKey()
+      .references(() => chunks.id, { onDelete: "cascade" }),
+    searchTokens: text("search_tokens").array().notNull(),
+  },
+  (table) => [index("chunk_search_documents_tokens_idx").using("gin", table.searchTokens)],
+);
 
 export const amcsRelations = relations(amcs, ({ many }) => ({
   funds: many(funds),
@@ -300,6 +313,7 @@ export const htmlChunks = pgTable(
     publicationStatus: varchar("publication_status", { length: 20 })
       .default("published")
       .notNull(),
+    retrievalMetadata: jsonb("retrieval_metadata").$type<CandidateChunkMetadata>(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
@@ -323,6 +337,17 @@ export const htmlChunksRelations = relations(htmlChunks, ({ one }) => ({
   }),
 }));
 
+export const htmlChunkSearchDocuments = pgTable(
+  "html_chunk_search_documents",
+  {
+    chunkId: uuid("chunk_id")
+      .primaryKey()
+      .references(() => htmlChunks.id, { onDelete: "cascade" }),
+    searchTokens: text("search_tokens").array().notNull(),
+  },
+  (table) => [index("html_chunk_search_documents_tokens_idx").using("gin", table.searchTokens)],
+);
+
 // ─── Pre-embedding Chunk Review ─────────────────────────────────────────────
 
 /**
@@ -334,6 +359,10 @@ export const ingestionRuns = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     sourceType: varchar("source_type", { length: 20 }).notNull().$type<ReviewSourceType>(),
+    reviewPurpose: varchar("review_purpose", { length: 20 })
+      .default("content")
+      .notNull()
+      .$type<ReviewPurpose>(),
     sourceDocumentId: uuid("source_document_id").notNull(),
     sourceName: varchar("source_name", { length: 500 }).notNull(),
     sourceLocation: varchar("source_location", { length: 1000 }),

@@ -11,6 +11,7 @@ import {
 } from "@mf-rag/db/review-queries";
 import type { Database } from "@mf-rag/db/client";
 import { editReviewCandidate } from "./candidate-editor.ts";
+import { editReviewCandidateMetadata } from "./metadata-editor.ts";
 import {
   renderCandidateEditor,
   renderDocumentReview,
@@ -71,6 +72,29 @@ export function createReviewApp(db: Database, auth: ReviewAuthConfig): Hono {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to edit candidate.";
+      return c.text(message, message.includes("changed after") ? 409 : 400);
+    }
+  });
+
+  app.post("/candidates/:candidateId/metadata", async (c) => {
+    try {
+      const body = await c.req.parseBody();
+      const result = await editReviewCandidateMetadata(db, {
+        candidateId: c.req.param("candidateId"),
+        expectedContentHash: requiredFormString(body, "expectedContentHash"),
+        documentScope: requiredFormString(body, "documentScope"),
+        strategyId: typeof body.strategyId === "string" ? body.strategyId : "",
+        sectionType: requiredFormString(body, "sectionType"),
+        factType: typeof body.factType === "string" ? body.factType : "",
+        editor: auth.username,
+        note: requiredFormString(body, "note"),
+      });
+      return c.redirect(
+        `/review/documents/${result.ingestionRunId}/chunks#${c.req.param("candidateId")}`,
+        303,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to edit metadata.";
       return c.text(message, message.includes("changed after") ? 409 : 400);
     }
   });

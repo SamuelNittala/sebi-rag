@@ -1,4 +1,5 @@
 import type { KnowledgeDomain, SourceCollection } from "./knowledge-scope.ts";
+import type { CandidateChunkMetadata } from "./chunk-review.ts";
 
 export type ContentCategory =
   | "education"
@@ -23,4 +24,5 @@ export interface HtmlChunkPayload {
   amc_slug?: string | null;
   ingestion_run_id?: string | null;
   publication_status?: "staged" | "published" | "retired";
+  retrieval_metadata?: CandidateChunkMetadata | null;
 }

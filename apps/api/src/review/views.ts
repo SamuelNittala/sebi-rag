@@ -3,13 +3,16 @@ import type {
   ChunkFlagSeverity,
   ChunkFlagStatus,
   ReviewRunStatus,
+  ReviewPurpose,
   ReviewSourceType,
 } from "@mf-rag/types";
+import { miraeSifSectionTypes, miraeSifStrategies } from "@mf-rag/core/metadata-review";
 
 export interface ReviewDashboardItem {
   id: string;
   sourceName: string;
   sourceType: ReviewSourceType;
+  reviewPurpose?: ReviewPurpose;
   status: ReviewRunStatus;
   candidateChunkCount: number;
   flaggedChunkCount: number;
@@ -25,6 +28,7 @@ interface ReviewRunView {
   id: string;
   sourceName: string;
   sourceType: ReviewSourceType;
+  reviewPurpose?: ReviewPurpose;
   sourceLocation: string | null;
   status: ReviewRunStatus;
   candidateChunkCount: number;
@@ -117,6 +121,9 @@ function layout(title: string, body: string): string {
     .document-actions { background: white; border: 1px solid #d0d5dd; padding: 16px; border-radius: 8px; margin-top: 24px; }
     .candidate-editor { background: white; border: 1px solid #d0d5dd; border-radius: 8px; margin: 14px 0; padding: 16px; }
     .candidate-editor textarea { min-height: 180px; font: 13px/1.45 ui-monospace, monospace; }
+    .metadata-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+    .metadata-grid label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+    .metadata-grid input, .metadata-grid select { padding: 8px; border: 1px solid #d0d5dd; border-radius: 5px; background: white; }
     @media (max-width: 900px) { .context-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -126,7 +133,7 @@ function layout(title: string, body: string): string {
 
 export function renderReviewDashboard(runs: ReviewDashboardItem[]): string {
   const rows = runs.map((run) => `<tr>
-    <td><a href="/review/documents/${escapeHtml(run.id)}">${escapeHtml(run.sourceName)}</a><div class="muted">${escapeHtml(run.sourceType)}</div></td>
+    <td><a href="/review/documents/${escapeHtml(run.id)}">${escapeHtml(run.sourceName)}</a><div class="muted">${escapeHtml(run.sourceType)} · ${escapeHtml(run.reviewPurpose ?? "content")} review</div></td>
     <td>${escapeHtml(run.status)}</td>
     <td>${run.candidateChunkCount} chunks</td>
     <td>${run.flaggedChunkCount} flagged</td>
@@ -155,6 +162,36 @@ function flagActions(flag: ReviewFlagView): string {
     <textarea name="note" required placeholder="Reviewer note"></textarea>
     <button name="decision" value="accepted">Accept false positive</button>
     <button name="decision" value="resolved">Mark resolved</button>
+  </form>`;
+}
+
+function option(value: string, selected: unknown): string {
+  return `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(value)}</option>`;
+}
+
+function metadataEditor(candidate: ReviewCandidateView, editable: boolean): string {
+  const metadata = candidate.metadata;
+  const fields = `<div class="metadata-grid">
+    <label>Document scope<select name="documentScope">${[
+      "strategy", "sif_umbrella", "amc", "regulatory", "unknown",
+    ].map((value) => option(value, metadata.documentScope)).join("")}</select></label>
+    <label>Strategy<select name="strategyId">${[
+      { id: "", name: "Not strategy-specific" },
+      ...miraeSifStrategies,
+    ].map((strategy) => `<option value="${escapeHtml(strategy.id)}"${strategy.id === metadata.strategyId || (!strategy.id && !metadata.strategyId) ? " selected" : ""}>${escapeHtml(strategy.name)}</option>`).join("")}</select></label>
+    <label>Section type<select name="sectionType">${miraeSifSectionTypes.map(
+      (value) => option(value, metadata.sectionType ?? "unknown"),
+    ).join("")}</select></label>
+    <label>Fact type<select name="factType">${["", "fund_manager", ...miraeSifSectionTypes.filter(
+      (value) => !["strategy_management", "staff_directory", "fund_facts", "overview", "unknown"].includes(value),
+    )].map((value) => option(value, metadata.factType ?? "")).join("")}</select></label>
+  </div>`;
+  if (!editable) return `${fields}<p class="muted">This metadata run is no longer editable.</p>`;
+  return `<form method="post" action="/review/candidates/${escapeHtml(candidate.id)}/metadata">
+    <input type="hidden" name="expectedContentHash" value="${escapeHtml(candidate.contentHash)}">
+    ${fields}
+    <textarea name="note" required placeholder="What source evidence did you verify?"></textarea>
+    <button class="approve" type="submit">Save reviewed metadata</button>
   </form>`;
 }
 
@@ -192,7 +229,7 @@ export function renderDocumentReview(model: DocumentReviewViewModel): string {
       : `<section class="document-actions"><h2>Workflow status</h2><p>This review run is ${escapeHtml(run.status)}.</p></section>`;
   return layout(run.sourceName, `<p><a href="/review">← All documents</a> · <a href="/review/documents/${escapeHtml(run.id)}/chunks">Edit all candidate chunks</a></p>
     <div class="top"><div><h1>${escapeHtml(run.sourceName)}</h1><p class="muted">${escapeHtml(run.sourceLocation)}</p></div>
-    <div class="summary"><span class="pill">${escapeHtml(run.status)}</span><span class="pill">${run.inspectedChunkCount}/${run.candidateChunkCount} inspected</span><span class="pill critical">${run.blockingCount} blocking</span></div></div>
+    <div class="summary"><span class="pill">${escapeHtml(run.reviewPurpose ?? "content")} review</span><span class="pill">${escapeHtml(run.status)}</span><span class="pill">${run.inspectedChunkCount}/${run.candidateChunkCount} inspected</span><span class="pill critical">${run.blockingCount} blocking</span></div></div>
     <p class="muted">Parser ${escapeHtml(run.parserVersion)} · Chunker ${escapeHtml(run.chunkerVersion)} · Inspector ${escapeHtml(run.inspectorVersion)}</p>
     <h2>Flagged chunks (${model.flags.length})</h2>
     ${cards || "<p>No inspection findings.</p>"}
@@ -201,9 +238,16 @@ export function renderDocumentReview(model: DocumentReviewViewModel): string {
 
 export function renderCandidateEditor(model: DocumentReviewViewModel): string {
   const editable = model.run.status === "review_ready";
+  const metadataReview = model.run.reviewPurpose === "metadata";
   const candidates = model.candidates.map((candidate) => `<section class="candidate-editor" id="${escapeHtml(candidate.id)}">
     <div class="flag-head"><strong>Chunk ${candidate.chunkIndex}</strong><span class="muted">Pages ${escapeHtml(candidate.pageNumbers.join(", "))} · ${candidate.tokenCount} tokens${candidate.sectionHeader ? ` · ${escapeHtml(candidate.sectionHeader)}` : ""}</span></div>
-    ${editable ? `<form method="post" action="/review/candidates/${escapeHtml(candidate.id)}/edit">
+    ${metadataReview ? `<pre>${escapeHtml(candidate.text)}</pre>
+      ${metadataEditor(candidate, editable)}
+      <details><summary>Classification evidence</summary><pre>${escapeHtml(JSON.stringify({
+        source: candidate.metadata.classificationSource,
+        confidence: candidate.metadata.confidence,
+        evidence: candidate.metadata.evidence,
+      }, null, 2))}</pre></details>` : editable ? `<form method="post" action="/review/candidates/${escapeHtml(candidate.id)}/edit">
       <input type="hidden" name="expectedContentHash" value="${escapeHtml(candidate.contentHash)}">
       <textarea name="text" required>${escapeHtml(candidate.text)}</textarea>
       <textarea name="note" required placeholder="Why are you changing this chunk? Include the source page checked."></textarea>
@@ -212,7 +256,11 @@ export function renderCandidateEditor(model: DocumentReviewViewModel): string {
     <details><summary>Metadata</summary><pre>${escapeHtml(JSON.stringify(candidate.metadata, null, 2))}</pre></details>
   </section>`).join("");
 
-  return layout(`Edit ${model.run.sourceName}`, `<p><a href="/review/documents/${escapeHtml(model.run.id)}">← Document review</a></p>
-    <div class="top"><div><h1>Edit all candidate chunks</h1><p class="muted">${escapeHtml(model.run.sourceName)} · Saving any edit reinspects all ${model.run.candidateChunkCount} chunks and resets flag decisions.</p></div><span class="pill">${escapeHtml(model.run.status)}</span></div>
+  const heading = metadataReview ? "Review chunk metadata" : "Edit all candidate chunks";
+  const description = metadataReview
+    ? `${model.run.sourceName} · Source text and embeddings remain unchanged.`
+    : `${model.run.sourceName} · Saving any edit reinspects all ${model.run.candidateChunkCount} chunks and resets flag decisions.`;
+  return layout(`${heading}: ${model.run.sourceName}`, `<p><a href="/review/documents/${escapeHtml(model.run.id)}">← Document review</a></p>
+    <div class="top"><div><h1>${escapeHtml(heading)}</h1><p class="muted">${escapeHtml(description)}</p></div><span class="pill">${escapeHtml(model.run.status)}</span></div>
     ${candidates || "<p>No candidate chunks.</p>"}`);
 }

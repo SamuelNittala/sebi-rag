@@ -1,6 +1,8 @@
 import { and, asc, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type {
+  CandidateChunkMetadata,
   ChunkFlagStatus,
+  ReviewPurpose,
   ReviewSourceType,
 } from "@mf-rag/types";
 
@@ -41,6 +43,7 @@ export interface PersistedInspectionReport {
 
 export interface StageInspectionReviewInput {
   sourceType: ReviewSourceType;
+  reviewPurpose?: ReviewPurpose;
   sourceDocumentId: string;
   sourceName: string;
   sourceLocation?: string | null;
@@ -83,6 +86,92 @@ export interface ReviewApprovalResult {
   run: IngestionRun;
 }
 
+export interface UpdateReviewCandidateMetadataInput {
+  ingestionRunId: string;
+  candidateId: string;
+  expectedContentHash: string;
+  metadata: CandidateChunkMetadata;
+  editor: string;
+  note: string;
+}
+
+export async function updateReviewCandidateMetadata(
+  db: Database,
+  input: UpdateReviewCandidateMetadataInput,
+): Promise<IngestionRun> {
+  if (!input.editor.trim()) throw new Error("An editor is required.");
+  if (!input.note.trim()) throw new Error("A metadata review note is required.");
+  return db.transaction(async (tx) => {
+    const [run] = await tx.select().from(ingestionRuns)
+      .where(eq(ingestionRuns.id, input.ingestionRunId));
+    if (!run) throw new Error("Review run not found.");
+    if (run.reviewPurpose !== "metadata" || run.status !== "review_ready") {
+      throw new Error("Only a review-ready metadata run can be edited.");
+    }
+    const [candidate] = await tx.select().from(chunkCandidates).where(and(
+      eq(chunkCandidates.id, input.candidateId),
+      eq(chunkCandidates.ingestionRunId, input.ingestionRunId),
+    ));
+    if (!candidate) throw new Error("Chunk candidate not found.");
+    if (candidate.contentHash !== input.expectedContentHash) {
+      throw new Error("Chunk changed after this page was loaded.");
+    }
+    const [updated] = await tx.update(chunkCandidates).set({ metadata: input.metadata }).where(and(
+      eq(chunkCandidates.id, input.candidateId),
+      eq(chunkCandidates.contentHash, input.expectedContentHash),
+    )).returning();
+    if (!updated) throw new Error("Chunk changed after this page was loaded.");
+    await tx.execute(sql`
+      UPDATE ${chunkCandidates}
+      SET metadata = (${chunkCandidates.metadata} #>> '{}')::jsonb
+      WHERE ${chunkCandidates.id} = ${input.candidateId}
+        AND jsonb_typeof(${chunkCandidates.metadata}) = 'string'
+    `);
+    await tx.update(chunkFlags).set({
+      status: "resolved",
+      reviewer: input.editor,
+      reviewerNote: input.note.trim(),
+      reviewedAt: new Date(),
+    }).where(and(
+      eq(chunkFlags.ingestionRunId, input.ingestionRunId),
+      eq(chunkFlags.chunkCandidateId, input.candidateId),
+      eq(chunkFlags.status, "open"),
+    ));
+    const openFlags = await tx.select().from(chunkFlags).where(and(
+      eq(chunkFlags.ingestionRunId, input.ingestionRunId),
+      eq(chunkFlags.status, "open"),
+    ));
+    const [updatedRun] = await tx.update(ingestionRuns).set({
+      flaggedChunkCount: new Set(openFlags.flatMap((flag) => flag.chunkCandidateId ? [flag.chunkCandidateId] : [])).size,
+      criticalCount: openFlags.filter((flag) => flag.severity === "critical").length,
+      blockingCount: openFlags.filter((flag) => flag.blocksApproval).length,
+      updatedAt: new Date(),
+    }).where(eq(ingestionRuns.id, input.ingestionRunId)).returning();
+    if (!updatedRun) throw new Error("Failed to update metadata review run.");
+    const [event] = await tx.insert(reviewEvents).values({
+      ingestionRunId: input.ingestionRunId,
+      eventType: "metadata_edited",
+      actor: input.editor,
+      note: input.note.trim(),
+      details: {
+        candidateId: input.candidateId,
+        chunkIndex: candidate.chunkIndex,
+        before: candidate.metadata,
+        after: input.metadata,
+      },
+    }).returning({ id: reviewEvents.id });
+    if (event) {
+      await tx.execute(sql`
+        UPDATE ${reviewEvents}
+        SET details = (${reviewEvents.details} #>> '{}')::jsonb
+        WHERE ${reviewEvents.id} = ${event.id}
+          AND jsonb_typeof(${reviewEvents.details}) = 'string'
+      `);
+    }
+    return updatedRun;
+  });
+}
+
 function validateInspection(input: StageInspectionReviewInput): void {
   if (input.report.candidateChunkCount !== input.candidates.length) {
     throw new Error("Inspection candidate count does not match persisted candidates.");
@@ -114,6 +203,7 @@ export async function stageInspectionReview(
   return db.transaction(async (tx) => {
     const [run] = await tx.insert(ingestionRuns).values({
       sourceType: input.sourceType,
+      reviewPurpose: input.reviewPurpose ?? "content",
       sourceDocumentId: input.sourceDocumentId,
       sourceName: input.sourceName,
       sourceLocation: input.sourceLocation,
@@ -173,12 +263,12 @@ export async function stageInspectionReview(
     await tx.execute(sql`
       UPDATE ${chunkCandidates}
       SET
-        ${chunkCandidates.pageNumbers} = CASE
+        page_numbers = CASE
           WHEN jsonb_typeof(${chunkCandidates.pageNumbers}) = 'string'
             THEN (${chunkCandidates.pageNumbers} #>> '{}')::jsonb
           ELSE ${chunkCandidates.pageNumbers}
         END,
-        ${chunkCandidates.metadata} = CASE
+        metadata = CASE
           WHEN jsonb_typeof(${chunkCandidates.metadata}) = 'string'
             THEN (${chunkCandidates.metadata} #>> '{}')::jsonb
           ELSE ${chunkCandidates.metadata}
@@ -187,13 +277,13 @@ export async function stageInspectionReview(
     `);
     await tx.execute(sql`
       UPDATE ${chunkFlags}
-      SET ${chunkFlags.evidence} = (${chunkFlags.evidence} #>> '{}')::jsonb
+      SET evidence = (${chunkFlags.evidence} #>> '{}')::jsonb
       WHERE ${chunkFlags.ingestionRunId} = ${run.id}
         AND jsonb_typeof(${chunkFlags.evidence}) = 'string'
     `);
     await tx.execute(sql`
       UPDATE ${reviewEvents}
-      SET ${reviewEvents.details} = (${reviewEvents.details} #>> '{}')::jsonb
+      SET details = (${reviewEvents.details} #>> '{}')::jsonb
       WHERE ${reviewEvents.ingestionRunId} = ${run.id}
         AND jsonb_typeof(${reviewEvents.details}) = 'string'
     `);

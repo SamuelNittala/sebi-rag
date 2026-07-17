@@ -12,6 +12,7 @@ describe("review UI rendering", () => {
       id: "run-1",
       sourceName: "SAI-SIF_March-2026.pdf",
       sourceType: "pdf",
+      reviewPurpose: "metadata",
       status: "review_ready",
       candidateChunkCount: 441,
       flaggedChunkCount: 2,
@@ -26,6 +27,7 @@ describe("review UI rendering", () => {
     expect(html).toContain("SAI-SIF_March-2026.pdf");
     expect(html).toContain("441 chunks");
     expect(html).toContain("1 blocking");
+    expect(html).toContain("metadata review");
     expect(html).toContain("/review/documents/run-1");
   });
 
@@ -200,5 +202,56 @@ describe("review UI rendering", () => {
     expect(html).toContain('name="note"');
     expect(html).toContain("Chunk 10");
     expect(html).toContain("Chunk 11");
+  });
+
+  test("renders controlled metadata editors without allowing source text edits", () => {
+    const html = renderCandidateEditor({
+      run: {
+        id: "metadata-run",
+        sourceName: "KIM-Platinum-Hybrid-Long-Short-Fund.pdf",
+        sourceType: "pdf",
+        sourceLocation: "/data/KIM-Platinum-Hybrid-Long-Short-Fund.pdf",
+        status: "review_ready",
+        candidateChunkCount: 1,
+        inspectedChunkCount: 1,
+        flaggedChunkCount: 0,
+        criticalCount: 0,
+        blockingCount: 0,
+        parserVersion: "metadata-source-v1",
+        chunkerVersion: "metadata-preserve-v1",
+        inspectorVersion: "metadata-v1",
+        reviewPurpose: "metadata",
+      },
+      candidates: [{
+        id: "metadata-candidate",
+        chunkIndex: 9,
+        text: "The Investment Strategy shall seek to generate regular income.",
+        pageNumbers: [6],
+        tokenCount: 10,
+        hasTable: false,
+        sectionHeader: "Investment Objective",
+        metadata: {
+          documentScope: "strategy",
+          sourceChunkId: "source-chunk",
+          strategyId: "platinum-hybrid-long-short-fund",
+          canonicalStrategyName: "Platinum Hybrid Long-Short Fund",
+          sourceAuthority: "regulatory_filing",
+          sectionType: "investment_objective",
+          factType: "investment_objective",
+          confidence: 1,
+          classificationSource: "exact_heading",
+          evidence: ["Investment Objective"],
+        },
+        contentHash: "hash-metadata",
+      }],
+      flags: [],
+    });
+
+    expect(html).toContain("Review chunk metadata");
+    expect(html).toContain("/review/candidates/metadata-candidate/metadata");
+    expect(html).toContain('name="sectionType"');
+    expect(html).toContain('value="investment_objective" selected');
+    expect(html).toContain('name="factType"');
+    expect(html).not.toContain('name="text"');
   });
 });

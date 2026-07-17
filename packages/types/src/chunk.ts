@@ -20,6 +20,8 @@ export interface Chunk {
   sebiUrl: string;
 }
 
+import type { CandidateChunkMetadata } from "./chunk-review.ts";
+
 export interface ChunkPayload {
   text: string;
   chunk_index: number;
@@ -44,6 +46,7 @@ export interface ChunkPayload {
   amc_slug?: string | null;
   ingestion_run_id?: string | null;
   publication_status?: "staged" | "published" | "retired";
+  retrieval_metadata?: CandidateChunkMetadata | null;
 }
 
 export interface ChunkConfig {
