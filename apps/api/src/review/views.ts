@@ -7,6 +7,10 @@ import type {
   ReviewSourceType,
 } from "@mf-rag/types";
 import { miraeSifSectionTypes, miraeSifStrategies } from "@mf-rag/core/metadata-review";
+import type {
+  RetrievalChunkView,
+  RetrievalSearchResult,
+} from "../retrieval/mcp-retrieval-search.ts";
 
 export interface ReviewDashboardItem {
   id: string;
@@ -121,10 +125,21 @@ function layout(title: string, body: string): string {
     .document-actions { background: white; border: 1px solid #d0d5dd; padding: 16px; border-radius: 8px; margin-top: 24px; }
     .candidate-editor { background: white; border: 1px solid #d0d5dd; border-radius: 8px; margin: 14px 0; padding: 16px; }
     .candidate-editor textarea { min-height: 180px; font: 13px/1.45 ui-monospace, monospace; }
+    .search-form { display: flex; gap: 10px; padding: 16px; background: white; border: 1px solid #d0d5dd; border-radius: 10px; }
+    .search-form input { flex: 1; min-width: 0; padding: 11px 12px; border: 1px solid #98a2b3; border-radius: 6px; font-size: 15px; }
+    .search-form button { margin: 0; border: 0; border-radius: 6px; padding: 10px 18px; color: white; background: #175cd3; font-weight: 600; }
+    .retrieval-result { margin: 16px 0; padding: 18px; border: 1px solid #d0d5dd; border-radius: 10px; background: white; }
+    .rank-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 6px 10px; background: #101828; color: white; font-weight: 700; }
+    .score { font: 700 18px/1 ui-monospace, monospace; color: #175cd3; }
+    .trace-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+    .trace-cell { border: 1px solid #eaecf0; border-radius: 6px; padding: 8px; }
+    .trace-cell strong { display: block; margin-top: 4px; font: 600 13px/1.3 ui-monospace, monospace; }
+    .signal { display: inline-block; margin: 0 5px 5px 0; padding: 4px 7px; border-radius: 5px; background: #ecfdf3; color: #067647; font: 12px/1.2 ui-monospace, monospace; }
+    .error-panel { border: 1px solid #fda29b; background: #fff1f0; color: #912018; border-radius: 8px; padding: 12px; margin-top: 16px; }
     .metadata-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
     .metadata-grid label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
     .metadata-grid input, .metadata-grid select { padding: 8px; border: 1px solid #d0d5dd; border-radius: 5px; background: white; }
-    @media (max-width: 900px) { .context-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .context-grid { grid-template-columns: 1fr; } .trace-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   </style>
 </head>
 <body><main>${body}</main></body>
@@ -142,9 +157,114 @@ export function renderReviewDashboard(runs: ReviewDashboardItem[]): string {
     <td>${escapeHtml(run.createdAt.toISOString())}</td>
   </tr>`).join("");
 
-  return layout("Chunk review", `<div class="top"><div><h1>Chunk review</h1><p class="muted">Candidate chunks awaiting production approval.</p></div></div>
+  return layout("Chunk review", `<div class="top"><div><h1>Chunk review</h1><p class="muted">Candidate chunks awaiting production approval.</p></div><a href="/review/search">Open retrieval debugger →</a></div>
   <table><thead><tr><th>Document</th><th>Status</th><th>Chunks</th><th>Flags</th><th>Approval</th><th>Versions</th><th>Created</th></tr></thead>
   <tbody>${rows || '<tr><td colspan="7">No review runs found.</td></tr>'}</tbody></table>`);
+}
+
+export interface RetrievalSearchViewModel {
+  query: string;
+  result?: RetrievalSearchResult;
+  error?: string;
+}
+
+function score(value: number | null | undefined): string {
+  return typeof value === "number" ? value.toFixed(3) : "—";
+}
+
+function rank(value: number | null | undefined): string {
+  return typeof value === "number" ? String(value) : "—";
+}
+
+function safeExternalUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function chunkTitle(chunk: RetrievalChunkView): string {
+  return chunk.fundName
+    ?? chunk.documentTitle
+    ?? chunk.documentFilename
+    ?? chunk.sourceType;
+}
+
+function chunkLocation(chunk: RetrievalChunkView): string {
+  const values = [
+    chunk.documentFilename,
+    chunk.docType,
+    chunk.pageNumbers?.length ? `pages ${chunk.pageNumbers.join(", ")}` : undefined,
+    chunk.sectionHeader ?? undefined,
+    chunk.contentCategory,
+  ];
+  return values.filter(Boolean).join(" · ");
+}
+
+function traceCell(label: string, value: string): string {
+  return `<div class="trace-cell"><span class="muted">${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+}
+
+function renderRetrievalChunk(chunk: RetrievalChunkView): string {
+  const trace = chunk.retrievalTrace;
+  const signals = trace?.metadataSignals.map(
+    (signal) => `<span class="signal">${escapeHtml(signal)}</span>`,
+  ).join("") ?? "";
+  const sourceUrl = safeExternalUrl(chunk.sebiUrl ?? chunk.sourceUrl);
+  const location = chunkLocation(chunk);
+  const metadata = {
+    chunkId: chunk.chunkId,
+    sourceType: chunk.sourceType,
+    retrievalMetadata: chunk.retrievalMetadata,
+  };
+  return `<article class="retrieval-result">
+    <div class="flag-head"><div><span class="rank-badge">Rank ${chunk.rank}</span> <strong>${escapeHtml(chunkTitle(chunk))}</strong></div><span class="score">${score(chunk.score)}</span></div>
+    ${(location || sourceUrl) ? `<p class="muted">${escapeHtml(location)}${location && sourceUrl ? " · " : ""}${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">source</a>` : ""}</p>` : ""}
+    ${trace ? `<div class="trace-grid">
+      ${traceCell("Dense rank", rank(trace.denseRank))}
+      ${traceCell("Dense score", score(trace.denseScore))}
+      ${traceCell("Lexical rank", rank(trace.lexicalRank))}
+      ${traceCell("Lexical score", score(trace.lexicalScore))}
+      ${traceCell("RRF score", score(trace.rrfScore))}
+      ${traceCell("Metadata boost", `${trace.metadataAdjustment >= 0 ? "+" : ""}${score(trace.metadataAdjustment)}`)}
+    </div>${signals ? `<div>${signals}</div>` : ""}` : '<p class="muted">No retrieval trace returned.</p>'}
+    <pre>${escapeHtml(chunk.text)}</pre>
+    <details><summary>Chunk metadata</summary><pre>${escapeHtml(JSON.stringify(metadata, null, 2))}</pre></details>
+  </article>`;
+}
+
+export function renderRetrievalSearch(model: RetrievalSearchViewModel): string {
+  const result = model.result;
+  const chunks = result?.chunks
+    .slice()
+    .sort((left, right) => left.rank - right.rank)
+    .map(renderRetrievalChunk)
+    .join("") ?? "";
+  const intent = result?.intent;
+  const summary = result
+    ? `<div class="summary" style="margin-top: 16px">
+      <span class="pill">${result.chunks.length} chunks</span>
+      <span class="pill">${result.queryTimeMs} ms</span>
+      <span class="pill">${result.denseCandidates} dense candidates</span>
+      <span class="pill">${result.lexicalCandidates} lexical candidates</span>
+      <span class="pill">${escapeHtml(result.fusion.toUpperCase())} k=${result.rrfK}</span>
+      <span class="pill info">fact: ${escapeHtml(intent?.factType ?? "none")}</span>
+      <span class="pill info">strategy: ${escapeHtml(intent?.strategyId ?? "none")}</span>
+      <span class="pill info">scope: ${escapeHtml(intent?.preferredDocumentScope ?? "none")}</span>
+    </div>`
+    : "";
+  return layout("Retrieval debugger", `<p><a href="/review">← Chunk review</a></p>
+    <div class="top"><div><h1>Retrieval debugger</h1><p class="muted">Runs the production query_mutual_funds retrieval path and shows the returned chunks in final ranking order.</p></div></div>
+    <form class="search-form" method="get" action="/review/search">
+      <input name="q" value="${escapeHtml(model.query)}" maxlength="500" required autofocus placeholder="Ask a mutual fund question">
+      <button type="submit">Run retrieval</button>
+    </form>
+    ${model.error ? `<div class="error-panel">${escapeHtml(model.error)}</div>` : ""}
+    ${summary}
+    ${result && result.chunks.length === 0 ? '<p class="retrieval-result">No chunks returned.</p>' : chunks}`);
 }
 
 function contextCard(label: string, candidate: ReviewCandidateView | undefined, current = false): string {

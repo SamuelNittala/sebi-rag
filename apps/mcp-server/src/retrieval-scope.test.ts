@@ -55,6 +55,36 @@ describe("resolveRetrievalScope", () => {
     expect(scope.htmlFilters.source_collection).toBe("mirae_sif");
   });
 
+  test("resolves a bare Platinum reference from the reviewed strategy manifest", () => {
+    const scope = resolveRetrievalScope({ question: "Tell me about platinum" });
+
+    expect(scope.searchPdf).toBe(true);
+    expect(scope.searchHtml).toBe(true);
+    expect(scope.pdfFilters.source_collection).toBe("mirae_sif");
+    expect(scope.htmlFilters.source_collection).toBe("mirae_sif");
+  });
+
+  test("resolves a hybrid long-short alias from the reviewed strategy manifest", () => {
+    const scope = resolveRetrievalScope({
+      question: "How does the hybrid long short strategy work?",
+      scheme_name: "hybrid long-short",
+    });
+
+    expect(scope.pdfFilters.fund_name).toBe("Platinum Hybrid Long-Short Fund");
+    expect(scope.pdfFilters.source_collection).toBe("mirae_sif");
+    expect(scope.allowFundFilterFallback).toBe(true);
+  });
+
+  test("recognizes plural SIFs and keeps the query in regulatory knowledge", () => {
+    const scope = resolveRetrievalScope({
+      question: "What are the risk factors associated with investing in SIFs?",
+    });
+
+    expect(scope.searchPdf).toBe(false);
+    expect(scope.searchHtml).toBe(true);
+    expect(scope.htmlFilters.source_collection).toBe("sebi_regulatory");
+  });
+
   test("keeps an explicit scheme query limited to scheme documents", () => {
     const scope = resolveRetrievalScope({
       question: "Tell me about Platinum Hybrid Long-Short Fund",
@@ -65,6 +95,7 @@ describe("resolveRetrievalScope", () => {
     expect(scope.searchHtml).toBe(false);
     expect(scope.pdfFilters.fund_name).toBe("Platinum Hybrid Long-Short Fund");
     expect(scope.pdfFilters.source_collection).toBe("mirae_sif");
+    expect(scope.allowFundFilterFallback).toBe(true);
   });
 
   test("treats Platinum SIF as an umbrella instead of an exact strategy name", () => {
@@ -113,5 +144,14 @@ describe("resolveRetrievalScope", () => {
     expect(scope.searchHtml).toBe(true);
     expect(scope.pdfFilters).toEqual({});
     expect(scope.htmlFilters).toEqual({});
+  });
+
+  test("does not allow a fund-filter fallback for an unreviewed scheme", () => {
+    const scope = resolveRetrievalScope({
+      question: "Tell me about an unrelated fund",
+      scheme_name: "Unrelated Fund",
+    });
+
+    expect(scope.allowFundFilterFallback).toBe(false);
   });
 });

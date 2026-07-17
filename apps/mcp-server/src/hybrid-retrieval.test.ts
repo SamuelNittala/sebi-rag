@@ -42,6 +42,11 @@ describe("hybrid retrieval intent", () => {
       preferredDocumentScope: "sif_umbrella",
     });
   });
+
+  test("keeps the plural SIFs form at umbrella scope", () => {
+    expect(resolveRetrievalIntent("Explain SIFs").preferredDocumentScope)
+      .toBe("sif_umbrella");
+  });
 });
 
 describe("reciprocal-rank fusion", () => {

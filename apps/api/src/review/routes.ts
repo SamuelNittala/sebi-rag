@@ -10,11 +10,13 @@ import {
   rejectReviewRun,
 } from "@mf-rag/db/review-queries";
 import type { Database } from "@mf-rag/db/client";
+import type { RetrievalSearch } from "../retrieval/mcp-retrieval-search.ts";
 import { editReviewCandidate } from "./candidate-editor.ts";
 import { editReviewCandidateMetadata } from "./metadata-editor.ts";
 import {
   renderCandidateEditor,
   renderDocumentReview,
+  renderRetrievalSearch,
   renderReviewDashboard,
 } from "./views.ts";
 
@@ -34,7 +36,11 @@ function requiredFormString(
   return value.trim();
 }
 
-export function createReviewApp(db: Database, auth: ReviewAuthConfig): Hono {
+export function createReviewApp(
+  db: Database,
+  auth: ReviewAuthConfig,
+  retrievalSearch?: RetrievalSearch,
+): Hono {
   const app = new Hono();
   app.use("*", basicAuth({ username: auth.username, password: auth.password, realm: "Chunk Review" }));
   app.use("*", csrf());
@@ -42,6 +48,30 @@ export function createReviewApp(db: Database, auth: ReviewAuthConfig): Hono {
   app.get("/", async (c) => {
     const runs = await listReviewRuns(db);
     return c.html(renderReviewDashboard(runs));
+  });
+
+  app.get("/search", async (c) => {
+    const query = (c.req.query("q") ?? "").trim();
+    if (!query) return c.html(renderRetrievalSearch({ query: "" }));
+    if (query.length > 500) {
+      return c.html(renderRetrievalSearch({
+        query,
+        error: "Queries must be 500 characters or fewer.",
+      }), 400);
+    }
+    if (!retrievalSearch) {
+      return c.html(renderRetrievalSearch({
+        query,
+        error: "Retrieval search is not configured on this server.",
+      }), 503);
+    }
+    try {
+      const result = await retrievalSearch.search(query);
+      return c.html(renderRetrievalSearch({ query, result }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Retrieval failed.";
+      return c.html(renderRetrievalSearch({ query, error: message }), 502);
+    }
   });
 
   app.get("/documents/:runId", async (c) => {

@@ -36,6 +36,7 @@ export interface HybridSearchOptions {
   searchPdf?: boolean;
   searchHtml?: boolean;
   rankingProfile?: RetrievalRankingProfile;
+  allowFundFilterFallback?: boolean;
 }
 
 function pdfCandidate(result: SearchResult): MergedResult {
@@ -77,6 +78,73 @@ function globallyRank(candidates: MergedResult[], limit: number) {
     .map((candidate) => ({ candidate, score: candidate.score }));
 }
 
+interface CandidateSearchInput {
+  candidateLimit: number;
+  scoreThreshold: number;
+  pdfFilters?: SearchFilters;
+  htmlFilters?: HtmlSearchFilters;
+  searchPdf: boolean;
+  searchHtml: boolean;
+}
+
+async function retrieveCandidates(
+  vectorClient: VectorClient,
+  query: string,
+  queryVector: number[],
+  input: CandidateSearchInput,
+) {
+  const pdfFilters = input.pdfFilters && Object.keys(input.pdfFilters).length > 0
+    ? input.pdfFilters
+    : undefined;
+  const htmlFilters = input.htmlFilters && Object.keys(input.htmlFilters).length > 0
+    ? input.htmlFilters
+    : undefined;
+  const [pdfDense, htmlDense, pdfLexical, htmlLexical] = await Promise.all([
+    input.searchPdf
+      ? vectorClient.searchSimilar(queryVector, {
+          limit: input.candidateLimit,
+          filters: pdfFilters,
+          scoreThreshold: input.scoreThreshold,
+        })
+      : Promise.resolve([]),
+    input.searchHtml
+      ? vectorClient.searchHtmlSimilar(queryVector, {
+          limit: input.candidateLimit,
+          filters: htmlFilters,
+          scoreThreshold: input.scoreThreshold,
+        })
+      : Promise.resolve([]),
+    input.searchPdf
+      ? vectorClient.searchLexical(query, {
+          limit: input.candidateLimit,
+          filters: pdfFilters,
+        })
+      : Promise.resolve([]),
+    input.searchHtml
+      ? vectorClient.searchHtmlLexical(query, {
+          limit: input.candidateLimit,
+          filters: htmlFilters,
+        })
+      : Promise.resolve([]),
+  ]);
+  return {
+    dense: globallyRank([
+      ...pdfDense.map(pdfCandidate),
+      ...htmlDense.map(htmlCandidate),
+    ], input.candidateLimit),
+    lexical: globallyRank([
+      ...pdfLexical.map(pdfCandidate),
+      ...htmlLexical.map(htmlCandidate),
+    ], input.candidateLimit),
+  };
+}
+
+function withoutFundFilter(filters: SearchFilters): SearchFilters {
+  const fallback = { ...filters };
+  delete fallback.fund_name;
+  return fallback;
+}
+
 export async function searchHybridDocuments(
   vectorClient: VectorClient,
   query: string,
@@ -93,56 +161,45 @@ export async function searchHybridDocuments(
     searchPdf = true,
     searchHtml = true,
     rankingProfile,
+    allowFundFilterFallback = false,
   } = options;
   const candidateLimit = Math.max(
     configuredCandidateLimit,
     retrievalCandidateLimit(limit, rankingProfile),
   );
-  const activePdfFilters = pdfFilters && Object.keys(pdfFilters).length > 0
-    ? pdfFilters
-    : undefined;
-  const activeHtmlFilters = htmlFilters && Object.keys(htmlFilters).length > 0
-    ? htmlFilters
-    : undefined;
-
-  const [pdfDense, htmlDense, pdfLexical, htmlLexical] = await Promise.all([
-    searchPdf
-      ? vectorClient.searchSimilar(queryVector, {
-          limit: candidateLimit,
-          filters: activePdfFilters,
-          scoreThreshold,
-        })
-      : Promise.resolve([]),
-    searchHtml
-      ? vectorClient.searchHtmlSimilar(queryVector, {
-          limit: candidateLimit,
-          filters: activeHtmlFilters,
-          scoreThreshold,
-        })
-      : Promise.resolve([]),
-    searchPdf
-      ? vectorClient.searchLexical(query, {
-          limit: candidateLimit,
-          filters: activePdfFilters,
-        })
-      : Promise.resolve([]),
-    searchHtml
-      ? vectorClient.searchHtmlLexical(query, {
-          limit: candidateLimit,
-          filters: activeHtmlFilters,
-        })
-      : Promise.resolve([]),
-  ]);
-  const dense = globallyRank([
-    ...pdfDense.map(pdfCandidate),
-    ...htmlDense.map(htmlCandidate),
-  ], candidateLimit);
-  const lexical = globallyRank([
-    ...pdfLexical.map(pdfCandidate),
-    ...htmlLexical.map(htmlCandidate),
-  ], candidateLimit);
+  let candidates = await retrieveCandidates(vectorClient, query, queryVector, {
+    candidateLimit,
+    scoreThreshold,
+    pdfFilters,
+    htmlFilters,
+    searchPdf,
+    searchHtml,
+  });
+  let fundFilterFallbackApplied = false;
+  const canRetry = allowFundFilterFallback
+    && Boolean(pdfFilters?.fund_name)
+    && Boolean(pdfFilters?.source_collection)
+    && candidates.dense.length === 0
+    && candidates.lexical.length === 0;
+  if (canRetry && pdfFilters) {
+    candidates = await retrieveCandidates(vectorClient, query, queryVector, {
+      candidateLimit,
+      scoreThreshold,
+      pdfFilters: withoutFundFilter(pdfFilters),
+      htmlFilters,
+      searchPdf: true,
+      searchHtml: Boolean(htmlFilters?.source_collection),
+    });
+    fundFilterFallbackApplied = true;
+  }
   const intent = resolveRetrievalIntent(query);
-  const fused = fuseHybridCandidates({ dense, lexical, intent, limit, rrfK });
+  const fused = fuseHybridCandidates({
+    dense: candidates.dense,
+    lexical: candidates.lexical,
+    intent,
+    limit,
+    rrfK,
+  });
   const results = fused.map(({ candidate, trace }) => ({
     ...candidate,
     score: trace.finalScore,
@@ -152,11 +209,12 @@ export async function searchHybridDocuments(
   return {
     results,
     retrieval: {
-      denseCandidates: dense.length,
-      lexicalCandidates: lexical.length,
+      denseCandidates: candidates.dense.length,
+      lexicalCandidates: candidates.lexical.length,
       fusion: "rrf" as const,
       rrfK,
       intent,
+      fundFilterFallbackApplied,
     },
   };
 }

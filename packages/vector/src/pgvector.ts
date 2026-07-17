@@ -434,7 +434,15 @@ export class VectorClient {
     const parts: ReturnType<typeof sql>[] = [];
 
     if (filters.fund_name) {
-      parts.push(sql`AND fund_name = ${filters.fund_name}`);
+      parts.push(sql`AND regexp_replace(
+        regexp_replace(lower(fund_name), '[^a-z0-9]+', '', 'g'),
+        'fund$',
+        ''
+      ) LIKE '%' || regexp_replace(
+        regexp_replace(lower(${filters.fund_name}), '[^a-z0-9]+', '', 'g'),
+        'fund$',
+        ''
+      ) || '%'`);
     }
     if (filters.amc_name) {
       parts.push(sql`AND amc_name = ${filters.amc_name}`);

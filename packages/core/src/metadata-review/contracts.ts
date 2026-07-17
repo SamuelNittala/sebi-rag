@@ -21,7 +21,28 @@ export const miraeSifSectionTypes = [
 export const miraeSifStrategies = [{
   id: "platinum-hybrid-long-short-fund",
   name: "Platinum Hybrid Long-Short Fund",
+  aliases: [
+    "platinum",
+    "platinum sif",
+    "platinum hybrid fund",
+    "platinum hybrid long-short fund",
+    "platinum hybrid long short fund",
+    "platinum long-short",
+    "platinum long short",
+    "hybrid long-short",
+    "hybrid long short",
+  ],
 }] as const;
+
+export const miraeSifUmbrellaAliases = [
+  "sif",
+  "sifs",
+  "mirae sif",
+  "platinum",
+  "platinum sif",
+  "specialized investment fund",
+  "specialized investment funds",
+] as const;
 
 export type MiraeSifSectionType = (typeof miraeSifSectionTypes)[number];
 export type MiraeSifFactType = Exclude<MiraeSifSectionType,

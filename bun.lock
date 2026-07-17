@@ -21,6 +21,7 @@
         "@mf-rag/db": "workspace:*",
         "@mf-rag/types": "workspace:*",
         "@mf-rag/vector": "workspace:*",
+        "@modelcontextprotocol/sdk": "^1.0.0",
         "hono": "^4.4.0",
         "pino": "^9.0.0",
         "pino-pretty": "^11.0.0",

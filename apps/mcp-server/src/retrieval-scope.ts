@@ -1,4 +1,8 @@
 import type { HtmlSearchFilters, SearchFilters } from "@mf-rag/vector";
+import {
+  miraeSifStrategies,
+  miraeSifUmbrellaAliases,
+} from "@mf-rag/core/metadata-review";
 import type { RetrievalRankingProfile } from "./retrieval-ranking.ts";
 
 export interface RetrievalScopeRequest {
@@ -16,41 +20,60 @@ export interface RetrievalScope {
   htmlFilters: HtmlSearchFilters;
   searchPdf: boolean;
   searchHtml: boolean;
+  allowFundFilterFallback: boolean;
   rankingProfile?: RetrievalRankingProfile;
 }
 
-const SIF_PATTERN = /\bSIF\b|speciali[sz]ed\s+investment\s+fund/i;
+const SIF_PATTERN = /\bSIFs?\b|speciali[sz]ed\s+investment\s+funds?\b/i;
 const MIRAE_PATTERN = /\bmirae(?:\s+asset)?\b/i;
-const PLATINUM_SIF_PATTERN = /\bplatinum\b.*\b(?:fund|long-short|sif)\b/i;
-const SIF_UMBRELLA_SCHEME_PATTERN = /^(?:(?:mirae(?:\s+asset)?|platinum)\s+)*(?:sif|speciali[sz]ed\s+investment\s+fund)$/i;
 const OVERVIEW_QUESTION_PATTERN = /\b(?:tell me about|overview|what is|which (?:investment )?strateg(?:y|ies)|available strateg(?:y|ies))\b/i;
 const FUND_MANAGER_QUESTION_PATTERN = /\b(?:fund manager|who manages)\b/i;
 
-function isSifUmbrellaSchemeName(schemeName?: string): boolean {
-  return SIF_UMBRELLA_SCHEME_PATTERN.test(schemeName?.trim() ?? "");
+function normalizeAlias(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-function isSifRequest(request: RetrievalScopeRequest): boolean {
+function containsAlias(value: string, alias: string): boolean {
+  return ` ${normalizeAlias(value)} `.includes(` ${normalizeAlias(alias)} `);
+}
+
+function resolveManifestStrategy(...values: Array<string | undefined>) {
+  return miraeSifStrategies.find((strategy) => values.some((value) =>
+    Boolean(value && strategy.aliases.some((alias) => containsAlias(value, alias)))
+  ));
+}
+
+function isSifUmbrellaSchemeName(schemeName?: string): boolean {
+  const normalized = normalizeAlias(schemeName ?? "");
+  return miraeSifUmbrellaAliases.some((alias) => normalizeAlias(alias) === normalized);
+}
+
+function isSifRequest(
+  request: RetrievalScopeRequest,
+  hasManifestTarget: boolean,
+): boolean {
   return request.topic?.trim().toLowerCase() === "sif"
     || SIF_PATTERN.test(request.question)
     || SIF_PATTERN.test(request.scheme_name ?? "")
-    || PLATINUM_SIF_PATTERN.test(request.question)
-    || PLATINUM_SIF_PATTERN.test(request.scheme_name ?? "");
+    || hasManifestTarget;
 }
 
-function isMiraeRequest(request: RetrievalScopeRequest): boolean {
+function isMiraeRequest(
+  request: RetrievalScopeRequest,
+  hasManifestTarget: boolean,
+): boolean {
   return MIRAE_PATTERN.test(request.amc_name ?? "")
     || MIRAE_PATTERN.test(request.question)
-    || PLATINUM_SIF_PATTERN.test(request.question)
-    || PLATINUM_SIF_PATTERN.test(request.scheme_name ?? "");
+    || hasManifestTarget;
 }
 
 function addPdfArguments(
   filters: SearchFilters,
-  request: RetrievalScopeRequest
+  request: RetrievalScopeRequest,
+  canonicalStrategyName?: string,
 ): void {
   if (request.scheme_name && !isSifUmbrellaSchemeName(request.scheme_name)) {
-    filters.fund_name = request.scheme_name;
+    filters.fund_name = canonicalStrategyName ?? request.scheme_name;
   }
   if (request.scheme_type) filters.scheme_type = request.scheme_type;
   if (request.doc_type) filters.doc_type = request.doc_type;
@@ -66,7 +89,8 @@ export function resolveRetrievalScope(
 ): RetrievalScope {
   const pdfFilters: SearchFilters = {};
   const htmlFilters: HtmlSearchFilters = {};
-  addPdfArguments(pdfFilters, request);
+  const manifestStrategy = resolveManifestStrategy(request.question, request.scheme_name);
+  addPdfArguments(pdfFilters, request, manifestStrategy?.name);
 
   if (request.content_category) {
     htmlFilters.content_category = request.content_category;
@@ -76,8 +100,9 @@ export function resolveRetrievalScope(
     pdfFilters.fund_name || request.scheme_type || request.doc_type
   );
   const hasHtmlArguments = Boolean(request.content_category);
-  const sifRequest = isSifRequest(request);
-  const miraeRequest = isMiraeRequest(request);
+  const hasManifestTarget = Boolean(manifestStrategy);
+  const sifRequest = isSifRequest(request, hasManifestTarget);
+  const miraeRequest = isMiraeRequest(request, hasManifestTarget);
   const rankingProfile = sifRequest && miraeRequest
     ? FUND_MANAGER_QUESTION_PATTERN.test(request.question)
       ? "mirae_sif_fund_manager"
@@ -98,16 +123,23 @@ export function resolveRetrievalScope(
   }
 
   if (hasPdfArguments) {
-    return { pdfFilters, htmlFilters, searchPdf: true, searchHtml: false, rankingProfile };
+    return {
+      pdfFilters,
+      htmlFilters,
+      searchPdf: true,
+      searchHtml: false,
+      allowFundFilterFallback: hasManifestTarget && Boolean(pdfFilters.source_collection),
+      rankingProfile,
+    };
   }
 
   if (hasHtmlArguments) {
-    return { pdfFilters, htmlFilters, searchPdf: false, searchHtml: true, rankingProfile };
+    return { pdfFilters, htmlFilters, searchPdf: false, searchHtml: true, allowFundFilterFallback: false, rankingProfile };
   }
 
   if (sifRequest && !miraeRequest) {
-    return { pdfFilters, htmlFilters, searchPdf: false, searchHtml: true, rankingProfile };
+    return { pdfFilters, htmlFilters, searchPdf: false, searchHtml: true, allowFundFilterFallback: false, rankingProfile };
   }
 
-  return { pdfFilters, htmlFilters, searchPdf: true, searchHtml: true, rankingProfile };
+  return { pdfFilters, htmlFilters, searchPdf: true, searchHtml: true, allowFundFilterFallback: false, rankingProfile };
 }

@@ -11,7 +11,7 @@ import type {
 
 const PLATINUM_STRATEGY_ID = "platinum-hybrid-long-short-fund";
 const PLATINUM_PATTERN = /\bplatinum\b/i;
-const SIF_PATTERN = /\bSIF\b|speciali[sz]ed\s+investment\s+fund/i;
+const SIF_PATTERN = /\bSIFs?\b|speciali[sz]ed\s+investment\s+funds?\b/i;
 
 const FACT_PATTERNS: ReadonlyArray<[RetrievalFactIntent, RegExp]> = [
   ["fund_manager", /\b(?:fund\s+manager|who\s+manages|managed\s+by)\b/i],

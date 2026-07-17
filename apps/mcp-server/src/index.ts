@@ -59,6 +59,12 @@ const config = {
     candidateLimit: positiveNumber(process.env.RETRIEVAL_CANDIDATE_LIMIT, 40),
     rrfK: positiveNumber(process.env.RETRIEVAL_RRF_K, 60),
   },
+  http: {
+    idleTimeoutSeconds: Math.min(
+      positiveNumber(process.env.MCP_HTTP_IDLE_TIMEOUT_SECONDS, 60),
+      255,
+    ),
+  },
   rateLimiting: {
     enabled: process.env.ENABLE_RATE_LIMITING === "true",
     apiKey: process.env.MF_RAG_API_KEY,
@@ -346,21 +352,26 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           searchPdf: scope.searchPdf,
           searchHtml: scope.searchHtml,
           rankingProfile: scope.rankingProfile,
+          allowFundFilterFallback: scope.allowFundFilterFallback,
         });
 
         // 3. Build response with chunks and citations
         const chunks = merged.map((r, i) => ({
           rank: i + 1,
           score: parseFloat(r.score.toFixed(3)),
+          chunkId: r.id,
           source_type: r.source_type,
           text: r.text,
           sectionHeader: r.sectionHeader,
           retrievalTrace: r.retrievalTrace,
+          retrievalMetadata: r.metadata,
           // PDF fields (present when source_type is "scheme_document")
           ...(r.source_type === "scheme_document" && {
             fundName: r.fundName,
             docType: r.docType,
             pageNumbers: r.pageNumbers,
+            documentFilename: r.documentFilename,
+            sebiUrl: r.sebiUrl,
           }),
           // HTML fields (present when source_type is "knowledge_base")
           ...(r.source_type === "knowledge_base" && {
@@ -443,6 +454,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           searchPdf: scope.searchPdf,
           searchHtml: scope.searchHtml,
           rankingProfile: scope.rankingProfile,
+          allowFundFilterFallback: scope.allowFundFilterFallback,
         });
 
         const searchResults = merged.map((r, i) => ({
@@ -651,6 +663,7 @@ async function main() {
     Bun.serve({
       port,
       hostname: "0.0.0.0",
+      idleTimeout: config.http.idleTimeoutSeconds,
       async fetch(req) {
         const url = new URL(req.url);
 

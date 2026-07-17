@@ -3,10 +3,98 @@ import { describe, expect, test } from "bun:test";
 import {
   renderCandidateEditor,
   renderDocumentReview,
+  renderRetrievalSearch,
   renderReviewDashboard,
 } from "./views.ts";
 
 describe("review UI rendering", () => {
+  test("renders a query form before a retrieval search is run", () => {
+    const html = renderRetrievalSearch({ query: "" });
+
+    expect(html).toContain("Retrieval debugger");
+    expect(html).toContain('name="q"');
+    expect(html).toContain('action="/review/search"');
+    expect(html).not.toContain('<article class="retrieval-result">');
+  });
+
+  test("renders retrieved chunks in rank order with scores and retrieval traces", () => {
+    const html = renderRetrievalSearch({
+      query: "what are the strategies of platinum sif?",
+      result: {
+        queryTimeMs: 84,
+        denseCandidates: 40,
+        lexicalCandidates: 40,
+        fusion: "rrf",
+        rrfK: 60,
+        intent: {
+          factType: "investment_strategy",
+          strategyId: "platinum-hybrid-long-short-fund",
+          preferredDocumentScope: "strategy",
+        },
+        chunks: [
+          {
+            rank: 2,
+            score: 0.82,
+            chunkId: "chunk-2",
+            sourceType: "knowledge_base",
+            text: "Second result",
+            sectionHeader: null,
+            documentTitle: "Product page",
+            sourceUrl: "javascript:alert(1)",
+            retrievalMetadata: null,
+            retrievalTrace: {
+              denseRank: 3,
+              denseScore: 0.7,
+              lexicalRank: null,
+              lexicalScore: null,
+              rrfScore: 0.48,
+              metadataAdjustment: 0,
+              metadataSignals: [],
+              finalScore: 0.82,
+            },
+          },
+          {
+            rank: 1,
+            score: 0.984,
+            chunkId: "chunk-1",
+            sourceType: "scheme_document",
+            text: "<strong>There are no other existing strategies.</strong>",
+            sectionHeader: "Existing investment strategies",
+            fundName: "Platinum Hybrid Long Short Fund",
+            docType: "ISID",
+            pageNumbers: [23],
+            documentFilename: "ISID.pdf",
+            sebiUrl: "https://example.com/isid.pdf",
+            retrievalMetadata: {
+              factType: "investment_strategy",
+              documentScope: "strategy",
+            },
+            retrievalTrace: {
+              denseRank: 1,
+              denseScore: 0.795,
+              lexicalRank: 3,
+              lexicalScore: 18.33,
+              rrfScore: 0.984,
+              metadataAdjustment: 0.18,
+              metadataSignals: ["fact_type:investment_strategy"],
+              finalScore: 0.984,
+            },
+          },
+        ],
+      },
+    });
+
+    expect(html.indexOf("Rank 1")).toBeLessThan(html.indexOf("Rank 2"));
+    expect(html).toContain("0.984");
+    expect(html).toContain("Dense rank");
+    expect(html).toContain("Lexical rank");
+    expect(html).toContain("fact_type:investment_strategy");
+    expect(html).toContain("ISID.pdf");
+    expect(html).not.toContain('href="javascript:alert(1)"');
+    expect(html).not.toContain("<strong>There are no other existing strategies.</strong>");
+    expect(html).toContain("&lt;strong&gt;There are no other existing strategies.&lt;/strong&gt;");
+  });
+
   test("renders document status and flag counts on the dashboard", () => {
     const html = renderReviewDashboard([{
       id: "run-1",

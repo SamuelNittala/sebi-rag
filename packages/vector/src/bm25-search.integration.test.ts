@@ -37,7 +37,7 @@ integrationDescribe("PostgreSQL BM25 retrieval", () => {
       document_id: documentId,
       document_filename: "platinum-sif-isid.pdf",
       page_numbers: [22],
-      fund_name: "Platinum SIF",
+      fund_name: "I Platinum Hybrid Long Short Fund",
       amc_name: "Mirae Asset",
       scheme_type: "SIF",
       scheme_category: "",
@@ -137,5 +137,24 @@ integrationDescribe("PostgreSQL BM25 retrieval", () => {
     expect(results.some((result) => result.payload.text.includes("Staged Person"))).toBe(false);
     expect(results[0]?.payload.retrieval_metadata?.factType).toBe("fund_manager");
     expect(results[0]?.score).toBeGreaterThan(0);
+  });
+
+  test("matches a fund filter across casing, punctuation, and indexed prefixes", async () => {
+    const { VectorClient } = await import("./pgvector.ts");
+    const results = await new VectorClient().searchLexical(
+      "Platinum investment strategy",
+      {
+        limit: 10,
+        filters: {
+          fund_name: "Platinum Hybrid Long-Short Fund",
+          source_collection: "mirae_sif",
+        },
+      },
+    );
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((result) =>
+      result.payload.fund_name === "I Platinum Hybrid Long Short Fund"
+    )).toBe(true);
   });
 });
