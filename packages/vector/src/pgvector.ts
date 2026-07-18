@@ -32,6 +32,12 @@ function postgresTextArray(tokens: string[]): string {
   return `{${tokens.join(",")}}`;
 }
 
+/** content_category filter supporting a single category or an allowed set. */
+function htmlCategoryCondition(category: string | string[]) {
+  const values = Array.isArray(category) ? category : [category];
+  return sql`AND content_category IN (${sql.join(values.map((value) => sql`${value}`), sql`, `)})`;
+}
+
 export interface VectorClientConfig {
   // These are kept for backwards compatibility but ignored
   // pgvector uses the shared DATABASE_URL connection
@@ -625,7 +631,7 @@ export class VectorClient {
 
     const conditions: ReturnType<typeof sql>[] = [];
     if (filters?.content_category) {
-      conditions.push(sql`AND content_category = ${filters.content_category}`);
+      conditions.push(htmlCategoryCondition(filters.content_category));
     }
     if (filters?.document_id) {
       conditions.push(sql`AND document_id = ${filters.document_id}::uuid`);
@@ -860,7 +866,7 @@ export class VectorClient {
     if (!filters) return sql``;
     const conditions: ReturnType<typeof sql>[] = [];
     if (filters.content_category) {
-      conditions.push(sql`AND content_category = ${filters.content_category}`);
+      conditions.push(htmlCategoryCondition(filters.content_category));
     }
     if (filters.document_id) {
       conditions.push(sql`AND document_id = ${filters.document_id}::uuid`);
