@@ -175,11 +175,15 @@ export async function ingestHtmlDocument(
 
     if (fullConfig.reviewGate === "required") {
       onProgress?.({ stage: "inspection", detail: "Inspecting every candidate chunk", percentage: 40 });
+      // A page title is only a fund name on product pages — education/faq
+      // titles (blog headlines) must not push the scope to "strategy".
+      const scopeFundName =
+        frontmatter.content_category === "product" ? frontmatter.title : null;
       const documentScope = classifyDocumentScope({
         filename,
         documentType: frontmatter.content_category,
         sourceCollection: knowledgeScope.sourceCollection,
-        fundName: frontmatter.title,
+        fundName: scopeFundName,
       });
       const prepared = prepareChunkReview({
         document: {

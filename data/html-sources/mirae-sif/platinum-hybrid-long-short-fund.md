@@ -1,9 +1,9 @@
 ---
 title: "Platinum Hybrid Long-Short Fund"
-source_url: "https://sif-dev.example.com/fund?schemeCode=3166"
+source_url: "https://platinumsif.miraeassetmf.co.in/fund?schemeCode=3166"
 content_category: product
 source: mirae-sif
-scraped_at: "2026-07-16T17:54:27.953Z"
+scraped_at: "2026-07-18T19:31:09.561Z"
 ---
 
 # Platinum Hybrid Long-Short Fund
@@ -18,7 +18,7 @@ INVEST NOW
 
 ## Investment Objective
 
-The Investment Strategy shall seek to generate regular income through investment in derivative strategies, arbitrage opportunities and debt and money market instruments and to generate long-term capital appreciation by investing in unhedged equity and equity related instruments. There is no assurance that the investment objective of the Investment Strategy will be achieved.
+The Investment Strategy shall seek to generate regular income through investment in derivative strategies, arbitrage opportunities and debt and money market instruments and to generate long-term capital appreciation by investing in unhedged equity and equity related instruments. There is no assurance that the investment objective of the Investment Strategy will be achieved..
 
 Monthly AUM
 
@@ -42,7 +42,7 @@ Exit Load
 
 Taxation
 
-[Click here](https://cms-dev.example.com/wp-content/uploads/2026/05/tax-reckoner-2026-27.pdf) to view
+[Click here](https://miraeassetetf.co.in/wp-content/uploads/2026/05/tax-reckoner-2026-27.pdf) to view
 
 Additional Benchmark
 
@@ -92,11 +92,11 @@ SIP (Systematic Investment Plan) Amount
 
 Inception Date:
 
-11 Jun, 2026
+10 Jun, 2026
 
 Plans And Options
 
-Plans - Regular Plan and Direct Plan.
+Plans - Regular Plan and Direct Plan.  
 Options - Growth Option & Income Distribution cum & Reinvestment option
 
 Category:
@@ -114,9 +114,9 @@ Interval investment strategy under SIF
 ### Fund Managers
 
 *   [Image: photo of fund manager: Mr. Gaurik Shah]
-
+    
     Mr. Gaurik Shah
-
+    
 
 ### Exit Load
 
@@ -149,10 +149,6 @@ KIM
 
 ISID
 
-[Image: icon for Transaction Forms]
-
-Transaction Forms
-
 [Image: icon for Platinum Hybrid Long-Short Fund Presentation]
 
 Platinum Hybrid Long-Short Fund Presentation
@@ -170,9 +166,9 @@ Platinum Hybrid Long-Short Fund One Pager
 This product is suitable for investors who are seeking\*
 
 *   Regular Income and Long term capital appreciation
-
+    
 *   Investment predominantly in equity and debt securities, including limited short exposure in equity and debt through derivatives
-
+    
 
 \*Investors should consult their financial advisors if they are not clear about the suitability of the product.
 
@@ -227,10 +223,6 @@ Higher Risk
 Lower Risk
 
 Higher Risk
-
-Disclaimers
-
-The above product labelling assigned during the New Fund Offer (NFO) is based on internal assessment of the characteristics of the investment strategy or model portfolio and the same may vary post NFO when the actual investments are made.
 
 Watch!
 
@@ -290,8 +282,8 @@ An open ended/interval investment strategy investing in equity and equity relate
 
 **Sector Rotation Long-Short Fund**
 
-Minimum investment in equity and equity related instruments of maximum 4 sectors – 80% & Maximum short exposure through unhedged derivative positions in equity and equity related instruments: 25%\*
-
+Minimum investment in equity and equity related instruments of maximum 4 sectors – 80% & Maximum short exposure through unhedged derivative positions in equity and equity related instruments: 25%\*  
+  
 \*Short exposure shall apply at the sector level, covering all stocks within that sector held in the portfolio. For instance, if the fund takes a short position in the Auto sector, all Auto sector stocks in the portfolio must be held as short positions.
 
 An open ended/interval investment strategy investing in equity and equity related instruments including limited short exposure in equity through derivative instruments, of maximum four sectors.
@@ -318,8 +310,8 @@ Interval investment strategy investing in debt instruments including limited sho
 
 **Sectoral Debt Long-Short Fund**
 
-Investment in debt instruments of at least two sectors, with maximum investment of 75% in a single sector. Maximum short exposure through unhedged derivative positions in debt instruments: 25%\*
-
+Investment in debt instruments of at least two sectors, with maximum investment of 75% in a single sector. Maximum short exposure through unhedged derivative positions in debt instruments: 25%\*  
+  
 \*Short exposure shall be across the sector, applicable for all the instruments of that particular sector held in the portfolio. Example: If the fund is short on Auto sector, then all debt instruments of the Auto sector, held in portfolio, shall be held as short positions.
 
 Interval investment strategy investing in debt instruments including limited short position in debt instruments, of minimum two sectors.
