@@ -8,6 +8,8 @@ import {
   htmlChunks,
   htmlDocuments,
   ingestionRuns,
+  or,
+  sql,
   stageInspectionReview,
   type Database,
 } from "@mf-rag/db";
@@ -44,7 +46,10 @@ async function loadPublishedMiraeSifChunks(database: Database): Promise<Publishe
       sectionHeader: htmlChunks.sectionHeading,
     }).from(htmlChunks).innerJoin(htmlDocuments, eq(htmlChunks.documentId, htmlDocuments.id)).where(and(
       eq(htmlChunks.publicationStatus, "published"),
-      eq(htmlChunks.sourceCollection, "mirae_sif"),
+      or(
+        eq(htmlChunks.sourceCollection, "mirae_sif"),
+        eq(htmlChunks.sourceCollection, "sebi_regulatory"),
+      ),
     )),
   ]);
   return [
@@ -62,11 +67,14 @@ export async function stageMiraeSifMetadataReviews(
     const first = documentRows[0];
     if (!first) continue;
     const snapshotHash = publishedSourceSnapshotHash(documentRows);
+    // Rejected/failed runs must not block a restage — a rejection is often
+    // followed by a classifier fix and a fresh pass over the same snapshot.
     const [existing] = await database.select({ id: ingestionRuns.id }).from(ingestionRuns).where(and(
       eq(ingestionRuns.sourceType, first.sourceType),
       eq(ingestionRuns.sourceDocumentId, first.sourceDocumentId),
       eq(ingestionRuns.reviewPurpose, "metadata"),
       eq(ingestionRuns.fileHash, snapshotHash),
+      sql`${ingestionRuns.status} NOT IN ('rejected', 'failed')`,
     ));
     if (existing) continue;
     const prepared = prepareMiraeSifMetadataReview({

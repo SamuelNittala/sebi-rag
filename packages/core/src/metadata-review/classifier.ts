@@ -90,8 +90,16 @@ export function resolveMiraeSifDocumentIdentity(
   if (/\b(?:ISID|KIM)[-_]/i.test(name)) {
     return platinumIdentity("regulatory_filing");
   }
-  if (/\b(?:Presentation|One-Pager)\b/i.test(name)) {
+  if (/\b(?:Presentation|One[- ]?Pager|Four[- ]?Pager)\b/i.test(name)) {
     return platinumIdentity("marketing");
+  }
+  if (/sebi\.gov\.in/i.test(location)) {
+    return {
+      documentScope: "regulatory",
+      strategyId: null,
+      canonicalStrategyName: null,
+      sourceAuthority: "regulatory_filing",
+    };
   }
   return {
     documentScope: "unknown",

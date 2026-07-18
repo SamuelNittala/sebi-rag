@@ -22,6 +22,44 @@ describe("Mirae SIF metadata classification", () => {
     });
   });
 
+  test("classifies the Four-Pager and One-Pager as Platinum marketing collateral", () => {
+    expect(resolveMiraeSifDocumentIdentity({
+      sourceType: "pdf",
+      sourceDocumentId: documentId,
+      sourceName: "Platinum-Hybrid-Long-Short-Fund-Four-Pager-1.pdf",
+      sourceLocation: "/data/Platinum-Hybrid-Long-Short-Fund-Four-Pager-1.pdf",
+    })).toMatchObject({ documentScope: "strategy", sourceAuthority: "marketing" });
+    expect(resolveMiraeSifDocumentIdentity({
+      sourceType: "pdf",
+      sourceDocumentId: documentId,
+      sourceName: "Platinum-Hybrid-Long-Short-FUND-One-Pager-1.pdf",
+      sourceLocation: "/data/Platinum-Hybrid-Long-Short-FUND-One-Pager-1.pdf",
+    })).toMatchObject({ documentScope: "strategy", sourceAuthority: "marketing" });
+  });
+
+  test("classifies SEBI-hosted pages as regulatory without a strategy ID", () => {
+    expect(resolveMiraeSifDocumentIdentity({
+      sourceType: "html",
+      sourceDocumentId: documentId,
+      sourceName: "What is a Specialized Investment Fund (SIF)?",
+      sourceLocation: "https://www.sebi.gov.in/sebi_data/attachdocs/feb-2025/12345.html",
+    })).toEqual({
+      documentScope: "regulatory",
+      strategyId: null,
+      canonicalStrategyName: null,
+      sourceAuthority: "regulatory_filing",
+    });
+  });
+
+  test("leaves education blogs at unknown scope", () => {
+    expect(resolveMiraeSifDocumentIdentity({
+      sourceType: "html",
+      sourceDocumentId: documentId,
+      sourceName: "SIFs Decoded: Strategy, Structure and Discipline",
+      sourceLocation: "https://platinumsif.miraeassetmf.co.in/knowledge-center/blogs/sifs-decoded-strategy-structure-and-discipline",
+    })).toMatchObject({ documentScope: "unknown", strategyId: null });
+  });
+
   test("keeps the SAI at umbrella scope without a default strategy", () => {
     expect(resolveMiraeSifDocumentIdentity({
       sourceType: "pdf",
