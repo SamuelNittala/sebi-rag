@@ -13,6 +13,7 @@ import type { ContentCategory } from "@mf-rag/types";
 import {
   extractMiraeSifFaqMarkdown,
   mergeMiraeSifFaqMarkdown,
+  stripMiraeSifComplianceBoilerplate,
 } from "./mirae-sif-extractor.ts";
 import { resolveNextStreamedHtml } from "./next-stream-html.ts";
 
@@ -193,6 +194,7 @@ export class HtmlScraper {
       if (faqMarkdown) {
         markdown = mergeMiraeSifFaqMarkdown(markdown, faqMarkdown);
       }
+      markdown = stripMiraeSifComplianceBoilerplate(markdown);
     }
 
     if (markdown.length < MIN_CONTENT_LENGTH) {

@@ -86,3 +86,26 @@ describe("mergeMiraeSifFaqMarkdown", () => {
     expect(merged).toContain("### What is the derivatives limit?");
   });
 });
+
+describe("stripMiraeSifComplianceBoilerplate", () => {
+  test("removes the initiative line, KYC paragraph, and risk warning but keeps article content", async () => {
+    const { stripMiraeSifComplianceBoilerplate } = await import("./mirae-sif-extractor.ts");
+    const markdown = [
+      "## Taxation",
+      "For equity-oriented SIFs, long-term capital gains are taxed at 12.5%.",
+      "### An Investor Education & Awareness Initiative by Platinum SIF (brought to you by Mirae Asset Mutual Fund).",
+      "All Specialized Investment Fund (SIF) investors have to go through a one-time KYC (Know Your Customer) including the process for change in address. Investors may lodge complaints on https://www.scores.gov.in against registered intermediaries.",
+      "**Investments in Specialized Investment Fund involves relatively higher risk including potential loss of capital, liquidity risk and market volatility.**",
+      "## Conclusion",
+      "Understanding the strategy matters.",
+    ].join("\n\n");
+
+    const stripped = stripMiraeSifComplianceBoilerplate(markdown);
+
+    expect(stripped).toContain("taxed at 12.5%");
+    expect(stripped).toContain("## Conclusion");
+    expect(stripped).not.toContain("Investor Education & Awareness Initiative");
+    expect(stripped).not.toContain("one-time KYC");
+    expect(stripped).not.toContain("relatively higher risk");
+  });
+});

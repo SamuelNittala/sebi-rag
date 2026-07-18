@@ -3,7 +3,7 @@ title: "Platinum Hybrid Long-Short Fund"
 source_url: "https://platinumsif.miraeassetmf.co.in/fund?schemeCode=3166"
 content_category: product
 source: mirae-sif
-scraped_at: "2026-07-18T19:31:09.561Z"
+scraped_at: "2026-07-18T19:52:29.525Z"
 ---
 
 # Platinum Hybrid Long-Short Fund
@@ -378,8 +378,6 @@ View All
 
 The AMC will calculate and disclose the first NAV under the Investment Strategy not later than 5 Business Days from the date of allotment of units under the NFO Period. Subsequently, the AMC shall update the NAVs on the website of the Specialized Investment Fund platinumsif.miraeassetmf.co.in and on the website of Association of Mutual Funds in India - AMFI (www.amfiindia.com) by 11.00 p.m. on every Business Day.
 
-
-
 ### How do investors redeem their units?
 
 Investors may redeem any amount or any number of units, as specified in the redemption request. However, following such redemption, the investor’s aggregate investment across all investment strategies, calculated at the Permanent Account Number (PAN) level, must not fall below ₹10 lakh. If, due to partial withdrawals (and not because of market movement), the aggregate investment falls below ₹10 lakh, the investor will be required to fully exit all investment strategies. Partial redemptions that result in the aggregate investment falling below ₹10 lakh are not permitted.
@@ -434,33 +432,23 @@ In all other cases the amounts due on redemption / repurchases (subject to tax d
 at source) will be paid by means of a rupee cheque payable at the NRO/NRSR account
 of the investor as applicable.
 
-
-
 ### What is the limit of derivatives exposure under SIFs?
 
 SIF investment strategies can maintain unhedged short exposure of up to 25% of net assets to exchange-traded derivatives, beyond hedging and rebalancing purposes
-
-
 
 ### What is the taxation structure applicable to SIF?
 
 The taxation structure for SIFs will be similar to that of mutual funds
 
-
-
 ### What happens if my investment value goes below the minimum investment threshold?
 
 AMCs are not allowed to accept investments below ₹10 lakh. However, if the investment value falls below this threshold due to a market decline, it will be considered a passive breach and not treated as a violation. In such a case, the investor will only be permitted to redeem the entire remaining investment from the SIF.
-
-
 
 ### Does SIF offer the same facilities as SIP, SWP and STP – as in a mutual fund?
 
 Yes. SIP facility is available under the SIF. However, the Strategy minimum amount criteria need to be fulfilled. Investors can opt for SIP of Rs. 50,000 and in multiples of Re.1/- with a frequency of Monthly & Quarterly and minimum of 5 instalments, subject to that the minimum investment amount by an investor should not be less than Rs. 10,00,000/-. Investor shall have the option of choosing any date of the month as the SIP date from 01st to 28th.
 
 The clauses on SWP and STP will be subject to compliance with provisions mentioned under “Minimum investment threshold” as stated under Clause “Minimum threshold requirement and consequences of non- maintenance” of the ISID.
-
-
 
 ### Is switch allowed within SIF across MF/SIF?
 

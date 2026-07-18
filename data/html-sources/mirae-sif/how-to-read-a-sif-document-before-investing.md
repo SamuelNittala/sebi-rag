@@ -3,7 +3,7 @@ title: "How to Read a SIF Document Before Investing"
 source_url: "https://platinumsif.miraeassetmf.co.in/knowledge-center/blogs/how-to-read-a-sif-document-before-investing"
 content_category: education
 source: mirae-sif
-scraped_at: "2026-07-18T19:31:11.867Z"
+scraped_at: "2026-07-18T19:52:31.894Z"
 ---
 
 ## Why Reading the Document Matters
@@ -53,9 +53,3 @@ This is important because investors often focus on what may go right. Scenario a
 Reading a SIF document may take time, but it is time well spent. Specialized products require careful evaluation. The more flexible the strategy, the more important it becomes to understand the details.
 
 Before investing, investors should be able to explain the strategy in simple words. If the product cannot be understood clearly, it may be worth pausing, asking questions, and seeking professional guidance.
-
-### An Investor Education & Awareness Initiative by Platinum SIF (brought to you by Mirae Asset Mutual Fund).
-
-All Specialized Investment Fund (SIF) investors have to go through a one-time KYC (Know Your Customer) including the process for change in address, Phone number, bank details, etc. Investors should deal only with registered Specialized Investment Funds, offered by SEBI registered mutual funds. Details of which can be verified on SEBI website ([https://www.sebi.gov.in](https://www.sebi.gov.in)) under ‘Intermediaries /Market Infrastructure Institutions’. For further information on KYC, RMFs and procedure to lodge a complaint in case of any grievance, you may refer the Knowledge Centre section available on the website of Platinum SIF. Investors may lodge complaints on [https://www.scores.gov.in](https://www.scores.gov.in) against registered intermediaries if they are unsatisfied with the responses. SCORES facilitate you to lodge your complaint online with SEBI and subsequently view its status.
-
-### Investments in Specialized Investment Fund involves relatively higher risk including potential loss of capital, liquidity risk and market volatility. Please read all investment strategy related documents carefully before making the investment decision.

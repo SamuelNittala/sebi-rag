@@ -38,6 +38,7 @@ import {
   db,
   createHtmlDocument,
   getHtmlDocumentByHash,
+  getHtmlDocumentByUrl,
   updateHtmlDocumentStatus,
   updateHtmlDocumentChunkCount,
   stageInspectionReview,
@@ -110,26 +111,32 @@ export async function ingestHtmlDocument(
 
     const fileHash = await computeFileHash(filePath);
 
-    // Check for duplicate
-    const existing = await getHtmlDocumentByHash(db, fileHash);
-    if (existing && !fullConfig.reviewExisting) {
+    // Check for duplicate (identical content)
+    const hashMatch = await getHtmlDocumentByHash(db, fileHash);
+    if (hashMatch && !fullConfig.reviewExisting) {
       return {
-        documentId: existing.id,
+        documentId: hashMatch.id,
         filename,
-        title: existing.title,
+        title: hashMatch.title,
         status: "skipped",
         duration: Date.now() - startTime,
       };
-    }
-
-    if (existing && fullConfig.reviewGate !== "required") {
-      throw new Error("reviewExisting can only be used with the required review gate.");
     }
 
     onProgress?.({ stage: "parsing", detail: "Parsing markdown", percentage: 10 });
 
     const parsed: ParsedHtmlDocument = await parseHtmlFile(filePath);
     const { frontmatter } = parsed;
+
+    // Re-scrapes change the file hash (scraped_at frontmatter, content edits),
+    // so also match the logical page by source_url — html_documents has a
+    // unique constraint on it, and a blind insert would collide.
+    const existing = hashMatch
+      ?? await getHtmlDocumentByUrl(db, frontmatter.source_url);
+
+    if (existing && fullConfig.reviewGate !== "required") {
+      throw new Error("reviewExisting can only be used with the required review gate.");
+    }
     const knowledgeScope = resolveKnowledgeScope({
       source: frontmatter.source,
       sourceUrl: frontmatter.source_url,

@@ -3,7 +3,7 @@ title: "SIF vs Mutual Fund: What is the Difference?"
 source_url: "https://platinumsif.miraeassetmf.co.in/knowledge-center/blogs/sif-vs-mutual-fund-what-is-the-difference"
 content_category: education
 source: mirae-sif
-scraped_at: "2026-07-18T19:31:10.353Z"
+scraped_at: "2026-07-18T19:52:30.400Z"
 ---
 
 ## SIF and Mutual Funds: Are They the Same?
@@ -47,9 +47,3 @@ The answer depends on the investor’s goals, knowledge, risk tolerance, and inv
 ## Conclusion
 
 SIFs and mutual funds are not competitors in a simple “better or worse” sense. They serve different needs. A regular mutual fund may be a starting point for many investors, while an SIF may be considered only after understanding its strategy, risk, liquidity, and suitability.
-
-### An Investor Education & Awareness Initiative by Platinum SIF (brought to you by Mirae Asset Mutual Fund).
-
-All Specialized Investment Fund (SIF) investors have to go through a one-time KYC (Know Your Customer) including the process for change in address, Phone number, bank details, etc. Investors should deal only with registered Specialized Investment Funds, offered by SEBI registered mutual funds. Details of which can be verified on SEBI website ([https://www.sebi.gov.in](https://www.sebi.gov.in)) under ‘Intermediaries /Market Infrastructure Institutions’. For further information on KYC, RMFs and procedure to lodge a complaint in case of any grievance, you may refer the Knowledge Centre section available on the website of Platinum SIF. Investors may lodge complaints on [https://www.scores.gov.in](https://www.scores.gov.in) against registered intermediaries if they are unsatisfied with the responses. SCORES facilitate you to lodge your complaint online with SEBI and subsequently view its status.
-
-### Investments in Specialized Investment Fund involves relatively higher risk including potential loss of capital, liquidity risk and market volatility. Please read all investment strategy related documents carefully before making the investment decision.

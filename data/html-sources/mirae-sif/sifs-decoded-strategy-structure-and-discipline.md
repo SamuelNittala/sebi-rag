@@ -3,7 +3,7 @@ title: "SIFs Decoded: Strategy, Structure and Discipline"
 source_url: "https://platinumsif.miraeassetmf.co.in/knowledge-center/blogs/sifs-decoded-strategy-structure-and-discipline"
 content_category: education
 source: mirae-sif
-scraped_at: "2026-07-18T19:31:12.363Z"
+scraped_at: "2026-07-18T19:52:32.395Z"
 ---
 
 Investing in a Specialised Investment Fund (SIF) is not the same as buying a mutual fund unit. It requires a clearer understanding of how various strategies work, what role they might play in one’s portfolio, and the risks that come along.
@@ -84,9 +84,5 @@ Understanding how each strategy behaves across market conditions may help invest
 ### SIFs don’t replace core investing principles. They expand your investing toolkit. But they also demand clarity, setting expectations, discipline, and measured allocation. When used thoughtfully, they might optimize a portfolio by adding flexibility and diversification. When used without sufficient understanding, they may introduce unnecessary complexity and risk.
 
 ### Disclaimer:
-
-### An Investor Education & Awareness Initiative by Platinum SIF (brought to you by Mirae Asset Mutual Fund).
-
-All Specialized Investment Fund (SIF) investors have to go through a one-time KYC (Know Your Customer) including the process for change in address, Phone number, bank details, etc. Investors should deal only with registered Specialized Investment Funds, offered by SEBI registered mutual funds. Details of which can be verified on SEBI website ([https://www.sebi.gov.in](https://www.sebi.gov.in/)) under ‘Intermediaries / Market Infrastructure Institutions’. For further information on KYC, RMFs and procedure to lodge a complaint in case of any grievance, you may refer the Knowledge Centre section available on the website of Platinum SIF.
 
 Investors may lodge complaints on [https://www.scores.gov.in](https://www.scores.gov.in/) against registered intermediaries if they are unsatisfied with the responses. SCORES facilitate you to lodge your complaint online with SEBI and subsequently view its status.
