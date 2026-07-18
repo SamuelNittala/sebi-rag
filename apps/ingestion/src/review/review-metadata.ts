@@ -17,7 +17,7 @@ export function classifyDocumentScope(input: DocumentScopeInput): DocumentScope 
   if (/\bSAI(?:\b|[-_])/i.test(input.filename) || input.documentType === "SAI") {
     return input.sourceCollection === "mirae_sif" ? "sif_umbrella" : "amc";
   }
-  if (input.sourceCollection === "mirae_sif" && /(?:ISID|KIM|One-Pager|Presentation)/i.test(input.filename)) {
+  if (input.sourceCollection === "mirae_sif" && /(?:ISID|KIM|FAQ|One[- ]?Pager|Four[- ]?Pager|Presentation)/i.test(input.filename)) {
     return "strategy";
   }
   if (input.fundName?.trim()) return "strategy";

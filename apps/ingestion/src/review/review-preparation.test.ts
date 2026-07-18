@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { classifyDocumentScope } from "./review-metadata.ts";
 import { prepareChunkReview } from "./review-preparation.ts";
 
 describe("prepareChunkReview", () => {
@@ -30,6 +31,41 @@ describe("prepareChunkReview", () => {
     expect(first.report.inspectedChunkCount).toBe(1);
     expect(first.candidates[0]?.id).toBe(second.candidates[0]?.id);
     expect(first.candidates[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  test("prepares FAQ and Four Pager documents under strategy scope", () => {
+    for (const filename of [
+      "Mirae-SIF-Platinum-FAQ.pdf",
+      "Platinum-Hybrid-Long-Short-Fund-Four-Pager-1.pdf",
+    ]) {
+      const documentScope = classifyDocumentScope({
+        filename,
+        documentType: "Unknown",
+        sourceCollection: "mirae_sif",
+        fundName: null,
+      });
+      expect(documentScope).toBe("strategy");
+
+      const prepared = prepareChunkReview({
+        document: { id: "doc-faq", filename, pageCount: 4 },
+        chunks: [
+          {
+            text: "The strategy is managed by the designated fund manager.",
+            chunkIndex: 0,
+            pageNumbers: [1],
+            hasTable: false,
+            sectionHeader: "E. WHO MANAGES THE INVESTMENT STRATEGY?",
+            tokenCount: 10,
+          },
+        ],
+        metadata: { documentScope, documentType: "Unknown" },
+      });
+
+      expect(prepared.candidates[0]?.metadata).toEqual(expect.objectContaining({
+        sectionType: "strategy_management",
+        factType: "fund_manager",
+      }));
+    }
   });
 
   test("surfaces adjacent context in the known personnel-row failure", () => {

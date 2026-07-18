@@ -25,6 +25,36 @@ describe("review metadata classification", () => {
     })).toBe("strategy");
   });
 
+  test("classifies the product FAQ as strategy-specific", () => {
+    expect(classifyDocumentScope({
+      filename: "Mirae-SIF-Platinum-FAQ.pdf",
+      documentType: "Unknown",
+      sourceCollection: "mirae_sif",
+      fundName: null,
+    })).toBe("strategy");
+  });
+
+  test("classifies the Four Pager and One Pager as strategy-specific", () => {
+    expect(classifyDocumentScope({
+      filename: "Platinum-Hybrid-Long-Short-Fund-Four-Pager-1.pdf",
+      documentType: "Unknown",
+      sourceCollection: "mirae_sif",
+      fundName: null,
+    })).toBe("strategy");
+    expect(classifyDocumentScope({
+      filename: "Platinum-Hybrid-Long-Short-FUND-One-Pager-1.pdf",
+      documentType: "Unknown",
+      sourceCollection: "mirae_sif",
+      fundName: null,
+    })).toBe("strategy");
+    expect(classifyDocumentScope({
+      filename: "Platinum Four Pager.pdf",
+      documentType: "Unknown",
+      sourceCollection: "mirae_sif",
+      fundName: null,
+    })).toBe("strategy");
+  });
+
   test("classifies SEBI SIF sources as regulatory", () => {
     expect(classifyDocumentScope({
       filename: "sif-regulations.pdf",
