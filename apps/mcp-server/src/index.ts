@@ -6,7 +6,7 @@
  * Instead, it returns relevant document chunks for Claude to synthesize.
  *
  * Architecture:
- *   Query → Embed (bge-m3) → Vector Search (pgvector) → Return chunks to Claude
+ *   Query → Embed → Hybrid Search → RRF → BGE Rerank → Return chunks to Claude
  *
  * Benefits:
  *   - 10-20x faster (no LLM inference wait)
@@ -18,7 +18,7 @@
  *   - query_mutual_funds: Semantic search, returns chunks for Claude to synthesize
  *   - search_mutual_fund_docs: Raw search results (lower-level)
  *   - list_schemes: List all indexed mutual fund schemes
- *   - check_status: Health check for pgvector and Ollama embedding service
+ *   - check_status: Health check for pgvector, embedding, and reranking services
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -41,6 +41,10 @@ import { VectorClient, type SearchFilters, type HtmlSearchFilters } from "@mf-ra
 import type { ApiKey } from "@mf-rag/db/schema";
 import { resolveRetrievalScope } from "./retrieval-scope.ts";
 import { searchHybridDocuments, type MergedResult } from "./hybrid-search.ts";
+import {
+  createRerankerFromEnv,
+  resolveRerankCandidateLimit,
+} from "./retrieval-config.ts";
 
 // Configuration from environment
 function positiveNumber(value: string | undefined, fallback: number): number {
@@ -58,6 +62,7 @@ const config = {
     scoreThreshold: 0.5,
     candidateLimit: positiveNumber(process.env.RETRIEVAL_CANDIDATE_LIMIT, 40),
     rrfK: positiveNumber(process.env.RETRIEVAL_RRF_K, 60),
+    rerankCandidateLimit: resolveRerankCandidateLimit(process.env.RERANK_CANDIDATE_LIMIT),
   },
   http: {
     idleTimeoutSeconds: Math.min(
@@ -78,6 +83,7 @@ const embedder = new Embedder({
 });
 
 const vectorClient = new VectorClient();
+const reranker = createRerankerFromEnv(process.env);
 
 // Rate limiter (only initialized if enabled)
 const rateLimiter = config.rateLimiting.enabled ? new RateLimiter() : null;
@@ -280,7 +286,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: "check_status",
-    description: "Check the health status of the RAG system services (pgvector, Ollama embedding).",
+    description: "Check the health status of the RAG system services (pgvector, embedding, and reranking).",
     inputSchema: {
       type: "object" as const,
       properties: {},
@@ -353,6 +359,8 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           searchHtml: scope.searchHtml,
           rankingProfile: scope.rankingProfile,
           allowFundFilterFallback: scope.allowFundFilterFallback,
+          reranker,
+          rerankCandidateLimit: config.search.rerankCandidateLimit,
         });
 
         // 3. Build response with chunks and citations
@@ -455,6 +463,8 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           searchHtml: scope.searchHtml,
           rankingProfile: scope.rankingProfile,
           allowFundFilterFallback: scope.allowFundFilterFallback,
+          reranker,
+          rerankCandidateLimit: config.search.rerankCandidateLimit,
         });
 
         const searchResults = merged.map((r, i) => ({
@@ -539,10 +549,15 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
         const services = {
           embedding: embeddingHealthy,
           pgvector: vectorHealthy,
+          ...(reranker && { reranker: await reranker.checkHealth() }),
         };
 
         const healthyCount = Object.values(services).filter(Boolean).length;
-        const status = healthyCount === 2 ? "ok" : healthyCount === 0 ? "error" : "degraded";
+        const status = healthyCount === Object.keys(services).length
+          ? "ok"
+          : healthyCount === 0
+            ? "error"
+            : "degraded";
 
         return {
           content: [
@@ -555,6 +570,9 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
                   config: {
                     embeddingModel: config.embedding.model,
                     embeddingUrl: config.embedding.baseUrl,
+                    reranker: reranker
+                      ? { provider: reranker.provider, model: reranker.model }
+                      : null,
                   },
                 },
                 null,
@@ -696,11 +714,13 @@ async function main() {
 
     console.error(`MF-RAG MCP Server running on HTTP :${port} (LLM-free mode)`);
     console.error(`Embedding: ${config.embedding.model} @ ${config.embedding.baseUrl}`);
+    console.error(`Reranker: ${reranker ? `${reranker.provider}/${reranker.model}` : "disabled"}`);
   } else {
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error("MF-RAG MCP Server running on stdio (LLM-free mode)");
     console.error(`Embedding: ${config.embedding.model} @ ${config.embedding.baseUrl}`);
+    console.error(`Reranker: ${reranker ? `${reranker.provider}/${reranker.model}` : "disabled"}`);
   }
 }
 

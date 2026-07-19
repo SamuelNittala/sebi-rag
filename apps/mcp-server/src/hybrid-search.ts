@@ -6,9 +6,14 @@ import type {
   VectorClient,
 } from "@mf-rag/vector";
 
-import type { HybridRetrievalCandidate, RetrievalTrace } from "./hybrid-retrieval-contracts.ts";
+import type {
+  FusedRetrievalCandidate,
+  HybridRetrievalCandidate,
+  RetrievalTrace,
+} from "./hybrid-retrieval-contracts.ts";
 import { fuseHybridCandidates, resolveRetrievalIntent } from "./hybrid-retrieval.ts";
 import { retrievalCandidateLimit, type RetrievalRankingProfile } from "./retrieval-ranking.ts";
+import type { Reranker } from "./reranker.ts";
 
 export interface MergedResult extends HybridRetrievalCandidate {
   score: number;
@@ -37,6 +42,8 @@ export interface HybridSearchOptions {
   searchHtml?: boolean;
   rankingProfile?: RetrievalRankingProfile;
   allowFundFilterFallback?: boolean;
+  reranker?: Reranker | null;
+  rerankCandidateLimit?: number;
 }
 
 function pdfCandidate(result: SearchResult): MergedResult {
@@ -145,6 +152,48 @@ function withoutFundFilter(filters: SearchFilters): SearchFilters {
   return fallback;
 }
 
+function rerankDocument(candidate: MergedResult): string {
+  const section = candidate.sectionHeader?.trim();
+  if (!section) return candidate.text;
+  return `Section: ${section}\n\n${candidate.text}`;
+}
+
+function fallbackReason(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown reranker failure";
+}
+
+async function applyReranker(
+  reranker: Reranker,
+  query: string,
+  candidates: Array<FusedRetrievalCandidate<MergedResult>>,
+  limit: number,
+) {
+  const reranked = await reranker.rerank(
+    query,
+    candidates.map(({ candidate }) => rerankDocument(candidate)),
+    limit,
+  );
+  const expectedResults = Math.min(limit, candidates.length);
+  if (reranked.length < expectedResults) {
+    throw new Error(
+      `Reranker returned ${reranked.length} of ${expectedResults} expected results`,
+    );
+  }
+  return reranked.slice(0, limit).map((result, index) => {
+    const fused = candidates[result.index];
+    if (!fused) throw new Error(`Reranker returned invalid result index ${result.index}`);
+    return {
+      candidate: fused.candidate,
+      trace: {
+        ...fused.trace,
+        rerankRank: index + 1,
+        rerankScore: result.score,
+        finalScore: result.score,
+      },
+    };
+  });
+}
+
 export async function searchHybridDocuments(
   vectorClient: VectorClient,
   query: string,
@@ -162,6 +211,8 @@ export async function searchHybridDocuments(
     searchHtml = true,
     rankingProfile,
     allowFundFilterFallback = false,
+    reranker = null,
+    rerankCandidateLimit = 20,
   } = options;
   const candidateLimit = Math.max(
     configuredCandidateLimit,
@@ -193,14 +244,33 @@ export async function searchHybridDocuments(
     fundFilterFallbackApplied = true;
   }
   const intent = resolveRetrievalIntent(query);
+  const fusionLimit = reranker
+    ? Math.max(limit, Math.min(candidateLimit, rerankCandidateLimit))
+    : limit;
   const fused = fuseHybridCandidates({
     dense: candidates.dense,
     lexical: candidates.lexical,
     intent,
-    limit,
+    limit: fusionLimit,
     rrfK,
   });
-  const results = fused.map(({ candidate, trace }) => ({
+  let ranked = fused.slice(0, limit);
+  let reranking = {
+    applied: false,
+    provider: reranker?.provider ?? null,
+    model: reranker?.model ?? null,
+    candidates: reranker ? fused.length : 0,
+    fallbackReason: null as string | null,
+  };
+  if (reranker && fused.length > 0) {
+    try {
+      ranked = await applyReranker(reranker, query, fused, limit);
+      reranking = { ...reranking, applied: true };
+    } catch (error) {
+      reranking = { ...reranking, fallbackReason: fallbackReason(error) };
+    }
+  }
+  const results = ranked.map(({ candidate, trace }) => ({
     ...candidate,
     score: trace.finalScore,
     retrievalTrace: trace,
@@ -215,6 +285,7 @@ export async function searchHybridDocuments(
       rrfK,
       intent,
       fundFilterFallbackApplied,
+      reranking,
     },
   };
 }

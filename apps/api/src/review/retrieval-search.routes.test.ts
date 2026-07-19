@@ -22,6 +22,13 @@ describe("retrieval search route", () => {
       lexicalCandidates: 40,
       fusion: "rrf" as const,
       rrfK: 60,
+      reranking: {
+        applied: true,
+        provider: "tei",
+        model: "BAAI/bge-reranker-v2-m3",
+        candidates: 20,
+        fallbackReason: null,
+      },
       intent: {
         factType: "investment_strategy",
         strategyId: "platinum-hybrid-long-short-fund",

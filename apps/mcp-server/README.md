@@ -7,18 +7,18 @@ MCP (Model Context Protocol) server that allows Claude Desktop and Claude Code t
 This server does **NOT** use a local LLM for answer generation. Instead, it returns relevant document chunks directly to Claude, who synthesizes the answer.
 
 ```
-Query → Embed (bge-m3) → Vector Search (pgvector) → Return chunks → Claude synthesizes
+Query → Embed (bge-m3) → Hybrid search → RRF → BGE rerank → Return chunks → Claude synthesizes
 ```
 
 ### Why No LLM?
 
 | Aspect | With Local LLM | LLM-Free (this version) |
 |--------|---------------|-------------------------|
-| **Latency** | 8-16 seconds | 300-500ms |
+| **Latency** | 8-16 seconds | Retrieval latency plus optional cross-encoder reranking |
 | **Answer Quality** | qwen2.5:7b misses data | Claude parses tables correctly |
 | **Security** | Small LLM can be jailbroken | No LLM to jailbreak |
-| **Cost** | LLM inference cost | Embedding only |
-| **Dependencies** | Ollama + LLM model | Ollama + embedding model |
+| **Cost** | LLM inference cost | Self-hosted embedding and optional reranker inference |
+| **Dependencies** | Ollama + LLM model | Ollama embedding + optional TEI reranker |
 
 See [docs/direct-vs-rag-comparison.md](../../docs/direct-vs-rag-comparison.md) for detailed benchmarks.
 
@@ -48,6 +48,13 @@ See [docs/direct-vs-rag-comparison.md](../../docs/direct-vs-rag-comparison.md) f
 
    Note: No LLM model (like qwen2.5:7b) is required.
 
+3. **Optional local BGE reranker (enabled by production Compose):**
+   ```bash
+   docker run -d --name mf-rag-reranker -p 8081:80 -v hf_cache:/data \
+     ghcr.io/huggingface/text-embeddings-inference:cpu-1.9 \
+     --model-id BAAI/bge-reranker-v2-m3
+   ```
+
 ### Claude Desktop Configuration
 
 Edit `~/.config/claude/claude_desktop_config.json` (Linux) or `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
@@ -60,7 +67,9 @@ Edit `~/.config/claude/claude_desktop_config.json` (Linux) or `~/Library/Applica
       "args": ["run", "/path/to/mf-pdf-rag/apps/mcp-server/src/index.ts"],
       "env": {
         "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/mf_rag",
-        "OLLAMA_BASE_URL": "http://localhost:11434"
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "RERANK_PROVIDER": "tei",
+        "RERANK_BASE_URL": "http://localhost:8081"
       }
     }
   }
@@ -103,6 +112,10 @@ Claude will use the `query_mutual_funds` tool to retrieve relevant document chun
 | `DATABASE_URL` | (required) | PostgreSQL connection string |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `EMBEDDING_MODEL` | `bge-m3` | Embedding model name |
+| `RERANK_PROVIDER` | auto | `tei`, `bge`, `none`, or auto-enable when `RERANK_BASE_URL` is set |
+| `RERANK_BASE_URL` | `http://localhost:8081` | Hugging Face TEI reranker endpoint |
+| `RERANK_MODEL` | `BAAI/bge-reranker-v2-m3` | Model identifier included in traces |
+| `RERANK_CANDIDATE_LIMIT` | `20` | Maximum fused chunks sent to the reranker |
 | `ENABLE_RATE_LIMITING` | `false` | Enable API key rate limiting |
 | `MF_RAG_API_KEY` | - | API key for rate limiting |
 

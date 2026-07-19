@@ -15,25 +15,26 @@ Query → Embed → Search → Context → Local LLM → Answer
 This project skips the local LLM entirely:
 
 ```
-Query → Embed → Search → Return chunks → Claude synthesizes
-                                             ↓
-                                     Fast, accurate, safe
+Query → Embed → Hybrid search → RRF → BGE rerank → Return chunks → Claude synthesizes
+                                                                    ↓
+                                                            Accurate and safe
 ```
 
 ### Comparison
 
 | Metric | With Local LLM | LLM-Free |
 |--------|----------------|----------|
-| **Latency** | 8-16 seconds | 300-500ms |
+| **Latency** | 8-16 seconds | Retrieval latency plus optional cross-encoder reranking |
 | **Accuracy** | Misses table data | Parses tables correctly |
 | **Security** | Can be jailbroken | No LLM to jailbreak |
-| **Cost** | LLM inference | Embedding only |
+| **Cost** | LLM inference | Self-hosted embedding and optional reranker inference |
 
 The local LLM (qwen2.5:7b) failed to extract expense ratios from tables that were right in its context. Claude handles this correctly.
 
 ## Features
 
 - **Semantic search** across 500+ mutual fund schemes
+- **Cross-encoder reranking** with `BAAI/bge-reranker-v2-m3` after hybrid retrieval
 - **Document types**: SID, KIM, Factsheets from SEBI
 - **Filters**: By fund name, AMC, scheme type, document type
 - **Citations**: Every answer includes source documents with page numbers and SEBI URLs
@@ -49,6 +50,11 @@ docker compose -f docker/docker-compose.yml up -d
 
 # Ollama with embedding model (no LLM needed!)
 ollama pull bge-m3
+
+# Optional locally; production Compose starts this service automatically
+docker run -d --name mf-rag-reranker -p 8081:80 -v hf_cache:/data \
+  ghcr.io/huggingface/text-embeddings-inference:cpu-1.9 \
+  --model-id BAAI/bge-reranker-v2-m3
 ```
 
 ### Configure Claude Desktop
@@ -63,7 +69,9 @@ Edit `~/.config/claude/claude_desktop_config.json`:
       "args": ["run", "/path/to/mf-pdf-rag/apps/mcp-server/src/index.ts"],
       "env": {
         "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/mf_rag",
-        "OLLAMA_BASE_URL": "http://localhost:11434"
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "RERANK_PROVIDER": "tei",
+        "RERANK_BASE_URL": "http://localhost:8081"
       }
     }
   }
@@ -90,12 +98,13 @@ Restart Claude Desktop, then ask:
 │  or Claude Code │────▶│   (Bun + TS)     │────▶│   + pgvector    │
 └─────────────────┘     └────────┬─────────┘     └─────────────────┘
                                  │
-                                 ▼
-                        ┌─────────────────┐
-                        │     Ollama      │
-                        │    (bge-m3)     │
-                        │  Embedding Only │
-                        └─────────────────┘
+                         ┌───────┴────────┐
+                         ▼                ▼
+                ┌─────────────────┐ ┌────────────────────┐
+                │     Ollama      │ │ Hugging Face TEI   │
+                │    (bge-m3)     │ │ bge-reranker-v2-m3│
+                │  Embedding Only │ │   Cross-encoder    │
+                └─────────────────┘ └────────────────────┘
 ```
 
 ### MCP Tools
@@ -192,11 +201,12 @@ Coverage: 50+ AMCs, 500+ schemes
 
 ## Cloud Deployment
 
-Estimated cost: **$6-12/month**
+The self-hosted BGE reranker removes per-query API charges but needs additional
+memory and CPU/GPU capacity beyond the embedding-only deployment.
 
-- Hetzner CX21 (4GB RAM): $6-12/mo for Ollama + bge-m3
+- Plan for at least 8GB RAM when serving both `bge-m3` and the 0.6B reranker on CPU
 - Supabase/Neon free tier: pgvector database
-- No LLM API costs (Claude handles generation)
+- No reranking or generation-model API charges
 
 See [deployment docs](docs/) for details.
 
@@ -207,6 +217,10 @@ See [deployment docs](docs/) for details.
 | `DATABASE_URL` | required | PostgreSQL connection string |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `EMBEDDING_MODEL` | `bge-m3` | Embedding model |
+| `RERANK_PROVIDER` | auto | `tei`, `bge`, `none`, or auto-enable when `RERANK_BASE_URL` is set |
+| `RERANK_BASE_URL` | `http://localhost:8081` | Hugging Face TEI endpoint serving the reranker |
+| `RERANK_MODEL` | `BAAI/bge-reranker-v2-m3` | Model identifier reported in retrieval traces |
+| `RERANK_CANDIDATE_LIMIT` | `20` | Maximum fused chunks sent to the reranker |
 | `ENABLE_RATE_LIMITING` | `false` | Enable API key limits |
 | `MF_RAG_API_KEY` | - | API key for rate limiting |
 | `REVIEW_USERNAME` | - | Basic-auth username for the internal `/review` UI |

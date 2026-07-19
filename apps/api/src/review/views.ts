@@ -230,6 +230,8 @@ function renderRetrievalChunk(chunk: RetrievalChunkView): string {
       ${traceCell("Lexical score", score(trace.lexicalScore))}
       ${traceCell("RRF score", score(trace.rrfScore))}
       ${traceCell("Metadata boost", `${trace.metadataAdjustment >= 0 ? "+" : ""}${score(trace.metadataAdjustment)}`)}
+      ${traceCell("Pre-rerank", rank(trace.preRerankRank))}
+      ${traceCell("Rerank score", score(trace.rerankScore))}
     </div>${signals ? `<div>${signals}</div>` : ""}` : '<p class="muted">No retrieval trace returned.</p>'}
     <pre>${escapeHtml(chunk.text)}</pre>
     <details><summary>Chunk metadata</summary><pre>${escapeHtml(JSON.stringify(metadata, null, 2))}</pre></details>
@@ -244,6 +246,7 @@ export function renderRetrievalSearch(model: RetrievalSearchViewModel): string {
     .map(renderRetrievalChunk)
     .join("") ?? "";
   const intent = result?.intent;
+  const reranking = result?.reranking;
   const summary = result
     ? `<div class="summary" style="margin-top: 16px">
       <span class="pill">${result.chunks.length} chunks</span>
@@ -251,6 +254,8 @@ export function renderRetrievalSearch(model: RetrievalSearchViewModel): string {
       <span class="pill">${result.denseCandidates} dense candidates</span>
       <span class="pill">${result.lexicalCandidates} lexical candidates</span>
       <span class="pill">${escapeHtml(result.fusion.toUpperCase())} k=${result.rrfK}</span>
+      <span class="pill ${reranking?.applied ? "info" : ""}">rerank: ${reranking?.applied ? `${escapeHtml(reranking.model ?? reranking.provider ?? "enabled")} (${reranking.candidates})` : "disabled/fallback"}</span>
+      ${reranking?.fallbackReason ? `<span class="pill critical">${escapeHtml(reranking.fallbackReason)}</span>` : ""}
       <span class="pill info">fact: ${escapeHtml(intent?.factType ?? "none")}</span>
       <span class="pill info">strategy: ${escapeHtml(intent?.strategyId ?? "none")}</span>
       <span class="pill info">scope: ${escapeHtml(intent?.preferredDocumentScope ?? "none")}</span>
