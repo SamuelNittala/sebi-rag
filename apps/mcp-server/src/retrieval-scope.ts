@@ -117,9 +117,10 @@ export function resolveRetrievalScope(
     htmlFilters.knowledge_domain = "sif";
     htmlFilters.source_collection = "mirae_sif";
   } else if (sifRequest) {
+    // Generic SIF questions (no Mirae/Platinum mention) search SIF-domain
+    // regulatory AND education content; product/marketing pages stay excluded.
     htmlFilters.knowledge_domain = "sif";
-    htmlFilters.source_collection = "sebi_regulatory";
-    htmlFilters.content_category = "regulatory";
+    htmlFilters.content_category = ["regulatory", "education"];
   }
 
   if (hasPdfArguments) {

@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { resolveRetrievalScope } from "./retrieval-scope.ts";
 
 describe("resolveRetrievalScope", () => {
-  test("routes a generic SIF definition question to regulatory SIF knowledge", () => {
+  test("routes a generic SIF definition question to regulatory and education SIF knowledge", () => {
     const scope = resolveRetrievalScope({
       question: "What is SIF?",
     });
@@ -12,9 +12,21 @@ describe("resolveRetrievalScope", () => {
     expect(scope.searchHtml).toBe(true);
     expect(scope.htmlFilters).toEqual({
       knowledge_domain: "sif",
-      source_collection: "sebi_regulatory",
-      content_category: "regulatory",
+      content_category: ["regulatory", "education"],
     });
+  });
+
+  test("generic SIF concept questions include education content but never product pages", () => {
+    const scope = resolveRetrievalScope({
+      question: "what is the tax on SIF gains",
+    });
+
+    expect(scope.searchPdf).toBe(false);
+    expect(scope.searchHtml).toBe(true);
+    expect(scope.htmlFilters.knowledge_domain).toBe("sif");
+    expect(scope.htmlFilters.content_category).toEqual(["regulatory", "education"]);
+    expect(scope.htmlFilters.content_category).not.toContain("product");
+    expect(scope.htmlFilters.source_collection).toBeUndefined();
   });
 
   test("routes an explicitly Mirae SIF question to the Mirae collection", () => {

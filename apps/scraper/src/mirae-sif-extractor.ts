@@ -165,3 +165,23 @@ export function mergeMiraeSifFaqMarkdown(
 
   return `${productMarkdown}\n\n## Got Questions? We've Got Answers!\n\n${faqSections.join("\n\n")}`;
 }
+
+/**
+ * Strip the compliance boilerplate that Mirae SIF appends to every
+ * knowledge-center page (investor-education initiative line, one-time KYC /
+ * SCORES paragraph, and the higher-risk warning). Ingested per page, these
+ * identical SEBI-dense blocks out-rank genuinely regulatory content for
+ * generic SIF queries.
+ */
+export function stripMiraeSifComplianceBoilerplate(markdown: string): string {
+  const blocks = markdown.split(/\n{2,}/);
+  const kept = blocks.filter((block) => {
+    const text = block.replace(/^#{1,6}\s+/, "").replace(/\*\*/g, "").trim();
+    return !(
+      /^An Investor Education & Awareness Initiative/i.test(text)
+      || /^All Specialized Investment Fund \(SIF\) investors have to go through a one-time KYC/i.test(text)
+      || /^Investments? in Specialized Investment Funds? involves? relatively higher risk/i.test(text)
+    );
+  });
+  return kept.join("\n\n").trim();
+}

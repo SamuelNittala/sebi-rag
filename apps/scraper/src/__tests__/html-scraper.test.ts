@@ -67,9 +67,29 @@ describe("Mirae SIF source config", () => {
     expect(miraeSifFund.contentCategory).toBe("product");
     expect(miraeSifFund.pages).toEqual([
       {
-        url: "https://sif-dev.example.com/fund?schemeCode=3166",
+        url: "https://platinumsif.miraeassetmf.co.in/fund?schemeCode=3166",
         slug: "platinum-hybrid-long-short-fund",
       },
     ]);
+  });
+
+  test("knowledge-center blogs are education content with explicit titles", async () => {
+    const { miraeSifKnowledgeCenter } = await import("../sources/mirae-sif.ts");
+
+    expect(miraeSifKnowledgeCenter.name).toBe("mirae-sif");
+    expect(miraeSifKnowledgeCenter.contentCategory).toBe("education");
+    expect(miraeSifKnowledgeCenter.pages).toHaveLength(6);
+    for (const page of miraeSifKnowledgeCenter.pages) {
+      expect(page.url.startsWith("https://platinumsif.miraeassetmf.co.in/knowledge-center/blogs/")).toBe(true);
+      // SPA pages render h1/<title> as the site logo, so every blog needs an override
+      expect(page.title?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
+  test("did-you-know accordion page is not configured (answers don't survive stream reassembly)", async () => {
+    const { allMiraeSifSources } = await import("../sources/mirae-sif.ts");
+
+    const allUrls = allMiraeSifSources.flatMap((s) => s.pages.map((p) => p.url));
+    expect(allUrls.some((u) => u.includes("did-you-know"))).toBe(false);
   });
 });

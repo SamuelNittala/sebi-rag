@@ -26,9 +26,11 @@
     "review:publish": "bun run scripts/publish-reviewed-run.ts",
     "review:stage-mirae-metadata": "bun run scripts/stage-mirae-sif-metadata.ts",
     "retrieval:evaluate-mirae-sif": "bun run scripts/evaluate-mirae-sif-retrieval.ts",
+    "eval:basic": "bun run scripts/run-basic-eval.ts",
     "reingest:mirae-sif": "bun run scripts/reingest-mirae-sif.ts"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "@types/bun": "^1.1.0",
     "concurrently": "^8.2.0",
     "drizzle-kit": "^0.31.8",

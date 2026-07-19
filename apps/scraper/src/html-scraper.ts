@@ -13,6 +13,7 @@ import type { ContentCategory } from "@mf-rag/types";
 import {
   extractMiraeSifFaqMarkdown,
   mergeMiraeSifFaqMarkdown,
+  stripMiraeSifComplianceBoilerplate,
 } from "./mirae-sif-extractor.ts";
 import { resolveNextStreamedHtml } from "./next-stream-html.ts";
 
@@ -23,6 +24,8 @@ export interface HtmlSourceConfig {
   pages: Array<{
     url: string;
     slug: string;
+    /** Explicit title override for SPA pages whose h1/<title> is just the site logo text. */
+    title?: string;
   }>;
   delayMs?: number;
 }
@@ -117,7 +120,7 @@ export class HtmlScraper {
   }
 
   private async scrapePage(
-    page: { url: string; slug: string },
+    page: { url: string; slug: string; title?: string },
     source: HtmlSourceConfig,
     outputDir: string
   ): Promise<ScrapePageResult> {
@@ -148,7 +151,7 @@ export class HtmlScraper {
     $('[role="navigation"], [role="banner"], [role="complementary"]').remove();
 
     // Extract title from h1 or <title>
-    const title = $("h1").first().text().trim() || $("title").text().trim() || page.slug;
+    const title = page.title ?? ($("h1").first().text().trim() || $("title").text().trim() || page.slug);
 
     // Try multiple selectors to find main content
     let contentHtml = "";
@@ -191,6 +194,7 @@ export class HtmlScraper {
       if (faqMarkdown) {
         markdown = mergeMiraeSifFaqMarkdown(markdown, faqMarkdown);
       }
+      markdown = stripMiraeSifComplianceBoilerplate(markdown);
     }
 
     if (markdown.length < MIN_CONTENT_LENGTH) {

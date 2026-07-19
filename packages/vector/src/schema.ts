@@ -69,7 +69,8 @@ export interface ChunkWithVector {
  * Search filters for querying HTML chunks.
  */
 export interface HtmlSearchFilters {
-  content_category?: string;
+  /** Single category, or a set of allowed categories (matched with IN). */
+  content_category?: string | string[];
   document_id?: string;
   knowledge_domain?: string;
   source_collection?: string;
