@@ -136,6 +136,41 @@ Content of second section.`,
       expect(startsWithNumbered.length).toBeGreaterThan(0);
     });
 
+    test("splits Roman-numbered SIF facts into independently classifiable chunks", () => {
+      const input: ChunkInput = {
+        pages: [{
+          pageNumber: 6,
+          text: `Platinum Hybrid Long-Short Fund
+
+The Trustees may change the benchmark in future if a benchmark better suited
+to the investment objective of the Investment Strategy is available.
+VIII. Subscription
+frequency
+All business days
+The Trustees reserves the right to change the Subscription frequency in future.
+IX. Redemption
+frequency
+2 times in a week (Monday & Thursday) or at any lesser frequency as may be
+decided by the AMC.
+Redemption requests received after Thursday 3.00 PM till Monday 3.00 PM
+would be considered for processing with Monday NAV.
+X. NAV disclosure
+The AMC will calculate and disclose the NAV on every Business Day.`,
+        }],
+      };
+
+      const result = semanticChunk(input, { minTokens: 1 });
+      const redemption = result.chunks.find(
+        (chunk) => chunk.sectionHeader === "IX. Redemption"
+      );
+
+      expect(redemption).toBeDefined();
+      expect(redemption!.text).toContain("2 times in a week (Monday & Thursday)");
+      expect(redemption!.text).not.toContain("benchmark better suited");
+      expect(redemption!.text).not.toContain("Subscription frequency");
+      expect(redemption!.text).not.toContain("NAV on every Business Day");
+    });
+
     test("splits before markdown headers", () => {
       const input: ChunkInput = {
         pages: [

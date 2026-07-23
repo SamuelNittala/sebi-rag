@@ -80,6 +80,8 @@ const SECTION_BOUNDARY_PATTERNS: RegExp[] = [
   // Numbered sections: 1., 2., A., B. (must be at start of line after newline)
   /(?:^|\n)([1-9]\d*\.\s+\S)/,
   /(?:^|\n)([A-Z]\.\s+\S)/,
+  // Roman-numbered subsections: VIII. Subscription, IX. Redemption, etc.
+  /(?:^|\n)([IVXLCDM]+\.\s+\S)/,
   // Markdown headers
   /^#{2,}\s+\S/m,
   // All-caps headings (at least 3 words)
@@ -171,6 +173,11 @@ function extractSectionHeader(text: string): string | null {
 
   // Check for lettered sections (A., B., etc.)
   if (/^[A-Z]\.\s+\S/.test(firstLine)) {
+    return firstLine;
+  }
+
+  // Check for Roman-numbered subsections (VIII., IX., etc.)
+  if (/^[IVXLCDM]+\.\s+\S/.test(firstLine)) {
     return firstLine;
   }
 

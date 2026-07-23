@@ -97,6 +97,33 @@ describe("Mirae SIF metadata classification", () => {
     expect(prepared.findings).toEqual([]);
   });
 
+  test("classifies a Roman-numbered redemption frequency heading as redemption", () => {
+    const prepared = prepareMiraeSifMetadataReview({
+      document: {
+        sourceType: "pdf",
+        sourceDocumentId: documentId,
+        sourceName: "ISID-Platinum-Hybrid-Long-Short-Fund.pdf",
+        sourceLocation: null,
+      },
+      chunks: [{
+        id: "20000000-0000-4000-8000-000000000007",
+        chunkIndex: 52,
+        text: "IX. Redemption\nfrequency\n2 times in a week (Monday & Thursday).",
+        pageNumbers: [6],
+        hasTable: false,
+        sectionHeader: "IX. Redemption",
+      }],
+    });
+
+    expect(prepared.candidates[0]?.metadata).toMatchObject({
+      sectionType: "redemption",
+      factType: "redemption",
+      confidence: 1,
+      classificationSource: "exact_heading",
+    });
+    expect(prepared.findings).toEqual([]);
+  });
+
   test("distinguishes a strategy manager assignment from an SAI staff directory", () => {
     const strategy = prepareMiraeSifMetadataReview({
       document: {
