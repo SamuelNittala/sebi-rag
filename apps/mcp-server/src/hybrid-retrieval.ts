@@ -203,6 +203,10 @@ export function fuseHybridCandidates<T extends HybridRetrievalCandidate>(
       rrfScore,
       metadataAdjustment: metadata.adjustment,
       metadataSignals: metadata.signals,
+      fusedScore: finalScore,
+      preRerankRank: 0,
+      rerankRank: null,
+      rerankScore: null,
       finalScore,
     };
     return { candidate: state.candidate, trace };
@@ -210,5 +214,9 @@ export function fuseHybridCandidates<T extends HybridRetrievalCandidate>(
 
   return fused
     .sort((left, right) => right.trace.finalScore - left.trace.finalScore)
-    .slice(0, input.limit);
+    .slice(0, input.limit)
+    .map((item, index) => ({
+      ...item,
+      trace: { ...item.trace, preRerankRank: index + 1 },
+    }));
 }

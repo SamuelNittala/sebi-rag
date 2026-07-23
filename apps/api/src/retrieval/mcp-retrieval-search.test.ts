@@ -26,6 +26,10 @@ describe("parseRetrievalToolResult", () => {
                 rrfScore: 0.98,
                 metadataAdjustment: 0,
                 metadataSignals: [],
+                fusedScore: 0.98,
+                preRerankRank: 2,
+                rerankRank: 1,
+                rerankScore: 0.98,
                 finalScore: 0.98,
               },
             },
@@ -37,6 +41,13 @@ describe("parseRetrievalToolResult", () => {
               lexicalCandidates: 40,
               fusion: "rrf",
               rrfK: 60,
+              reranking: {
+                applied: true,
+                provider: "tei",
+                model: "BAAI/bge-reranker-v2-m3",
+                candidates: 20,
+                fallbackReason: null,
+              },
               intent: {
                 factType: "investment_strategy",
                 strategyId: "platinum-hybrid-long-short-fund",
@@ -53,6 +64,14 @@ describe("parseRetrievalToolResult", () => {
     expect(parsed.chunks[0]?.pageNumbers).toEqual([23]);
     expect(parsed.intent.factType).toBe("investment_strategy");
     expect(parsed.denseCandidates).toBe(40);
+    expect(parsed.reranking).toEqual({
+      applied: true,
+      provider: "tei",
+      model: "BAAI/bge-reranker-v2-m3",
+      candidates: 20,
+      fallbackReason: null,
+    });
+    expect(parsed.chunks[0]?.retrievalTrace?.rerankRank).toBe(1);
   });
 
   test("rejects an MCP response without a text result", () => {

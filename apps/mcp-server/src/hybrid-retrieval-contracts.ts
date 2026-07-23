@@ -40,6 +40,10 @@ export interface RetrievalTrace {
   rrfScore: number;
   metadataAdjustment: number;
   metadataSignals: string[];
+  fusedScore: number;
+  preRerankRank: number;
+  rerankRank: number | null;
+  rerankScore: number | null;
   finalScore: number;
 }
 

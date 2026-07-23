@@ -7,6 +7,7 @@ import type {
 } from "@mf-rag/vector";
 
 import { searchHybridDocuments } from "./hybrid-search.ts";
+import type { Reranker } from "./reranker.ts";
 
 function pdfResult(
   id = "chunk-1",
@@ -60,6 +61,7 @@ function htmlResult(id: string, score: number): HtmlSearchResult {
       amc_slug: "mirae-asset",
       retrieval_metadata: null,
     },
+    ...overrides,
   };
 }
 

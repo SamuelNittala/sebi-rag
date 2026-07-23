@@ -26,6 +26,13 @@ describe("review UI rendering", () => {
         lexicalCandidates: 40,
         fusion: "rrf",
         rrfK: 60,
+        reranking: {
+          applied: true,
+          provider: "tei",
+          model: "BAAI/bge-reranker-v2-m3",
+          candidates: 20,
+          fallbackReason: null,
+        },
         intent: {
           factType: "investment_strategy",
           strategyId: "platinum-hybrid-long-short-fund",
@@ -50,6 +57,10 @@ describe("review UI rendering", () => {
               rrfScore: 0.48,
               metadataAdjustment: 0,
               metadataSignals: [],
+              fusedScore: 0.82,
+              preRerankRank: 1,
+              rerankRank: 2,
+              rerankScore: 0.82,
               finalScore: 0.82,
             },
           },
@@ -77,6 +88,10 @@ describe("review UI rendering", () => {
               rrfScore: 0.984,
               metadataAdjustment: 0.18,
               metadataSignals: ["fact_type:investment_strategy"],
+              fusedScore: 1.164,
+              preRerankRank: 2,
+              rerankRank: 1,
+              rerankScore: 0.984,
               finalScore: 0.984,
             },
           },
@@ -88,6 +103,8 @@ describe("review UI rendering", () => {
     expect(html).toContain("0.984");
     expect(html).toContain("Dense rank");
     expect(html).toContain("Lexical rank");
+    expect(html).toContain("BAAI/bge-reranker-v2-m3");
+    expect(html).toContain("Rerank score");
     expect(html).toContain("fact_type:investment_strategy");
     expect(html).toContain("ISID.pdf");
     expect(html).not.toContain('href="javascript:alert(1)"');

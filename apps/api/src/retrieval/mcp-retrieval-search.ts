@@ -9,7 +9,19 @@ export interface RetrievalTraceView {
   rrfScore: number;
   metadataAdjustment: number;
   metadataSignals: string[];
+  fusedScore: number;
+  preRerankRank: number;
+  rerankRank: number | null;
+  rerankScore: number | null;
   finalScore: number;
+}
+
+export interface RerankingView {
+  applied: boolean;
+  provider: string | null;
+  model: string | null;
+  candidates: number;
+  fallbackReason: string | null;
 }
 
 export interface RetrievalChunkView {
@@ -38,6 +50,7 @@ export interface RetrievalSearchResult {
   lexicalCandidates: number;
   fusion: string;
   rrfK: number;
+  reranking: RerankingView;
   intent: {
     factType: string | null;
     strategyId: string | null;
@@ -84,6 +97,10 @@ function parseTrace(value: unknown): RetrievalTraceView | undefined {
     metadataSignals: Array.isArray(trace.metadataSignals)
       ? trace.metadataSignals.filter((signal): signal is string => typeof signal === "string")
       : [],
+    fusedScore: finiteNumber(trace.fusedScore, finiteNumber(trace.finalScore)),
+    preRerankRank: finiteNumber(trace.preRerankRank),
+    rerankRank: nullableNumber(trace.rerankRank),
+    rerankScore: nullableNumber(trace.rerankScore),
     finalScore: finiteNumber(trace.finalScore),
   };
 }
@@ -143,6 +160,7 @@ export function parseRetrievalToolResult(toolResult: unknown): RetrievalSearchRe
   const metadata = record(payload.metadata);
   const retrieval = record(metadata.retrieval);
   const intent = record(retrieval.intent);
+  const reranking = record(retrieval.reranking);
   const chunks = Array.isArray(payload.chunks)
     ? payload.chunks.map(parseChunk).sort((left, right) => left.rank - right.rank)
     : [];
@@ -153,6 +171,13 @@ export function parseRetrievalToolResult(toolResult: unknown): RetrievalSearchRe
     lexicalCandidates: finiteNumber(retrieval.lexicalCandidates),
     fusion: optionalString(retrieval.fusion) ?? "unknown",
     rrfK: finiteNumber(retrieval.rrfK),
+    reranking: {
+      applied: reranking.applied === true,
+      provider: nullableString(reranking.provider),
+      model: nullableString(reranking.model),
+      candidates: finiteNumber(reranking.candidates),
+      fallbackReason: nullableString(reranking.fallbackReason),
+    },
     intent: {
       factType: nullableString(intent.factType),
       strategyId: nullableString(intent.strategyId),
