@@ -1,14 +1,23 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { SearchFilters, SearchResult, VectorClient } from "@mf-rag/vector";
+import type {
+  HtmlSearchResult,
+  SearchFilters,
+  SearchResult,
+  VectorClient,
+} from "@mf-rag/vector";
 
 import { searchHybridDocuments } from "./hybrid-search.ts";
 
-function pdfResult(): SearchResult {
+function pdfResult(
+  id = "chunk-1",
+  score = 0.8,
+  retrievalMetadata: SearchResult["payload"]["retrieval_metadata"] = null,
+): SearchResult {
   return {
-    id: "chunk-1",
-    score: 0.8,
+    id,
+    score,
     payload: {
-      text: "Platinum Hybrid Long-Short Fund strategy details",
+      text: `Platinum Hybrid Long-Short Fund strategy details ${id}`,
       chunk_index: 1,
       total_chunks: 1,
       document_id: "document-1",
@@ -24,6 +33,28 @@ function pdfResult(): SearchResult {
       section_header: "Investment strategy",
       sebi_scheme_id: "",
       sebi_url: "",
+      knowledge_domain: "sif",
+      source_collection: "mirae_sif",
+      amc_slug: "mirae-asset",
+      retrieval_metadata: retrievalMetadata,
+    },
+  };
+}
+
+function htmlResult(id: string, score: number): HtmlSearchResult {
+  return {
+    id,
+    score,
+    payload: {
+      text: `Platinum SIF knowledge article ${id}`,
+      chunk_index: 1,
+      total_chunks: 1,
+      document_id: "html-document-1",
+      document_title: "Platinum SIF",
+      source_url: `https://example.com/${id}`,
+      content_category: "product",
+      section_heading: "Overview",
+      has_table: false,
       knowledge_domain: "sif",
       source_collection: "mirae_sif",
       amc_slug: "mirae-asset",
@@ -88,5 +119,71 @@ describe("searchHybridDocuments fund-filter fallback", () => {
     expect(response.results).toHaveLength(0);
     expect(response.retrieval.fundFilterFallbackApplied).toBe(false);
     expect(dense).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("searchHybridDocuments candidate fusion", () => {
+  test("keeps per-source candidates until reviewed metadata reranking", async () => {
+    const minimumInvestment = pdfResult("minimum-investment", 6, {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      sectionType: "minimum_investment",
+      factType: "minimum_investment",
+      sourceAuthority: "regulatory_filing",
+      classificationSource: "body_evidence",
+      confidence: 0.7,
+    });
+    const higherPdfResults = [
+      minimumInvestment,
+      ...Array.from(
+        { length: 32 },
+        (_, index) => pdfResult(`pdf-${index}`, 6 - index * 0.01),
+      ),
+    ];
+    const lowerPdfResults = Array.from(
+      { length: 6 },
+      (_, index) => pdfResult(`pdf-lower-${index}`, 4 - index * 0.01),
+    );
+    const redemption = pdfResult("redemption", 4.67, {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      sectionType: "redemption",
+      factType: "redemption",
+      sourceAuthority: "regulatory_filing",
+      classificationSource: "exact_heading",
+      confidence: 1,
+    });
+    const vectorClient = {
+      searchSimilar: mock(async () => [minimumInvestment]),
+      searchLexical: mock(async () => [
+        ...higherPdfResults,
+        redemption,
+        ...lowerPdfResults,
+      ]),
+      searchHtmlSimilar: mock(async () => []),
+      searchHtmlLexical: mock(async () => Array.from(
+        { length: 7 },
+        (_, index) => htmlResult(`html-${index}`, 5.5 - index * 0.01),
+      )),
+    } as unknown as VectorClient;
+
+    const response = await searchHybridDocuments(
+      vectorClient,
+      "when can I do redemption in platinum sif?",
+      [0.1],
+      {
+        limit: 10,
+        candidateLimit: 40,
+        scoreThreshold: 0.5,
+        pdfFilters: { knowledge_domain: "sif", source_collection: "mirae_sif" },
+        htmlFilters: { knowledge_domain: "sif", source_collection: "mirae_sif" },
+      },
+    );
+
+    expect(response.results[0]?.id).toBe("redemption");
+    expect(response.results[0]?.retrievalTrace?.lexicalRank).toBe(41);
+    expect(response.results[0]?.retrievalTrace?.metadataSignals).toContain(
+      "classification:exact_heading"
+    );
   });
 });

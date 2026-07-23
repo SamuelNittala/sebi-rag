@@ -12,6 +12,7 @@ import type {
 const PLATINUM_STRATEGY_ID = "platinum-hybrid-long-short-fund";
 const PLATINUM_PATTERN = /\bplatinum\b/i;
 const SIF_PATTERN = /\bSIFs?\b|speciali[sz]ed\s+investment\s+funds?\b/i;
+const FACT_COORDINATOR_PATTERN = /\b(?:and|or)\b|[&,;/]/i;
 
 const FACT_PATTERNS: ReadonlyArray<[RetrievalFactIntent, RegExp]> = [
   ["fund_manager", /\b(?:fund\s+manager|who\s+manages|managed\s+by)\b/i],
@@ -28,7 +29,20 @@ const FACT_PATTERNS: ReadonlyArray<[RetrievalFactIntent, RegExp]> = [
 ];
 
 export function resolveRetrievalIntent(query: string): RetrievalIntent {
-  const factType = FACT_PATTERNS.find(([, pattern]) => pattern.test(query))?.[0] ?? null;
+  const matchedFacts = FACT_PATTERNS.flatMap(([factType, pattern]) => {
+    const match = pattern.exec(query);
+    return match
+      ? [{ factType, start: match.index, end: match.index + match[0].length }]
+      : [];
+  });
+  const factsByPosition = [...matchedFacts].sort((left, right) => left.start - right.start);
+  const hasCoordinatedFacts = factsByPosition.some((fact, index) => {
+    const previousFact = factsByPosition[index - 1];
+    return previousFact
+      ? FACT_COORDINATOR_PATTERN.test(query.slice(previousFact.end, fact.start))
+      : false;
+  });
+  const factType = hasCoordinatedFacts ? null : matchedFacts[0]?.factType ?? null;
   const platinum = PLATINUM_PATTERN.test(query);
   const sif = SIF_PATTERN.test(query);
   if (factType) {
@@ -36,6 +50,13 @@ export function resolveRetrievalIntent(query: string): RetrievalIntent {
       factType,
       strategyId: platinum ? PLATINUM_STRATEGY_ID : null,
       preferredDocumentScope: platinum ? "strategy" : null,
+    };
+  }
+  if (hasCoordinatedFacts && platinum) {
+    return {
+      factType: null,
+      strategyId: PLATINUM_STRATEGY_ID,
+      preferredDocumentScope: "strategy",
     };
   }
   return {
@@ -84,7 +105,7 @@ function metadataAdjustment(
       )
     ),
     `classification:${metadata.classificationSource}`,
-    0.27,
+    0.4,
   );
   adjustment += addSignal(
     signals,
@@ -128,7 +149,7 @@ function metadataAdjustment(
     signals,
     Boolean(intent.factType && metadata.factType && metadata.factType !== intent.factType),
     `penalty:fact_mismatch:${metadata.factType}`,
-    -0.03,
+    -0.15,
   );
   return { adjustment, signals };
 }

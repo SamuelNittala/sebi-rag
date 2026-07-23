@@ -35,6 +35,40 @@ describe("hybrid retrieval intent", () => {
     });
   });
 
+  test("keeps multi-fact Platinum questions strategy-scoped without choosing one fact", () => {
+    expect(
+      resolveRetrievalIntent(
+        "What are the minimum investment and redemption terms for Platinum SIF?",
+      ),
+    ).toEqual({
+      factType: null,
+      strategyId: "platinum-hybrid-long-short-fund",
+      preferredDocumentScope: "strategy",
+    });
+  });
+
+  test("recognizes ampersands between coordinated fact requests", () => {
+    expect(
+      resolveRetrievalIntent(
+        "What are the minimum investment & redemption terms for Platinum SIF?",
+      ),
+    ).toEqual({
+      factType: null,
+      strategyId: "platinum-hybrid-long-short-fund",
+      preferredDocumentScope: "strategy",
+    });
+  });
+
+  test("keeps manager precedence when one request contains overlapping fact language", () => {
+    expect(
+      resolveRetrievalIntent("Who manages the investment strategy for Platinum SIF?"),
+    ).toEqual({
+      factType: "fund_manager",
+      strategyId: "platinum-hybrid-long-short-fund",
+      preferredDocumentScope: "strategy",
+    });
+  });
+
   test("keeps a generic SIF definition at umbrella scope", () => {
     expect(resolveRetrievalIntent("What is a Specialized Investment Fund?")).toEqual({
       factType: null,
@@ -151,6 +185,33 @@ describe("reviewed metadata ranking", () => {
     });
 
     expect(result.findIndex((item) => item.candidate.id === "objective")).toBeLessThan(3);
+  });
+
+  test("does not let a fact mismatch erase strong multi-fact retrieval evidence", () => {
+    const mixedSection = candidate("mixed", "Redemption and exit load details", {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      sectionType: "exit_load",
+      factType: "exit_load",
+      sourceAuthority: "regulatory_filing",
+    });
+    const fillers = Array.from(
+      { length: 3 },
+      (_, index) => candidate(`filler-${index}`, `Generic result ${index}`),
+    );
+    const unlabeled = candidate("unlabeled", "Generic unlabeled result");
+    const rankedCandidates = [mixedSection, ...fillers, unlabeled]
+      .map((item, index) => ({ candidate: item, score: 1 - index * 0.01 }));
+
+    const result = fuseHybridCandidates({
+      dense: rankedCandidates,
+      lexical: rankedCandidates,
+      intent: resolveRetrievalIntent("When can I redeem in Platinum SIF?"),
+      limit: 5,
+    });
+
+    expect(result.findIndex((item) => item.candidate.id === "mixed"))
+      .toBeLessThan(result.findIndex((item) => item.candidate.id === "unlabeled"));
   });
 
   test("keeps candidates with missing metadata and records no adjustment", () => {

@@ -71,10 +71,9 @@ function htmlCandidate(result: HtmlSearchResult): MergedResult {
   };
 }
 
-function globallyRank(candidates: MergedResult[], limit: number) {
+function globallyRank(candidates: MergedResult[]) {
   return candidates
     .sort((left, right) => right.score - left.score)
-    .slice(0, limit)
     .map((candidate) => ({ candidate, score: candidate.score }));
 }
 
@@ -131,11 +130,11 @@ async function retrieveCandidates(
     dense: globallyRank([
       ...pdfDense.map(pdfCandidate),
       ...htmlDense.map(htmlCandidate),
-    ], input.candidateLimit),
+    ]),
     lexical: globallyRank([
       ...pdfLexical.map(pdfCandidate),
       ...htmlLexical.map(htmlCandidate),
-    ], input.candidateLimit),
+    ]),
   };
 }
 
