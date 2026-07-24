@@ -731,6 +731,44 @@ describe("Metadata Extractor", () => {
   });
 
   describe("real-world filename patterns", () => {
+    test("extracts authoritative metadata from a notice-cum-addendum", () => {
+      const text = `
+        NOTICE CUM ADDENDUM NO. SIF/05/2026
+        NOTICE-CUM-ADDENDUM TO THE STATEMENT OF ADDITIONAL INFORMATION
+        (“SAI”), INVESTMENT STRATEGY INFORMATION DOCUMENT (“ISID”) AND KEY
+        INFORMATION MEMORANDUM (“KIM”) OF PLATINUM HYBRID LONG-SHORT FUND
+        Certain scheme features shall stand modified with effect from Wednesday, July 01, 2026.
+        DATE: June 29, 2026
+      `;
+      const result = extractMetadata({
+        filename: "AD-No.-05-Change-in-certain-features-of-Platinum-Hybrid-Long-Short-Fund.-1.pdf",
+        firstPageText: text,
+        fullText: text,
+      });
+
+      expect(result.docType).toBe("Addendum");
+      expect(result.fundName).toBe("Platinum Hybrid Long-Short Fund");
+      expect(result.documentDate?.toISOString().slice(0, 10)).toBe("2026-06-29");
+      expect(result.effectiveDate?.toISOString().slice(0, 10)).toBe("2026-07-01");
+      expect(result.amendmentNumber).toBe("SIF/05/2026");
+      expect(result.amendedDocumentTypes).toEqual(["SAI", "ISID", "KIM"]);
+    });
+
+    test("rejects impossible addendum dates instead of normalizing them", () => {
+      const result = extractMetadata({
+        filename: "notice-addendum.pdf",
+        filepath: "/tmp/notice-addendum.pdf",
+        firstPageText: `
+          NOTICE-CUM-ADDENDUM NO. SIF/05/2026
+          DATE: June 31, 2026
+          The provisions stand modified with effect from February 29, 2025.
+        `,
+      });
+
+      expect(result.documentDate).toBeNull();
+      expect(result.effectiveDate).toBeNull();
+    });
+
     test("parses Mirae Asset filename", () => {
       const input: MetadataInput = {
         filename: "Mirae_Asset_Large_Cap_Fund_SID_March_2024.pdf",

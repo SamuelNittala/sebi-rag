@@ -255,6 +255,7 @@ export async function publishApprovedReviewRun(
           amcSlug: metadataString(metadata, "amcSlug") || null,
           ingestionRunId: runId,
           publicationStatus: "staged",
+          retrievalMetadata: metadata,
         };
       }));
       await normalizePublishedPageNumbers(database, runId);
@@ -280,6 +281,7 @@ export async function publishApprovedReviewRun(
           amcSlug: metadataString(metadata, "amcSlug") || null,
           ingestionRunId: runId,
           publicationStatus: "staged",
+          retrievalMetadata: metadata,
         };
       }));
     }

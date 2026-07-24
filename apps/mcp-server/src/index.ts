@@ -126,18 +126,25 @@ async function recordUsage(
 }
 
 /**
- * Build citations from search results, deduplicating by fund + docType.
+ * Build citations from search results, preserving distinct authoritative documents.
  */
 function buildCitations(results: MergedResult[]) {
   const citationMap = new Map<string, {
     fundName: string;
     docType: string;
+    amendmentNumber: string;
     pageNumbers: number[];
     sebiUrl: string;
+    sourceUrl: string;
   }>();
 
   for (const result of results.filter((item) => item.source_type === "scheme_document")) {
-    const key = `${result.fundName}|${result.docType}`;
+    const amendmentNumber = typeof result.metadata?.amendmentNumber === "string"
+      ? result.metadata.amendmentNumber
+      : "";
+    const key = result.sourceUrl
+      ? `${result.sourceUrl}|${amendmentNumber}`
+      : `${result.fundName}|${result.docType}|${amendmentNumber}`;
     const existing = citationMap.get(key);
     if (existing) {
       const pages = new Set([...existing.pageNumbers, ...(result.pageNumbers ?? [])]);
@@ -146,8 +153,10 @@ function buildCitations(results: MergedResult[]) {
       citationMap.set(key, {
         fundName: result.fundName ?? "",
         docType: result.docType ?? "",
+        amendmentNumber,
         pageNumbers: [...(result.pageNumbers ?? [])],
         sebiUrl: result.sebiUrl ?? "",
+        sourceUrl: result.sourceUrl ?? "",
       });
     }
   }
@@ -185,7 +194,7 @@ const TOOLS: Tool[] = [
     name: "query_mutual_funds",
     description:
       "Ask a question about mutual funds and get an answer with citations. " +
-      "Searches both scheme documents (SID/KIM/Factsheet) and general knowledge content " +
+      "Searches both scheme documents (SID/KIM/Factsheet/Addendum) and general knowledge content " +
       "(education articles, procedural guides). " +
       "Use this for questions about expense ratios, investment objectives, risk factors, " +
       "fund managers, NAV, returns, SIP, KYC, and how to invest. " +
@@ -217,7 +226,7 @@ const TOOLS: Tool[] = [
         },
         doc_type: {
           type: "string",
-          enum: ["SID", "KIM", "Factsheet"],
+          enum: ["SID", "KIM", "Factsheet", "Addendum"],
           description: "Optional: Filter by document type. Only searches scheme documents.",
         },
         content_category: {
@@ -259,6 +268,11 @@ const TOOLS: Tool[] = [
           type: "string",
           enum: ["Equity", "Debt", "Hybrid", "Other"],
           description: "Optional: Filter by scheme type. Only searches scheme documents.",
+        },
+        doc_type: {
+          type: "string",
+          enum: ["SID", "KIM", "Factsheet", "Addendum"],
+          description: "Optional: Filter by document type. Only searches scheme documents.",
         },
         content_category: {
           type: "string",
@@ -380,6 +394,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
             pageNumbers: r.pageNumbers,
             documentFilename: r.documentFilename,
             sebiUrl: r.sebiUrl,
+            sourceUrl: r.sourceUrl,
           }),
           // HTML fields (present when source_type is "knowledge_base")
           ...(r.source_type === "knowledge_base" && {
@@ -429,12 +444,22 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
       }
 
       case "search_mutual_fund_docs": {
-        const { query, topic, amc_name, scheme_name, scheme_type, content_category: searchCategory, limit = 5 } = args as {
+        const {
+          query,
+          topic,
+          amc_name,
+          scheme_name,
+          scheme_type,
+          doc_type,
+          content_category: searchCategory,
+          limit = 5,
+        } = args as {
           query: string;
           topic?: string;
           amc_name?: string;
           scheme_name?: string;
           scheme_type?: string;
+          doc_type?: string;
           content_category?: string;
           limit?: number;
         };
@@ -445,6 +470,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           amc_name,
           scheme_name,
           scheme_type,
+          doc_type,
           content_category: searchCategory,
         });
 

@@ -42,7 +42,11 @@ function pdfResult(
   };
 }
 
-function htmlResult(id: string, score: number): HtmlSearchResult {
+function htmlResult(
+  id: string,
+  score: number,
+  overrides: Partial<HtmlSearchResult> = {},
+): HtmlSearchResult {
   return {
     id,
     score,
@@ -187,5 +191,57 @@ describe("searchHybridDocuments candidate fusion", () => {
     expect(response.results[0]?.retrievalTrace?.metadataSignals).toContain(
       "classification:exact_heading"
     );
+  });
+
+  test("does not reintroduce a superseded provision during reranking", async () => {
+    const previous = pdfResult("previous", 0.9, {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      sectionType: "minimum_investment",
+      factType: "minimum_investment",
+      documentType: "ISID",
+    });
+    const addendum = pdfResult("addendum", 0.8, {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      sectionType: "minimum_investment",
+      factType: "minimum_investment",
+      documentType: "Addendum",
+      effectiveDate: "2026-07-01",
+      supersessionKey: "minimum_sip_installment",
+    });
+    previous.payload.text = "The minimum SIP installment is Rs. 50,000.";
+    addendum.payload.text = "The current minimum SIP installment is Rs. 5,000.";
+    const vectorClient = {
+      searchSimilar: mock(async () => [previous, addendum]),
+      searchLexical: mock(async () => [previous, addendum]),
+      searchHtmlSimilar: mock(async () => []),
+      searchHtmlLexical: mock(async () => []),
+    } as unknown as VectorClient;
+    const reranker: Reranker = {
+      provider: "test",
+      model: "reverse",
+      rerank: mock(async () => [
+        { index: 0, score: 0.5 },
+      ]),
+    };
+
+    const response = await searchHybridDocuments(
+      vectorClient,
+      "What is the minimum SIP installment for Platinum SIF?",
+      [0.1],
+      {
+        limit: 2,
+        scoreThreshold: 0,
+        searchPdf: true,
+        searchHtml: false,
+        reranker,
+      },
+    );
+
+    expect(response.results[0]?.id).toBe("addendum");
+    expect(response.results.some((item) => item.id === "previous")).toBe(false);
+    expect(response.results[0]?.retrievalTrace?.metadataSignals)
+      .toContain("temporal:effective_addendum");
   });
 });

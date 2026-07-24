@@ -25,6 +25,7 @@ import { extractTables, type TableExtractionResult } from "../parsers/table-pars
 
 // Chunker
 import { semanticChunk, type ChunkInput, type Chunk, type ChunkResult } from "../chunkers/semantic-chunker.ts";
+import { chunkAddendum } from "../chunkers/addendum-chunker.ts";
 import { removeDisposableSifChunks } from "../chunkers/disposable-content.ts";
 
 // Metadata extractor
@@ -76,12 +77,14 @@ export interface IngestConfig {
   reviewGate?: "required" | "disabled";
   /** Re-run parsing and inspection for an already known file without deleting its published vectors. */
   reviewExisting?: boolean;
+  /** Original authoritative URL for citations and knowledge-scope resolution. */
+  sourceUrl?: string;
 }
 
 /**
  * Default configuration values
  */
-export const DEFAULT_INGEST_CONFIG: Required<Omit<IngestConfig, "knowledgeScope">> = {
+export const DEFAULT_INGEST_CONFIG: Required<Omit<IngestConfig, "knowledgeScope" | "sourceUrl">> = {
   ollamaUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
   embeddingBatchSize: 10,
   reviewGate: "required",
@@ -289,11 +292,50 @@ export async function ingestDocument(
       firstPageText: firstPagesText,
       fullText: parsedPdf.rawText,
     });
+    let chunkerVersion = "semantic-v1";
+    if (metadata.docType === "Addendum") {
+      const addendumChunks = metadata.fundName
+        && metadata.amendmentNumber
+        && metadata.effectiveDate
+        ? chunkAddendum({
+            pages: parsedPdf.pages,
+            fundName: metadata.fundName,
+            amendmentNumber: metadata.amendmentNumber,
+            effectiveDate: metadata.effectiveDate.toISOString().slice(0, 10),
+            amendedDocumentTypes: metadata.amendedDocumentTypes,
+          })
+        : null;
+      if (!addendumChunks) {
+        const error = "Addendum provisions could not be paired unambiguously";
+        await updateDocumentStatus(db, documentId, "failed", error);
+        return {
+          documentId,
+          filename,
+          status: "failed",
+          error,
+          duration: Date.now() - startTime,
+        };
+      }
+      chunkResult = addendumChunks;
+      chunkerVersion = "addendum-v1";
+    }
+    const sourceUrl = fullConfig.sourceUrl ?? resolve(filepath);
     const knowledgeScope = fullConfig.knowledgeScope ?? resolveKnowledgeScope({
       source: "pdf",
-      sourceUrl: resolve(filepath),
+      sourceUrl,
       title: `${metadata.fundName ?? ""} ${firstPagesText.slice(0, 1500)}`,
     });
+    const documentScope = classifyDocumentScope({
+      filename,
+      documentType: metadata.docType,
+      sourceCollection: knowledgeScope.sourceCollection,
+      fundName: metadata.fundName,
+    });
+    const sourceAuthority = metadata.docType === "Addendum"
+      ? "regulatory_filing"
+      : fullConfig.sourceUrl
+        ? "official_product_page"
+        : "unknown";
     if (knowledgeScope.sourceCollection === "mirae_sif") {
       chunkResult = removeDisposableSifChunks(chunkResult, filename);
     }
@@ -323,18 +365,14 @@ export async function ingestDocument(
     if (fullConfig.reviewGate === "required") {
       onProgress?.({ stage: "inspection", detail: "Inspecting every candidate chunk", percentage: 45 });
       const sebiMetadata = await lookupSebiMetadata(filepath, metadata.fundName ?? undefined);
-      const documentScope = classifyDocumentScope({
-        filename,
-        documentType: metadata.docType,
-        sourceCollection: knowledgeScope.sourceCollection,
-        fundName: metadata.fundName,
-      });
       const prepared = prepareChunkReview({
         document: { id: documentId, filename, pageCount: parsedPdf.pageCount },
         chunks: chunkResult.chunks,
         metadata: {
           documentScope,
           strategyId: strategyIdForScope(documentScope, metadata.fundName),
+          canonicalStrategyName: documentScope === "strategy" ? metadata.fundName : null,
+          sourceAuthority,
           sourceCollection: knowledgeScope.sourceCollection,
           fundName: metadata.fundName,
           documentType: metadata.docType,
@@ -342,8 +380,12 @@ export async function ingestDocument(
           schemeType: sebiMetadata.schemeType || metadata.schemeType,
           schemeCategory: sebiMetadata.schemeCategory || metadata.schemeCategory,
           documentDate: metadata.documentDate?.toISOString().split("T")[0] ?? null,
+          effectiveDate: metadata.effectiveDate?.toISOString().slice(0, 10) ?? null,
+          amendmentNumber: metadata.amendmentNumber,
+          amendedDocumentTypes: metadata.amendedDocumentTypes,
           sebiSchemeId: sebiMetadata.sebiSchemeId,
           sebiUrl: sebiMetadata.sebiUrl,
+          sourceUrl: fullConfig.sourceUrl ?? null,
           knowledgeDomain: knowledgeScope.knowledgeDomain,
           amcSlug: knowledgeScope.amcSlug,
         },
@@ -352,10 +394,10 @@ export async function ingestDocument(
         sourceType: "pdf",
         sourceDocumentId: documentId,
         sourceName: filename,
-        sourceLocation: resolve(filepath),
+        sourceLocation: sourceUrl,
         fileHash,
         parserVersion: "unpdf-pdfplumber-v1",
-        chunkerVersion: "semantic-v1",
+        chunkerVersion,
         report: prepared.report,
         candidates: prepared.candidates,
       });
@@ -457,6 +499,20 @@ export async function ingestDocument(
         knowledge_domain: knowledgeScope.knowledgeDomain,
         source_collection: knowledgeScope.sourceCollection,
         amc_slug: knowledgeScope.amcSlug,
+        retrieval_metadata: {
+          documentScope,
+          strategyId: strategyIdForScope(documentScope, metadata.fundName),
+          canonicalStrategyName: documentScope === "strategy" ? metadata.fundName : null,
+          sourceAuthority,
+          sourceCollection: knowledgeScope.sourceCollection,
+          fundName: metadata.fundName,
+          documentType: metadata.docType,
+          sourceUrl: fullConfig.sourceUrl ?? null,
+          documentDate: metadata.documentDate?.toISOString().slice(0, 10) ?? null,
+          effectiveDate: metadata.effectiveDate?.toISOString().slice(0, 10) ?? null,
+          amendmentNumber: metadata.amendmentNumber,
+          amendedDocumentTypes: metadata.amendedDocumentTypes,
+        },
       };
 
       return {

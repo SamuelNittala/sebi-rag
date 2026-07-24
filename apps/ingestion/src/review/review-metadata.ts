@@ -1,4 +1,4 @@
-import type { DocumentScope } from "@mf-rag/types";
+import type { DocumentScope, SupersessionKey } from "@mf-rag/types";
 
 export interface DocumentScopeInput {
   filename: string;
@@ -10,6 +10,7 @@ export interface DocumentScopeInput {
 export interface SectionClassification {
   sectionType: string | null;
   factType: string | null;
+  supersessionKey?: SupersessionKey;
 }
 
 export function classifyDocumentScope(input: DocumentScopeInput): DocumentScope {
@@ -36,6 +37,34 @@ export function classifySection(
     return documentScope === "strategy"
       ? { sectionType: "strategy_management", factType: "fund_manager" }
       : { sectionType: "staff_directory", factType: null };
+  }
+  if (/minimum\s+application\s+amount/i.test(sectionHeader)) {
+    return {
+      sectionType: "minimum_investment",
+      factType: "minimum_investment",
+      supersessionKey: "accredited_minimum_application",
+    };
+  }
+  if (/systematic\s+investment\s+plan/i.test(sectionHeader)) {
+    return {
+      sectionType: "minimum_investment",
+      factType: "minimum_investment",
+      supersessionKey: "minimum_sip_installment",
+    };
+  }
+  if (/systematic\s+withdrawal\s+plan/i.test(sectionHeader)) {
+    return {
+      sectionType: "redemption",
+      factType: "redemption",
+      supersessionKey: "minimum_swp_withdrawal",
+    };
+  }
+  if (/exit\s+load/i.test(sectionHeader)) {
+    return {
+      sectionType: "exit_load",
+      factType: "exit_load",
+      supersessionKey: "exit_load_window",
+    };
   }
   return { sectionType: null, factType: null };
 }

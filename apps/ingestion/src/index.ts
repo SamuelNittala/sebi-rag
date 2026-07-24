@@ -5,6 +5,8 @@
  * Processes PDF documents through parsing, chunking, embedding, and storage.
  */
 
+import { parseSourceUrlOption } from "./cli-options.ts";
+
 // Re-export orchestrator for programmatic use
 export * from "./orchestrator/index.ts";
 
@@ -28,6 +30,8 @@ export {
   type Embedder,
 } from "./embedding/index.ts";
 
+export { parseSourceUrlOption } from "./cli-options.ts";
+
 // CLI entry point when run directly
 if (import.meta.main) {
   const { ingestDocument, ingestDirectory } = await import("./orchestrator/index.ts");
@@ -44,6 +48,7 @@ if (import.meta.main) {
     console.log("Options:");
     console.log("  --dir       Process all PDFs in directory");
     console.log("  --ollama    Ollama URL (default: http://localhost:11434)");
+    console.log("  --source-url  Original authoritative document URL");
     console.log("  --review-existing  Reinspect an existing document without deleting published vectors");
     process.exit(0);
   }
@@ -51,14 +56,23 @@ if (import.meta.main) {
   // Parse arguments
   const isDir = args.includes("--dir");
   const ollamaIdx = args.indexOf("--ollama");
+  let sourceUrl: string | undefined;
+  try {
+    sourceUrl = parseSourceUrlOption(args);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Invalid --source-url value");
+    process.exit(1);
+  }
 
   const config = {
     ollamaUrl: ollamaIdx !== -1 ? args[ollamaIdx + 1] : undefined,
+    sourceUrl,
     reviewExisting: args.includes("--review-existing"),
   };
 
   // Get path (first non-flag argument)
-  const path = args.find((arg) => !arg.startsWith("--") && arg !== config.ollamaUrl);
+  const optionValues = new Set([config.ollamaUrl, config.sourceUrl].filter(Boolean));
+  const path = args.find((arg) => !arg.startsWith("--") && !optionValues.has(arg));
 
   if (!path) {
     console.error("Error: No path specified");

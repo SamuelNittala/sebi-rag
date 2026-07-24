@@ -21,6 +21,11 @@ export type ChunkFlagStatus = (typeof chunkFlagStatuses)[number];
 export type ReviewSourceType = "pdf" | "html";
 export type ReviewPurpose = "content" | "metadata";
 export type DocumentScope = "strategy" | "sif_umbrella" | "amc" | "regulatory" | "unknown";
+export type SupersessionKey =
+  | "accredited_minimum_application"
+  | "minimum_sip_installment"
+  | "minimum_swp_withdrawal"
+  | "exit_load_window";
 
 export interface CandidateChunkMetadata {
   documentScope: DocumentScope;
@@ -37,5 +42,10 @@ export interface CandidateChunkMetadata {
   fundName?: string | null;
   documentType?: string | null;
   sourceUrl?: string | null;
+  documentDate?: string | null;
+  effectiveDate?: string | null;
+  amendmentNumber?: string | null;
+  amendedDocumentTypes?: string[];
+  supersessionKey?: SupersessionKey | null;
   [key: string]: unknown;
 }

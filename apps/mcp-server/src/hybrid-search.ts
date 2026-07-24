@@ -60,6 +60,7 @@ function pdfCandidate(result: SearchResult): MergedResult {
     pageNumbers: result.payload.page_numbers,
     documentFilename: result.payload.document_filename,
     sebiUrl: result.payload.sebi_url,
+    sourceUrl: result.payload.retrieval_metadata?.sourceUrl ?? undefined,
   };
 }
 
@@ -170,27 +171,29 @@ async function applyReranker(
   const reranked = await reranker.rerank(
     query,
     candidates.map(({ candidate }) => rerankDocument(candidate)),
-    limit,
+    candidates.length,
   );
-  const expectedResults = Math.min(limit, candidates.length);
+  const expectedResults = candidates.length;
   if (reranked.length < expectedResults) {
     throw new Error(
       `Reranker returned ${reranked.length} of ${expectedResults} expected results`,
     );
   }
-  return reranked.slice(0, limit).map((result, index) => {
+  return reranked.map((result, index) => {
     const fused = candidates[result.index];
     if (!fused) throw new Error(`Reranker returned invalid result index ${result.index}`);
+    const finalScore = result.score + fused.trace.metadataAdjustment;
     return {
       candidate: fused.candidate,
       trace: {
         ...fused.trace,
         rerankRank: index + 1,
         rerankScore: result.score,
-        finalScore: result.score,
+        finalScore,
       },
     };
-  });
+  }).sort((left, right) => right.trace.finalScore - left.trace.finalScore)
+    .slice(0, limit);
 }
 
 export async function searchHybridDocuments(

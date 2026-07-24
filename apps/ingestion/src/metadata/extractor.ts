@@ -8,7 +8,7 @@
 /**
  * Document type classification
  */
-export type DocType = "SID" | "KIM" | "Factsheet" | "AnnualReport" | "Unknown";
+export type DocType = "SID" | "KIM" | "Factsheet" | "AnnualReport" | "Addendum" | "Unknown";
 
 /**
  * Scheme type classification
@@ -23,6 +23,9 @@ export interface ExtractedMetadata {
   fundName: string | null;
   docType: DocType;
   documentDate: Date | null;
+  effectiveDate: Date | null;
+  amendmentNumber: string | null;
+  amendedDocumentTypes: string[];
 
   // From content
   amcName: string | null;
@@ -79,6 +82,10 @@ const MONTH_MAP: Record<string, number> = {
  * Doc type keywords for detection
  */
 const DOC_TYPE_PATTERNS: Array<{ type: DocType; patterns: RegExp[] }> = [
+  {
+    type: "Addendum",
+    patterns: [/\bNOTICE(?:\s|-)+CUM(?:\s|-)+ADDENDUM\b/i, /\bADDENDUM\s+NO\.?\b/i],
+  },
   {
     type: "SID",
     patterns: [/\bSID\b/i, /Scheme\s+Information\s+Document/i],
@@ -268,6 +275,7 @@ function extractFundNameFromFilename(filename: string): string | null {
  */
 function extractDocTypeFromFilename(filename: string): DocType | null {
   // Use case-insensitive patterns that handle underscores and dashes as word boundaries
+  if (/ADDENDUM|NOTICE[_\-\s]?CUM[_\-\s]?ADDENDUM/i.test(filename)) return "Addendum";
   if (/[_\-]SID[_\-]|[_\-]SID\.|^SID[_\-]|[_\-]SID$/i.test(filename)) return "SID";
   if (/[_\-]KIM[_\-]|[_\-]KIM\.|^KIM[_\-]|[_\-]KIM$/i.test(filename)) return "KIM";
   if (/FACTSHEET|FACT[_\-]?SHEET/i.test(filename)) return "Factsheet";
@@ -329,12 +337,62 @@ function extractDateFromFilename(filename: string): Date | null {
   return null;
 }
 
+function dateFromContentMatch(match: RegExpMatchArray | null): Date | null {
+  if (!match?.[1] || !match[2] || !match[3]) return null;
+  const month = MONTH_MAP[match[1].toLowerCase()];
+  const day = Number.parseInt(match[2], 10);
+  const year = Number.parseInt(match[3], 10);
+  if (month === undefined || day < 1 || day > 31 || year < 2000 || year > 2100) return null;
+  const date = new Date(Date.UTC(year, month, day));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month
+    && date.getUTCDate() === day
+    ? date
+    : null;
+}
+
+function extractDocumentDateFromContent(text: string): Date | null {
+  return dateFromContentMatch(text.match(
+    /\bDATE\s*:\s*(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i,
+  ));
+}
+
+function extractEffectiveDate(text: string): Date | null {
+  return dateFromContentMatch(text.match(
+    /\b(?:with\s+effect\s+from|effective\s+from)\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)?[,]?\s*(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i,
+  ));
+}
+
+function extractAmendmentNumber(text: string): string | null {
+  return text.match(/\b(?:ADDENDUM|NOTICE)\s+(?:NO\.?\s*)?([A-Z]+\/\d+\/\d{4})\b/i)?.[1]?.toUpperCase()
+    ?? text.match(/\b([A-Z]+\/\d+\/\d{4})\b/)?.[1]?.toUpperCase()
+    ?? null;
+}
+
+function extractAmendedDocumentTypes(text: string): string[] {
+  return ["SAI", "ISID", "KIM"].filter((type) =>
+    new RegExp(`\\b${type}\\b`, "i").test(text)
+  );
+}
+
 /**
  * Extracts fund/scheme name from content
  */
 function extractFundNameFromContent(text: string): string | null {
   // Normalize whitespace
   const normalized = text.replace(/\s+/g, " ");
+  const addendumFundMatch = normalized.match(
+    /\bOF\s+([A-Z][A-Z0-9&' -]{4,100}?\bFUND)\b/,
+  );
+  if (addendumFundMatch?.[1]) {
+    return addendumFundMatch[1]
+      .toLowerCase()
+      .split(/\s+/)
+      .map((word) => word.split("-").map(
+        (part) => part.charAt(0).toUpperCase() + part.slice(1),
+      ).join("-"))
+      .join(" ");
+  }
 
   // Pattern 1: "Name of the Scheme: XYZ Fund"
   const schemeNamePattern = /Name\s+of\s+the\s+Scheme\s*[:\-]?\s*([A-Z][A-Za-z\s&]+(?:Fund|Scheme))/i;
@@ -537,7 +595,6 @@ export function extractMetadata(input: MetadataInput): ExtractedMetadata {
   // PRIORITY 2: Extract from filename
   const fundNameFromFilename = extractFundNameFromFilename(filename);
   const filenameDocType = extractDocTypeFromFilename(filename);
-  const documentDate = extractDateFromFilename(filename);
 
   // PRIORITY 3: Extract from content (fallback only)
   const fundNameFromContent = extractFundNameFromContent(firstPageText);
@@ -548,23 +605,31 @@ export function extractMetadata(input: MetadataInput): ExtractedMetadata {
 
   // Use fullText for ISINs and codes (might appear later in document)
   const searchTextForIds = fullText || firstPageText;
+  const documentDate = extractDocumentDateFromContent(searchTextForIds)
+    || extractDateFromFilename(filename);
   const { growth: isinGrowth, dividend: isinDividend } = extractISINs(searchTextForIds);
   const schemeCode = extractSchemeCode(searchTextForIds);
 
-  // Fund name priority: path > filename > content
-  const fundName = pathInfo.schemeName || fundNameFromFilename || fundNameFromContent;
+  // Doc type: filename takes precedence over content.
+  const docType = filenameDocType || contentDocType;
+
+  // Addenda often have administrative filenames. Their title is authoritative.
+  const fundName = pathInfo.schemeName
+    || (docType === "Addendum" ? fundNameFromContent : null)
+    || fundNameFromFilename
+    || fundNameFromContent;
 
   // AMC name priority: path > content
   // NOTE: Path-based AMC name is most reliable (from folder structure)
   const amcName = pathInfo.amcName || amcNameFromContent;
 
-  // Doc type: filename takes precedence over content
-  const docType = filenameDocType || contentDocType;
-
   return {
     fundName,
     docType,
     documentDate,
+    effectiveDate: extractEffectiveDate(searchTextForIds),
+    amendmentNumber: extractAmendmentNumber(searchTextForIds),
+    amendedDocumentTypes: extractAmendedDocumentTypes(searchTextForIds),
     amcName,
     schemeType,
     schemeCategory,

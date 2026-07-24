@@ -1,4 +1,4 @@
-import type { CandidateChunkMetadata } from "@mf-rag/types";
+import type { CandidateChunkMetadata, SupersessionKey } from "@mf-rag/types";
 
 export type RetrievalSourceType = "scheme_document" | "knowledge_base";
 
@@ -19,12 +19,17 @@ export interface RetrievalIntent {
   factType: RetrievalFactIntent | null;
   strategyId: string | null;
   preferredDocumentScope: "strategy" | "sif_umbrella" | null;
+  supersessionKey?: SupersessionKey;
 }
 
 export interface HybridRetrievalCandidate {
   id: string;
   sourceType: RetrievalSourceType;
   metadata: CandidateChunkMetadata | null;
+  text?: string;
+  fundName?: string;
+  documentFilename?: string;
+  documentTitle?: string;
 }
 
 export interface RankedRetrievalCandidate<T extends HybridRetrievalCandidate> {
@@ -58,4 +63,5 @@ export interface HybridFusionInput<T extends HybridRetrievalCandidate> {
   intent: RetrievalIntent;
   limit: number;
   rrfK?: number;
+  asOfDate?: string;
 }
