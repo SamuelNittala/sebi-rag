@@ -13,7 +13,9 @@ import {
   jsonb,
   real,
   customType,
+  check,
 } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 import type {
   CandidateChunkMetadata,
   ChunkFlagSeverity,
@@ -21,6 +23,7 @@ import type {
   ReviewRunStatus,
   ReviewPurpose,
   ReviewSourceType,
+  VisibilityScope,
 } from "@mf-rag/types";
 
 // Custom type for pgvector
@@ -44,7 +47,34 @@ const vector = customType<{
       .map((v) => parseFloat(v));
   },
 });
-import { relations } from "drizzle-orm";
+const ownershipInvariant = sql.raw(`(
+  ("visibility_scope" = 'UNCLASSIFIED'
+    AND "tenant_id" IS NULL
+    AND "ownership_manifest_id" IS NULL
+    AND "ownership_manifest_version" IS NULL)
+  OR
+  ("visibility_scope" = 'GLOBAL'
+    AND "tenant_id" IS NULL
+    AND "ownership_manifest_id" IS NOT NULL
+    AND "ownership_manifest_version" > 0)
+  OR
+  ("visibility_scope" = 'TENANT'
+    AND "tenant_id" IS NOT NULL
+    AND "ownership_manifest_id" IS NOT NULL
+    AND "ownership_manifest_version" > 0)
+)`);
+
+function ownershipColumns() {
+  return {
+    visibilityScope: varchar("visibility_scope", { length: 20 })
+      .default("UNCLASSIFIED")
+      .notNull()
+      .$type<VisibilityScope>(),
+    tenantId: varchar("tenant_id", { length: 100 }),
+    ownershipManifestId: varchar("ownership_manifest_id", { length: 100 }),
+    ownershipManifestVersion: integer("ownership_manifest_version"),
+  };
+}
 
 // Document status enum values
 export const documentStatuses = [
@@ -59,20 +89,25 @@ export type DocumentStatus = (typeof documentStatuses)[number];
 /**
  * Documents table - stores metadata about ingested PDF files
  */
-export const documents = pgTable("documents", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  filename: varchar("filename", { length: 255 }).notNull(),
-  filepath: varchar("filepath", { length: 500 }).notNull(),
-  fileHash: varchar("file_hash", { length: 64 }).unique().notNull(),
-  docType: varchar("doc_type", { length: 50 }),
-  documentDate: date("document_date", { mode: "date" }),
-  pageCount: integer("page_count"),
-  chunkCount: integer("chunk_count"),
-  status: varchar("status", { length: 20 }).default("pending").notNull().$type<DocumentStatus>(),
-  errorMessage: text("error_message"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    filename: varchar("filename", { length: 255 }).notNull(),
+    filepath: varchar("filepath", { length: 500 }).notNull(),
+    fileHash: varchar("file_hash", { length: 64 }).unique().notNull(),
+    docType: varchar("doc_type", { length: 50 }),
+    documentDate: date("document_date", { mode: "date" }),
+    pageCount: integer("page_count"),
+    chunkCount: integer("chunk_count"),
+    status: varchar("status", { length: 20 }).default("pending").notNull().$type<DocumentStatus>(),
+    errorMessage: text("error_message"),
+    ...ownershipColumns(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  () => [check("documents_ownership_invariant_ck", ownershipInvariant)],
+);
 
 /**
  * AMCs table - stores Asset Management Company metadata from SEBI
@@ -179,6 +214,7 @@ export const chunks = pgTable(
       .default("published")
       .notNull(),
     retrievalMetadata: jsonb("retrieval_metadata").$type<CandidateChunkMetadata>(),
+    ...ownershipColumns(),
     // Timestamps
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -193,8 +229,16 @@ export const chunks = pgTable(
     index("chunks_knowledge_domain_idx").on(table.knowledgeDomain),
     index("chunks_source_collection_idx").on(table.sourceCollection),
     index("chunks_publication_status_idx").on(table.publicationStatus),
+    index("chunks_published_scope_tenant_idx").on(
+      table.publicationStatus,
+      table.visibilityScope,
+      table.tenantId,
+      table.knowledgeDomain,
+      table.sourceCollection,
+    ),
     // Unique constraint for idempotent upserts
     index("chunks_document_chunk_idx").on(table.documentId, table.chunkIndex),
+    check("chunks_ownership_invariant_ck", ownershipInvariant),
   ]
 );
 
@@ -271,6 +315,7 @@ export const htmlDocuments = pgTable(
     chunkCount: integer("chunk_count"),
     status: varchar("status", { length: 20 }).default("pending").notNull().$type<DocumentStatus>(),
     errorMessage: text("error_message"),
+    ...ownershipColumns(),
     scrapedAt: timestamp("scraped_at", { mode: "date" }).notNull(),
     ingestedAt: timestamp("ingested_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
@@ -280,6 +325,7 @@ export const htmlDocuments = pgTable(
     index("html_documents_content_category_idx").on(table.contentCategory),
     index("html_documents_source_idx").on(table.source),
     index("html_documents_status_idx").on(table.status),
+    check("html_documents_ownership_invariant_ck", ownershipInvariant),
   ]
 );
 
@@ -314,6 +360,7 @@ export const htmlChunks = pgTable(
       .default("published")
       .notNull(),
     retrievalMetadata: jsonb("retrieval_metadata").$type<CandidateChunkMetadata>(),
+    ...ownershipColumns(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
@@ -322,7 +369,15 @@ export const htmlChunks = pgTable(
     index("html_chunks_knowledge_domain_idx").on(table.knowledgeDomain),
     index("html_chunks_source_collection_idx").on(table.sourceCollection),
     index("html_chunks_publication_status_idx").on(table.publicationStatus),
+    index("html_chunks_published_scope_tenant_idx").on(
+      table.publicationStatus,
+      table.visibilityScope,
+      table.tenantId,
+      table.knowledgeDomain,
+      table.sourceCollection,
+    ),
     index("html_chunks_document_chunk_idx").on(table.documentId, table.chunkIndex),
+    check("html_chunks_ownership_invariant_ck", ownershipInvariant),
   ]
 );
 
@@ -379,6 +434,7 @@ export const ingestionRuns = pgTable(
     reviewer: varchar("reviewer", { length: 255 }),
     reviewNote: text("review_note"),
     reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    ...ownershipColumns(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -386,6 +442,7 @@ export const ingestionRuns = pgTable(
     index("ingestion_runs_source_document_idx").on(table.sourceType, table.sourceDocumentId),
     index("ingestion_runs_status_idx").on(table.status),
     index("ingestion_runs_created_at_idx").on(table.createdAt),
+    check("ingestion_runs_ownership_invariant_ck", ownershipInvariant),
   ],
 );
 
@@ -405,11 +462,13 @@ export const chunkCandidates = pgTable(
     sectionHeader: text("section_header"),
     metadata: jsonb("metadata").$type<CandidateChunkMetadata>().notNull(),
     contentHash: varchar("content_hash", { length: 64 }).notNull(),
+    ...ownershipColumns(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("chunk_candidates_run_chunk_uidx").on(table.ingestionRunId, table.chunkIndex),
     index("chunk_candidates_run_idx").on(table.ingestionRunId),
+    check("chunk_candidates_ownership_invariant_ck", ownershipInvariant),
   ],
 );
 
@@ -533,6 +592,9 @@ export const apiKeys = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     key: varchar("key", { length: 64 }).unique().notNull(),
+    keyFingerprint: varchar("key_fingerprint", { length: 64 })
+      .generatedAlwaysAs(sql`encode(digest("key", 'sha256'), 'hex')`)
+      .unique(),
     tier: varchar("tier", { length: 20 }).default("free").notNull(),
     name: varchar("name", { length: 100 }),
     email: varchar("email", { length: 255 }),
@@ -543,6 +605,39 @@ export const apiKeys = pgTable(
     index("api_keys_key_idx").on(table.key),
     index("api_keys_is_active_idx").on(table.isActive),
   ]
+);
+
+export const apiKeyTenantScopes = pgTable(
+  "api_key_tenant_scopes",
+  {
+    apiKeyId: uuid("api_key_id")
+      .notNull()
+      .references(() => apiKeys.id, { onDelete: "cascade" }),
+    tenantId: varchar("tenant_id", { length: 100 }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.apiKeyId, table.tenantId] }),
+    index("api_key_tenant_scopes_tenant_idx").on(table.tenantId),
+  ],
+);
+
+export const tenantOwnershipManifestApplications = pgTable(
+  "tenant_ownership_manifest_applications",
+  {
+    manifestId: varchar("manifest_id", { length: 100 }).notNull(),
+    manifestVersion: integer("manifest_version").notNull(),
+    manifestChecksum: varchar("manifest_checksum", { length: 64 }).notNull(),
+    inventoryChecksum: varchar("inventory_checksum", { length: 64 }).notNull(),
+    approvedBy: varchar("approved_by", { length: 255 }).notNull(),
+    approvedAt: timestamp("approved_at", { mode: "date" }).notNull(),
+    appliedAt: timestamp("applied_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.manifestId, table.manifestVersion] }),
+    uniqueIndex("tenant_ownership_manifest_checksum_uidx").on(table.manifestChecksum),
+    check("tenant_ownership_manifest_version_ck", sql`${table.manifestVersion} > 0`),
+  ],
 );
 
 /**
@@ -559,6 +654,12 @@ export const usageRecords = pgTable(
     queryHash: varchar("query_hash", { length: 64 }),
     responseTimeMs: integer("response_time_ms"),
     chunksRetrieved: integer("chunks_retrieved"),
+    correlationId: varchar("correlation_id", { length: 100 }),
+    tenantId: varchar("tenant_id", { length: 100 }),
+    operation: varchar("operation", { length: 100 }),
+    decision: varchar("decision", { length: 20 }),
+    reasonCode: varchar("reason_code", { length: 100 }),
+    resultCount: integer("result_count"),
     timestamp: timestamp("timestamp", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
@@ -571,6 +672,14 @@ export const usageRecords = pgTable(
 // Relations for API keys and usage
 export const apiKeysRelations = relations(apiKeys, ({ many }) => ({
   usageRecords: many(usageRecords),
+  tenantScopes: many(apiKeyTenantScopes),
+}));
+
+export const apiKeyTenantScopesRelations = relations(apiKeyTenantScopes, ({ one }) => ({
+  apiKey: one(apiKeys, {
+    fields: [apiKeyTenantScopes.apiKeyId],
+    references: [apiKeys.id],
+  }),
 }));
 
 export const usageRecordsRelations = relations(usageRecords, ({ one }) => ({
@@ -593,6 +702,8 @@ export type Chunk = typeof chunks.$inferSelect;
 export type NewChunk = typeof chunks.$inferInsert;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
+export type ApiKeyTenantScope = typeof apiKeyTenantScopes.$inferSelect;
+export type NewApiKeyTenantScope = typeof apiKeyTenantScopes.$inferInsert;
 export type UsageRecord = typeof usageRecords.$inferSelect;
 export type NewUsageRecord = typeof usageRecords.$inferInsert;
 export type HtmlDocument = typeof htmlDocuments.$inferSelect;
