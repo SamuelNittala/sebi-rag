@@ -186,6 +186,16 @@ describe("Metadata Extractor", () => {
       expect(result.docType).toBe("AnnualReport");
     });
 
+    test("detects generic FAQ education documents from content", () => {
+      const input: MetadataInput = {
+        filename: "official-mutual-fund-education.pdf",
+        firstPageText: "Frequently Asked Questions\nWhat is a mutual fund?",
+      };
+      const result = extractMetadata(input);
+
+      expect(result.docType).toBe("FAQ");
+    });
+
     test("returns Unknown when doc type not detected", () => {
       const input: MetadataInput = {
         filename: "random.pdf",

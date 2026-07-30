@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "bun --hot src/index.ts",
     "build": "bun build src/index.ts --outdir dist",
-    "start": "bun dist/index.js"
+    "start": "bun dist/index.js",
+    "faq:prepare": "bun src/prepare-curated-faq.ts"
   },
   "dependencies": {
     "unpdf": "^0.11.0",

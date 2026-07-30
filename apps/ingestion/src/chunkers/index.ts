@@ -16,3 +16,11 @@ export {
   chunkAddendum,
   type AddendumChunkInput,
 } from "./addendum-chunker";
+
+export {
+  chunkFaqItems,
+  type FaqChunk,
+  type FaqChunkInput,
+  type FaqChunkMetadata,
+  type FaqChunkResult,
+} from "./faq-chunker";

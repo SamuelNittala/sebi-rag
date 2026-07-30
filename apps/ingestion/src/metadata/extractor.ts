@@ -8,7 +8,7 @@
 /**
  * Document type classification
  */
-export type DocType = "SID" | "KIM" | "Factsheet" | "AnnualReport" | "Addendum" | "Unknown";
+export type DocType = "SID" | "KIM" | "Factsheet" | "AnnualReport" | "Addendum" | "FAQ" | "Unknown";
 
 /**
  * Scheme type classification
@@ -82,6 +82,10 @@ const MONTH_MAP: Record<string, number> = {
  * Doc type keywords for detection
  */
 const DOC_TYPE_PATTERNS: Array<{ type: DocType; patterns: RegExp[] }> = [
+  {
+    type: "FAQ",
+    patterns: [/\bFREQUENTLY\s+ASKED\s+QUESTIONS\b/i, /\bFAQs?\b/i],
+  },
   {
     type: "Addendum",
     patterns: [/\bNOTICE(?:\s|-)+CUM(?:\s|-)+ADDENDUM\b/i, /\bADDENDUM\s+NO\.?\b/i],

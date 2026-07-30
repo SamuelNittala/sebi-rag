@@ -4,3 +4,4 @@
 
 export * from "./pdf-parser";
 export * from "./table-parser";
+export * from "./faq-parser";
