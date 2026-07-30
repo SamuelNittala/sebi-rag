@@ -42,45 +42,28 @@ The local LLM (qwen2.5:7b) failed to extract expense ratios from tables that wer
 
 ## Quick Start
 
-### Prerequisites
+Local development and verification are Docker Compose-only. Host Bun, host
+Ollama, direct server execution, SSH, and remote databases are not supported
+workflow paths.
 
 ```bash
-# PostgreSQL with pgvector
-docker compose -f docker/docker-compose.yml up -d
-
-# Ollama with embedding model (no LLM needed!)
-ollama pull bge-m3
-
-# Optional locally; production Compose starts this service automatically
-docker run -d --name mf-rag-reranker -p 8081:80 -v hf_cache:/data \
-  ghcr.io/huggingface/text-embeddings-inference:cpu-1.9 \
-  --model-id BAAI/bge-reranker-v2-m3
+cp .env.example .env
+# Replace the local-only credential, AMC scope, and review placeholders.
+docker compose --env-file .env -f docker/docker-compose.dev.yml up -d --build --wait
 ```
 
-### Configure Claude Desktop
+Open <http://127.0.0.1:3000/review>. See the
+[Docker-only local runbook](docs/runbooks/docker-local-development.md) for
+migrations, tests, ingestion, review publication, evaluation, reset, and
+fail-closed checks.
 
-Edit `~/.config/claude/claude_desktop_config.json`:
+### Client contract
 
-```json
-{
-  "mcpServers": {
-    "mf-rag": {
-      "command": "bun",
-      "args": ["run", "/path/to/mf-pdf-rag/apps/mcp-server/src/index.ts"],
-      "env": {
-        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/mf_rag",
-        "OLLAMA_BASE_URL": "http://localhost:11434",
-        "RERANK_PROVIDER": "tei",
-        "RERANK_BASE_URL": "http://localhost:8081"
-      }
-    }
-  }
-}
-```
-
-Restart Claude Desktop, then ask:
-
-> "What is the expense ratio of HDFC Focused 30 Fund?"
+Every MCP client must send a protected bearer credential and exactly one
+canonical static `X-AMC-Scope` value. Production activation remains blocked
+until investor-agent and every other client has adopted both fields. Missing
+scope has no compatibility fallback, and rollback to an unscoped reader is not
+allowed.
 
 ## Example Queries
 
@@ -140,25 +123,10 @@ mf-pdf-rag/
 
 ## Development
 
-```bash
-# Install dependencies
-bun install
-
-# Start PostgreSQL
-docker compose -f docker/docker-compose.yml up -d
-
-# Run migrations
-bun run --filter=@mf-rag/db migrate
-
-# Start MCP server (for testing)
-bun run apps/mcp-server/src/index.ts
-
-# Run comparison tests
-bun scripts/compare-direct-vs-rag.ts "What is the expense ratio?"
-
-# Run jailbreak tests
-bun scripts/test-jailbreak-direct.ts
-```
+Use only the commands in the
+[Docker-only local runbook](docs/runbooks/docker-local-development.md). The
+one-shot `runner` service executes repository commands inside the same image
+and network as PostgreSQL, Redis, embeddings, reranking, MCP, and review.
 
 ### Pre-embedding chunk review
 
@@ -166,19 +134,8 @@ PDF and HTML ingestion now stop after deterministic inspection by default. The
 candidate chunks and all findings are stored outside the searchable vector set,
 so a malformed chunk cannot reach retrieval before review.
 
-```bash
-# 1. Run migrations and configure REVIEW_USERNAME / REVIEW_PASSWORD
-bun run db:migrate
-
-# 2. Ingest; the result includes a review run ID
-bun run apps/ingestion/src/index.ts path/to/document.pdf
-
-# 3. Start the API and review every flag for the document at /review
-bun run dev
-
-# 4. After UI approval, embed, stage, and atomically publish that version
-bun run review:publish <review-run-id> --actor <reviewer-name>
-```
+The runbook provides Compose commands for migration, ingestion, opening the
+review UI, and publishing an approved review run.
 
 The review screen shows every flagged chunk for a document on one page, with
 previous and next chunk context, source pages, inferred scope, rule evidence,
@@ -214,15 +171,16 @@ See [deployment docs](docs/) for details.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | required | PostgreSQL connection string |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `DATABASE_URL` | Compose-managed | PostgreSQL connection string inside the local network |
+| `OLLAMA_BASE_URL` | Compose-managed | Ollama service URL inside the local network |
 | `EMBEDDING_MODEL` | `bge-m3` | Embedding model |
 | `RERANK_PROVIDER` | auto | `tei`, `bge`, `none`, or auto-enable when `RERANK_BASE_URL` is set |
-| `RERANK_BASE_URL` | `http://localhost:8081` | Hugging Face TEI endpoint serving the reranker |
+| `RERANK_BASE_URL` | Compose-managed | Hugging Face TEI endpoint inside the local network |
 | `RERANK_MODEL` | `BAAI/bge-reranker-v2-m3` | Model identifier reported in retrieval traces |
 | `RERANK_CANDIDATE_LIMIT` | `20` | Maximum fused chunks sent to the reranker |
 | `ENABLE_RATE_LIMITING` | `false` | Enable API key limits |
-| `MF_RAG_API_KEY` | - | API key for rate limiting |
+| `MF_RAG_API_KEY` | required | Local server-side bearer credential; never commit or reuse in production |
+| `AMC_SCOPE` | required | One canonical server-side tenant scope |
 | `REVIEW_USERNAME` | - | Basic-auth username for the internal `/review` UI |
 | `REVIEW_PASSWORD` | - | Basic-auth password for the internal `/review` UI |
 
