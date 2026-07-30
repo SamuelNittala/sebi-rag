@@ -4,9 +4,11 @@ import {
   and,
   chunks,
   db,
+  documents,
   eq,
   getReviewRunDetail,
   htmlChunks,
+  htmlDocuments,
   ingestionRuns,
   markReviewRunFailed,
   publishReviewRun,
@@ -16,7 +18,13 @@ import {
   type Database,
   type IngestionRun,
 } from "@mf-rag/db";
-import type { CandidateChunkMetadata, ContentCategory } from "@mf-rag/types";
+import {
+  assertClassifiedKnowledgeOwnership,
+  type CandidateChunkMetadata,
+  type ClassifiedKnowledgeOwnership,
+  type ContentCategory,
+  type KnowledgeOwnership,
+} from "@mf-rag/types";
 
 import { buildContextualEmbeddingText } from "../embedding/contextual-input.ts";
 import {
@@ -34,11 +42,79 @@ export interface ReviewPublicationProgress {
 
 export interface PublishApprovedReviewOptions {
   actor: string;
+  /** Exact tenant grant held by the publishing operator. GLOBAL runs need no tenant grant. */
+  authorizedTenantId?: string | null;
   database?: Database;
   embedder?: Embedder;
   ollamaUrl?: string;
   embeddingBatchSize?: number;
   onProgress?: (progress: ReviewPublicationProgress) => void;
+}
+
+interface OwnershipRecord {
+  visibilityScope: KnowledgeOwnership["visibilityScope"];
+  tenantId: string | null;
+  ownershipManifestId: string | null;
+  ownershipManifestVersion: number | null;
+}
+
+function classifiedOwnership(record: OwnershipRecord): ClassifiedKnowledgeOwnership {
+  const ownership = {
+    visibilityScope: record.visibilityScope,
+    tenantId: record.tenantId,
+    ownershipManifestId: record.ownershipManifestId,
+    ownershipManifestVersion: record.ownershipManifestVersion,
+  } as KnowledgeOwnership;
+  assertClassifiedKnowledgeOwnership(ownership);
+  return ownership;
+}
+
+function sameOwnership(
+  record: OwnershipRecord,
+  ownership: ClassifiedKnowledgeOwnership,
+): boolean {
+  return record.visibilityScope === ownership.visibilityScope
+    && record.tenantId === ownership.tenantId
+    && record.ownershipManifestId === ownership.ownershipManifestId
+    && record.ownershipManifestVersion === ownership.ownershipManifestVersion;
+}
+
+async function assertPublicationOwnership(
+  database: Database,
+  detail: NonNullable<Awaited<ReturnType<typeof getReviewRunDetail>>>,
+  authorizedTenantId: string | null | undefined,
+): Promise<ClassifiedKnowledgeOwnership> {
+  const ownership = classifiedOwnership(detail.run);
+  if (ownership.visibilityScope === "TENANT"
+    && authorizedTenantId !== ownership.tenantId) {
+    throw new Error("Publisher is not authorized for the review run tenant ownership.");
+  }
+  const [source] = detail.run.sourceType === "pdf"
+    ? await database.select({
+        fileHash: documents.fileHash,
+        visibilityScope: documents.visibilityScope,
+        tenantId: documents.tenantId,
+        ownershipManifestId: documents.ownershipManifestId,
+        ownershipManifestVersion: documents.ownershipManifestVersion,
+      }).from(documents).where(eq(documents.id, detail.run.sourceDocumentId))
+    : await database.select({
+        fileHash: htmlDocuments.fileHash,
+        visibilityScope: htmlDocuments.visibilityScope,
+        tenantId: htmlDocuments.tenantId,
+        ownershipManifestId: htmlDocuments.ownershipManifestId,
+        ownershipManifestVersion: htmlDocuments.ownershipManifestVersion,
+      }).from(htmlDocuments).where(eq(htmlDocuments.id, detail.run.sourceDocumentId));
+  if (!source) throw new Error("Typed publication source document not found.");
+  if (!sameOwnership(source, ownership)) {
+    throw new Error("Source document ownership does not match the approved review run.");
+  }
+  if (detail.run.reviewPurpose === "content" && source.fileHash !== detail.run.fileHash) {
+    throw new Error("Source document changed after review staging.");
+  }
+  if (detail.candidates.some((candidate) => !sameOwnership(candidate, ownership))) {
+    throw new Error("Candidate ownership does not match the approved review run.");
+  }
+  return ownership;
 }
 
 function stableUuid(value: string): string {
@@ -172,6 +248,11 @@ export async function publishApprovedReviewRun(
   if (detail.candidates.length !== detail.run.candidateChunkCount) {
     throw new Error("Approved candidate count changed before embedding.");
   }
+  const ownership = await assertPublicationOwnership(
+    database,
+    detail,
+    options.authorizedTenantId,
+  );
 
   if (detail.run.reviewPurpose === "metadata") {
     return publishApprovedMetadataReview(
@@ -256,6 +337,7 @@ export async function publishApprovedReviewRun(
           ingestionRunId: runId,
           publicationStatus: "staged",
           retrievalMetadata: metadata,
+          ...ownership,
         };
       }));
       await normalizePublishedPageNumbers(database, runId);
@@ -282,6 +364,7 @@ export async function publishApprovedReviewRun(
           ingestionRunId: runId,
           publicationStatus: "staged",
           retrievalMetadata: metadata,
+          ...ownership,
         };
       }));
     }

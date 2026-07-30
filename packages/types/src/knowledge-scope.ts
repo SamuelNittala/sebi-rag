@@ -33,3 +33,34 @@ export type KnowledgeOwnership =
       ownershipManifestId: null;
       ownershipManifestVersion: null;
     };
+
+export type ClassifiedKnowledgeOwnership = Exclude<
+  KnowledgeOwnership,
+  { visibilityScope: "UNCLASSIFIED" }
+>;
+
+export function assertClassifiedKnowledgeOwnership(
+  ownership: KnowledgeOwnership | null | undefined,
+): asserts ownership is ClassifiedKnowledgeOwnership {
+  if (!ownership) {
+    throw new Error("Trusted ownership is required.");
+  }
+  if (ownership.visibilityScope === "UNCLASSIFIED") {
+    throw new Error("Trusted ownership must be GLOBAL or TENANT; UNCLASSIFIED content cannot enter review.");
+  }
+  if (typeof ownership.ownershipManifestId !== "string"
+    || !ownership.ownershipManifestId.trim()) {
+    throw new Error("Trusted ownership requires an ownership manifest ID.");
+  }
+  if (!Number.isInteger(ownership.ownershipManifestVersion)
+    || ownership.ownershipManifestVersion <= 0) {
+    throw new Error("Trusted ownership requires a positive ownership manifest version.");
+  }
+  if (ownership.visibilityScope === "GLOBAL" && ownership.tenantId !== null) {
+    throw new Error("GLOBAL ownership cannot specify a tenant.");
+  }
+  if (ownership.visibilityScope === "TENANT"
+    && (typeof ownership.tenantId !== "string" || !ownership.tenantId.trim())) {
+    throw new Error("TENANT ownership requires a tenant ID.");
+  }
+}

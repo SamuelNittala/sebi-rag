@@ -109,6 +109,10 @@ export class VectorClient {
         ingestionRunId: chunk.payload.ingestion_run_id ?? null,
         publicationStatus: chunk.payload.publication_status ?? "published",
         retrievalMetadata: chunk.payload.retrieval_metadata ?? null,
+        visibilityScope: chunk.payload.visibility_scope ?? "UNCLASSIFIED",
+        tenantId: chunk.payload.tenant_id ?? null,
+        ownershipManifestId: chunk.payload.ownership_manifest_id ?? null,
+        ownershipManifestVersion: chunk.payload.ownership_manifest_version ?? null,
       }));
 
       await db.insert(chunks).values(values).onConflictDoUpdate({
@@ -590,6 +594,10 @@ export class VectorClient {
         ingestionRunId: chunk.payload.ingestion_run_id ?? null,
         publicationStatus: chunk.payload.publication_status ?? "published",
         retrievalMetadata: chunk.payload.retrieval_metadata ?? null,
+        visibilityScope: chunk.payload.visibility_scope ?? "UNCLASSIFIED",
+        tenantId: chunk.payload.tenant_id ?? null,
+        ownershipManifestId: chunk.payload.ownership_manifest_id ?? null,
+        ownershipManifestVersion: chunk.payload.ownership_manifest_version ?? null,
         sectionHeading: chunk.payload.section_heading,
         hasTable: chunk.payload.has_table,
       }));

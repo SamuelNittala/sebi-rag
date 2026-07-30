@@ -326,6 +326,10 @@ describe("review UI rendering", () => {
         chunkerVersion: "metadata-preserve-v1",
         inspectorVersion: "metadata-v1",
         reviewPurpose: "metadata",
+        visibilityScope: "TENANT",
+        tenantId: "mirae-asset",
+        ownershipManifestId: "review-ui-manifest",
+        ownershipManifestVersion: 3,
       },
       candidates: [{
         id: "metadata-candidate",
@@ -348,6 +352,10 @@ describe("review UI rendering", () => {
           evidence: ["Investment Objective"],
         },
         contentHash: "hash-metadata",
+        visibilityScope: "TENANT",
+        tenantId: "mirae-asset",
+        ownershipManifestId: "review-ui-manifest",
+        ownershipManifestVersion: 3,
       }],
       flags: [],
     });
@@ -357,6 +365,9 @@ describe("review UI rendering", () => {
     expect(html).toContain('name="sectionType"');
     expect(html).toContain('value="investment_objective" selected');
     expect(html).toContain('name="factType"');
+    expect(html).toContain("Ownership: TENANT · Tenant mirae-asset · Manifest review-ui-manifest v3");
+    expect(html).not.toContain('name="visibilityScope"');
+    expect(html).not.toContain('name="tenantId"');
     expect(html).not.toContain('name="text"');
   });
 });

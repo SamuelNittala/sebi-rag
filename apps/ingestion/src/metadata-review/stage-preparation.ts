@@ -11,6 +11,10 @@ export interface PublishedSourceChunk {
   pageNumbers: number[];
   hasTable: boolean;
   sectionHeader: string | null;
+  visibilityScope: "GLOBAL" | "TENANT" | "UNCLASSIFIED";
+  tenantId: string | null;
+  ownershipManifestId: string | null;
+  ownershipManifestVersion: number | null;
 }
 
 function sha256(value: string): string {
@@ -18,7 +22,14 @@ function sha256(value: string): string {
 }
 
 export function publishedSourceSnapshotHash(rows: PublishedSourceChunk[]): string {
-  return sha256(rows.map((row) => `${row.sourceChunkId}:${sha256(row.text)}`).join("\n"));
+  return sha256(rows.map((row) => [
+    row.sourceChunkId,
+    sha256(row.text),
+    row.visibilityScope,
+    row.tenantId ?? "",
+    row.ownershipManifestId,
+    row.ownershipManifestVersion,
+  ].join(":")).join("\n"));
 }
 
 export function groupPublishedSourceChunks(

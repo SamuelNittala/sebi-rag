@@ -1,19 +1,24 @@
 import { and, asc, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type {
   CandidateChunkMetadata,
+  ClassifiedKnowledgeOwnership,
   ChunkFlagStatus,
+  KnowledgeOwnership,
   ReviewPurpose,
   ReviewSourceType,
 } from "@mf-rag/types";
+import { assertClassifiedKnowledgeOwnership } from "@mf-rag/types";
 
 import type { Database } from "./client.ts";
 import {
   chunkCandidates,
   chunkCandidateEdits,
   chunkFlags,
+  chunkSearchDocuments,
   chunks,
   documents,
   htmlChunks,
+  htmlChunkSearchDocuments,
   htmlDocuments,
   ingestionRuns,
   reviewEvents,
@@ -50,8 +55,17 @@ export interface StageInspectionReviewInput {
   fileHash: string;
   parserVersion: string;
   chunkerVersion: string;
+  ownership: ClassifiedKnowledgeOwnership;
   report: PersistedInspectionReport;
-  candidates: Array<Omit<NewChunkCandidate, "ingestionRunId" | "createdAt">>;
+  candidates: Array<Omit<
+    NewChunkCandidate,
+    | "ingestionRunId"
+    | "createdAt"
+    | "visibilityScope"
+    | "tenantId"
+    | "ownershipManifestId"
+    | "ownershipManifestVersion"
+  >>;
 }
 
 export interface ChunkFlagDecisionInput {
@@ -173,12 +187,78 @@ export async function updateReviewCandidateMetadata(
 }
 
 function validateInspection(input: StageInspectionReviewInput): void {
+  assertClassifiedKnowledgeOwnership(input.ownership);
   if (input.report.candidateChunkCount !== input.candidates.length) {
     throw new Error("Inspection candidate count does not match persisted candidates.");
   }
   if (input.report.inspectedChunkCount !== input.candidates.length) {
     throw new Error("Not every candidate chunk was inspected.");
   }
+}
+
+interface OwnershipRecord {
+  visibilityScope: KnowledgeOwnership["visibilityScope"];
+  tenantId: string | null;
+  ownershipManifestId: string | null;
+  ownershipManifestVersion: number | null;
+}
+
+function ownershipMatches(
+  record: OwnershipRecord,
+  ownership: ClassifiedKnowledgeOwnership,
+): boolean {
+  return record.visibilityScope === ownership.visibilityScope
+    && record.tenantId === ownership.tenantId
+    && record.ownershipManifestId === ownership.ownershipManifestId
+    && record.ownershipManifestVersion === ownership.ownershipManifestVersion;
+}
+
+function classifiedOwnershipFromRecord(record: OwnershipRecord): ClassifiedKnowledgeOwnership {
+  const ownership = {
+    visibilityScope: record.visibilityScope,
+    tenantId: record.tenantId,
+    ownershipManifestId: record.ownershipManifestId,
+    ownershipManifestVersion: record.ownershipManifestVersion,
+  } as KnowledgeOwnership;
+  assertClassifiedKnowledgeOwnership(ownership);
+  return ownership;
+}
+
+async function lockReviewSource(
+  tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
+  sourceType: ReviewSourceType,
+  sourceDocumentId: string,
+): Promise<(OwnershipRecord & { fileHash: string }) | undefined> {
+  if (sourceType === "pdf") {
+    await tx.execute(sql`
+      SELECT ${documents.id}
+      FROM ${documents}
+      WHERE ${documents.id} = ${sourceDocumentId}
+      FOR UPDATE
+    `);
+    const [source] = await tx.select({
+      fileHash: documents.fileHash,
+      visibilityScope: documents.visibilityScope,
+      tenantId: documents.tenantId,
+      ownershipManifestId: documents.ownershipManifestId,
+      ownershipManifestVersion: documents.ownershipManifestVersion,
+    }).from(documents).where(eq(documents.id, sourceDocumentId));
+    return source;
+  }
+  await tx.execute(sql`
+    SELECT ${htmlDocuments.id}
+    FROM ${htmlDocuments}
+    WHERE ${htmlDocuments.id} = ${sourceDocumentId}
+    FOR UPDATE
+  `);
+  const [source] = await tx.select({
+    fileHash: htmlDocuments.fileHash,
+    visibilityScope: htmlDocuments.visibilityScope,
+    tenantId: htmlDocuments.tenantId,
+    ownershipManifestId: htmlDocuments.ownershipManifestId,
+    ownershipManifestVersion: htmlDocuments.ownershipManifestVersion,
+  }).from(htmlDocuments).where(eq(htmlDocuments.id, sourceDocumentId));
+  return source;
 }
 
 export async function stageInspectionReview(
@@ -201,6 +281,15 @@ export async function stageInspectionReview(
   }
 
   return db.transaction(async (tx) => {
+    const source = await lockReviewSource(tx, input.sourceType, input.sourceDocumentId);
+    if (!source) throw new Error("Typed review source document not found.");
+    const sourceOwnership = classifiedOwnershipFromRecord(source);
+    if (!ownershipMatches(sourceOwnership, input.ownership)) {
+      throw new Error("Trusted ownership does not match the source document ownership.");
+    }
+    if ((input.reviewPurpose ?? "content") === "content" && source.fileHash !== input.fileHash) {
+      throw new Error("Source document changed before review staging.");
+    }
     const [run] = await tx.insert(ingestionRuns).values({
       sourceType: input.sourceType,
       reviewPurpose: input.reviewPurpose ?? "content",
@@ -217,6 +306,7 @@ export async function stageInspectionReview(
       flaggedChunkCount,
       criticalCount: input.report.criticalCount,
       blockingCount: input.report.blockingCount,
+      ...input.ownership,
     }).returning();
     if (!run) throw new Error("Failed to create ingestion review run.");
 
@@ -226,6 +316,7 @@ export async function stageInspectionReview(
           ...candidate,
           id: persistedCandidateIds.get(candidate.id)!,
           ingestionRunId: run.id,
+          ...input.ownership,
         })),
       );
     }
@@ -513,6 +604,30 @@ export async function approveReviewRun(
       eq(chunkFlags.blocksApproval, true),
     ));
     const reasons = approvalReasons(run, blockers.length);
+    let runOwnership: ClassifiedKnowledgeOwnership | undefined;
+    try {
+      runOwnership = classifiedOwnershipFromRecord(run);
+    } catch {
+      reasons.push("Review run ownership is missing or unclassified.");
+    }
+    const source = await lockReviewSource(tx, run.sourceType, run.sourceDocumentId);
+    if (!source) {
+      reasons.push("Typed review source document not found.");
+    } else if (runOwnership && !ownershipMatches(source, runOwnership)) {
+      reasons.push("Source document ownership does not match the review run.");
+    }
+    const candidates = await tx.select({
+      visibilityScope: chunkCandidates.visibilityScope,
+      tenantId: chunkCandidates.tenantId,
+      ownershipManifestId: chunkCandidates.ownershipManifestId,
+      ownershipManifestVersion: chunkCandidates.ownershipManifestVersion,
+    }).from(chunkCandidates).where(eq(chunkCandidates.ingestionRunId, runId));
+    if (runOwnership && (
+      candidates.length !== run.candidateChunkCount
+      || candidates.some((candidate) => !ownershipMatches(candidate, runOwnership!))
+    )) {
+      reasons.push("Candidate ownership does not match the review run.");
+    }
     if (reasons.length > 0) return { approved: false, reasons, run };
 
     const [approved] = await tx.update(ingestionRuns).set({
@@ -621,45 +736,108 @@ export async function publishReviewRun(
   return db.transaction(async (tx) => {
     const [run] = await tx.select().from(ingestionRuns).where(eq(ingestionRuns.id, runId));
     if (!run) throw new Error("Review run not found.");
-    if (run.status !== "approved" && run.status !== "staged") {
-      throw new Error("Only approved or staged review runs can be published.");
+    if (run.status !== "staged") {
+      throw new Error("Only a fully staged review run can be published.");
+    }
+    const ownership = classifiedOwnershipFromRecord(run);
+    const source = await lockReviewSource(tx, run.sourceType, run.sourceDocumentId);
+    if (!source) throw new Error("Typed publication source document not found.");
+    if (!ownershipMatches(source, ownership)) {
+      throw new Error("Source document ownership does not match the staged review run.");
+    }
+    if (run.reviewPurpose === "content" && source.fileHash !== run.fileHash) {
+      throw new Error("Source document changed after review staging.");
+    }
+    const candidates = await tx.select({
+      visibilityScope: chunkCandidates.visibilityScope,
+      tenantId: chunkCandidates.tenantId,
+      ownershipManifestId: chunkCandidates.ownershipManifestId,
+      ownershipManifestVersion: chunkCandidates.ownershipManifestVersion,
+    }).from(chunkCandidates).where(eq(chunkCandidates.ingestionRunId, runId));
+    if (candidates.length !== run.candidateChunkCount
+      || candidates.some((candidate) => !ownershipMatches(candidate, ownership))) {
+      throw new Error("Candidate ownership does not match the staged review run.");
     }
 
     if (run.sourceType === "pdf") {
-      const staged = await tx.select({ id: chunks.id }).from(chunks).where(and(
+      const staged = await tx.select({
+        id: chunks.id,
+        knowledgeDomain: chunks.knowledgeDomain,
+        sourceCollection: chunks.sourceCollection,
+        visibilityScope: chunks.visibilityScope,
+        tenantId: chunks.tenantId,
+        ownershipManifestId: chunks.ownershipManifestId,
+        ownershipManifestVersion: chunks.ownershipManifestVersion,
+      }).from(chunks).where(and(
         eq(chunks.ingestionRunId, runId),
         eq(chunks.publicationStatus, "staged"),
       ));
       if (staged.length !== run.candidateChunkCount) {
         throw new Error("Staged PDF vector count does not match the approved candidate count.");
       }
+      if (staged.some((chunk) => !ownershipMatches(chunk, ownership))) {
+        throw new Error("Staged PDF chunk ownership does not match the approved review run.");
+      }
+      await tx.update(chunks).set({ publicationStatus: "published" })
+        .where(eq(chunks.ingestionRunId, runId));
+      const expectedLexicalCount = staged.filter((chunk) =>
+        chunk.knowledgeDomain === "sif" && chunk.sourceCollection === "mirae_sif").length;
+      const [lexical] = await tx.select({
+        count: sql<number>`count(*)::int`,
+      }).from(chunkSearchDocuments).innerJoin(
+        chunks,
+        eq(chunkSearchDocuments.chunkId, chunks.id),
+      ).where(eq(chunks.ingestionRunId, runId));
+      if ((lexical?.count ?? 0) !== expectedLexicalCount) {
+        throw new Error("Staged PDF lexical count does not match the intended published version.");
+      }
       await tx.update(chunks).set({ publicationStatus: "retired" }).where(and(
         eq(chunks.documentId, run.sourceDocumentId),
         eq(chunks.publicationStatus, "published"),
         or(isNull(chunks.ingestionRunId), ne(chunks.ingestionRunId, runId)),
       ));
-      await tx.update(chunks).set({ publicationStatus: "published" })
-        .where(eq(chunks.ingestionRunId, runId));
       await tx.update(documents).set({
         status: "completed",
         chunkCount: run.candidateChunkCount,
         updatedAt: new Date(),
       }).where(eq(documents.id, run.sourceDocumentId));
     } else {
-      const staged = await tx.select({ id: htmlChunks.id }).from(htmlChunks).where(and(
+      const staged = await tx.select({
+        id: htmlChunks.id,
+        knowledgeDomain: htmlChunks.knowledgeDomain,
+        sourceCollection: htmlChunks.sourceCollection,
+        visibilityScope: htmlChunks.visibilityScope,
+        tenantId: htmlChunks.tenantId,
+        ownershipManifestId: htmlChunks.ownershipManifestId,
+        ownershipManifestVersion: htmlChunks.ownershipManifestVersion,
+      }).from(htmlChunks).where(and(
         eq(htmlChunks.ingestionRunId, runId),
         eq(htmlChunks.publicationStatus, "staged"),
       ));
       if (staged.length !== run.candidateChunkCount) {
         throw new Error("Staged HTML vector count does not match the approved candidate count.");
       }
+      if (staged.some((chunk) => !ownershipMatches(chunk, ownership))) {
+        throw new Error("Staged HTML chunk ownership does not match the approved review run.");
+      }
+      await tx.update(htmlChunks).set({ publicationStatus: "published" })
+        .where(eq(htmlChunks.ingestionRunId, runId));
+      const expectedLexicalCount = staged.filter((chunk) =>
+        chunk.knowledgeDomain === "sif" && chunk.sourceCollection === "mirae_sif").length;
+      const [lexical] = await tx.select({
+        count: sql<number>`count(*)::int`,
+      }).from(htmlChunkSearchDocuments).innerJoin(
+        htmlChunks,
+        eq(htmlChunkSearchDocuments.chunkId, htmlChunks.id),
+      ).where(eq(htmlChunks.ingestionRunId, runId));
+      if ((lexical?.count ?? 0) !== expectedLexicalCount) {
+        throw new Error("Staged HTML lexical count does not match the intended published version.");
+      }
       await tx.update(htmlChunks).set({ publicationStatus: "retired" }).where(and(
         eq(htmlChunks.documentId, run.sourceDocumentId),
         eq(htmlChunks.publicationStatus, "published"),
         or(isNull(htmlChunks.ingestionRunId), ne(htmlChunks.ingestionRunId, runId)),
       ));
-      await tx.update(htmlChunks).set({ publicationStatus: "published" })
-        .where(eq(htmlChunks.ingestionRunId, runId));
       await tx.update(htmlDocuments).set({
         status: "completed",
         chunkCount: run.candidateChunkCount,

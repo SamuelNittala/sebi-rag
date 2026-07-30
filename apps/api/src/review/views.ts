@@ -43,6 +43,10 @@ interface ReviewRunView {
   parserVersion: string;
   chunkerVersion: string;
   inspectorVersion: string;
+  visibilityScope?: "GLOBAL" | "TENANT" | "UNCLASSIFIED";
+  tenantId?: string | null;
+  ownershipManifestId?: string | null;
+  ownershipManifestVersion?: number | null;
 }
 
 interface ReviewCandidateView {
@@ -55,6 +59,10 @@ interface ReviewCandidateView {
   sectionHeader: string | null;
   metadata: CandidateChunkMetadata;
   contentHash: string;
+  visibilityScope?: "GLOBAL" | "TENANT" | "UNCLASSIFIED";
+  tenantId?: string | null;
+  ownershipManifestId?: string | null;
+  ownershipManifestVersion?: number | null;
 }
 
 interface ReviewFlagView {
@@ -294,6 +302,15 @@ function option(value: string, selected: unknown): string {
   return `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(value)}</option>`;
 }
 
+function ownershipSummary(owner: ReviewRunView | ReviewCandidateView): string {
+  const scope = owner.visibilityScope ?? "UNCLASSIFIED";
+  const tenant = owner.tenantId ? ` · Tenant ${owner.tenantId}` : "";
+  const manifest = owner.ownershipManifestId && owner.ownershipManifestVersion
+    ? ` · Manifest ${owner.ownershipManifestId} v${owner.ownershipManifestVersion}`
+    : "";
+  return `<div class="muted ownership" aria-label="Read-only ownership">Ownership: ${escapeHtml(scope)}${escapeHtml(tenant)}${escapeHtml(manifest)}</div>`;
+}
+
 function metadataEditor(candidate: ReviewCandidateView, editable: boolean): string {
   const metadata = candidate.metadata;
   const fields = `<div class="metadata-grid">
@@ -356,6 +373,7 @@ export function renderDocumentReview(model: DocumentReviewViewModel): string {
     <div class="top"><div><h1>${escapeHtml(run.sourceName)}</h1><p class="muted">${escapeHtml(run.sourceLocation)}</p></div>
     <div class="summary"><span class="pill">${escapeHtml(run.reviewPurpose ?? "content")} review</span><span class="pill">${escapeHtml(run.status)}</span><span class="pill">${run.inspectedChunkCount}/${run.candidateChunkCount} inspected</span><span class="pill critical">${run.blockingCount} blocking</span></div></div>
     <p class="muted">Parser ${escapeHtml(run.parserVersion)} · Chunker ${escapeHtml(run.chunkerVersion)} · Inspector ${escapeHtml(run.inspectorVersion)}</p>
+    ${ownershipSummary(run)}
     <h2>Flagged chunks (${model.flags.length})</h2>
     ${cards || "<p>No inspection findings.</p>"}
     ${decisionPanel}`);
@@ -366,6 +384,7 @@ export function renderCandidateEditor(model: DocumentReviewViewModel): string {
   const metadataReview = model.run.reviewPurpose === "metadata";
   const candidates = model.candidates.map((candidate) => `<section class="candidate-editor" id="${escapeHtml(candidate.id)}">
     <div class="flag-head"><strong>Chunk ${candidate.chunkIndex}</strong><span class="muted">Pages ${escapeHtml(candidate.pageNumbers.join(", "))} · ${candidate.tokenCount} tokens${candidate.sectionHeader ? ` · ${escapeHtml(candidate.sectionHeader)}` : ""}</span></div>
+    ${ownershipSummary(candidate)}
     ${metadataReview ? `<pre>${escapeHtml(candidate.text)}</pre>
       ${metadataEditor(candidate, editable)}
       <details><summary>Classification evidence</summary><pre>${escapeHtml(JSON.stringify({

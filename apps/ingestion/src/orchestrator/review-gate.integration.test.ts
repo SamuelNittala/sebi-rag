@@ -8,6 +8,12 @@ integrationDescribe("pre-embedding review gate", () => {
   const sql = new SQL(testDatabaseUrl!);
   let existingFilePath = "";
   let existingDocumentId = "";
+  const ownership = {
+    visibilityScope: "GLOBAL" as const,
+    tenantId: null,
+    ownershipManifestId: "review-gate-test",
+    ownershipManifestVersion: 1,
+  };
 
   beforeAll(async () => {
     process.env.DATABASE_URL = testDatabaseUrl;
@@ -44,6 +50,7 @@ The investment strategy is managed by the person named in the source document.
     const { ingestHtmlDocument } = await import("./ingest-html.ts");
     const result = await ingestHtmlDocument(filePath, {
       ollamaUrl: "http://127.0.0.1:1",
+      ownership,
     });
 
     expect(result.status).toBe("review_required");
@@ -67,10 +74,12 @@ The investment strategy is managed by the person named in the source document.
       INSERT INTO html_chunks (
         embedding, text, chunk_index, total_chunks, document_id, document_title,
         source_url, content_category, section_heading, has_table, publication_status
+        , visibility_scope, ownership_manifest_id, ownership_manifest_version
       ) VALUES (
         '${vector}'::vector, 'Previously published content', 0, 1,
         '${existingDocumentId}'::uuid, 'Review Gate Test Fund',
-        'https://example.com/review-gate-test', 'product', null, false, 'published'
+        'https://example.com/review-gate-test', 'product', null, false, 'published',
+        'GLOBAL', 'review-gate-test', 1
       )
     `);
 
@@ -78,6 +87,7 @@ The investment strategy is managed by the person named in the source document.
     const result = await ingestHtmlDocument(existingFilePath, {
       ollamaUrl: "http://127.0.0.1:1",
       reviewExisting: true,
+      ownership,
     });
 
     expect(result.status).toBe("review_required");

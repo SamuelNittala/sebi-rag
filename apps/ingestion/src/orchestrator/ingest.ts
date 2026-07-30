@@ -40,7 +40,11 @@ import {
 // Embedder
 import { createEmbedder, type Embedder, type EmbeddingInput } from "../embedding/embedder.ts";
 import { buildContextualEmbeddingText } from "../embedding/contextual-input.ts";
-import type { KnowledgeScope } from "@mf-rag/types";
+import {
+  assertClassifiedKnowledgeOwnership,
+  type ClassifiedKnowledgeOwnership,
+  type KnowledgeScope,
+} from "@mf-rag/types";
 
 // Database
 import {
@@ -73,6 +77,8 @@ export interface IngestConfig {
   embeddingBatchSize?: number;
   /** Optional trusted scope override for targeted ingestion jobs. */
   knowledgeScope?: KnowledgeScope;
+  /** Trusted manifest/operator ownership. Never derive this from document content. */
+  ownership?: ClassifiedKnowledgeOwnership;
   /** Require inspection and human approval before embedding (default: required). */
   reviewGate?: "required" | "disabled";
   /** Re-run parsing and inspection for an already known file without deleting its published vectors. */
@@ -84,7 +90,9 @@ export interface IngestConfig {
 /**
  * Default configuration values
  */
-export const DEFAULT_INGEST_CONFIG: Required<Omit<IngestConfig, "knowledgeScope" | "sourceUrl">> = {
+export const DEFAULT_INGEST_CONFIG: Required<
+  Omit<IngestConfig, "knowledgeScope" | "ownership" | "sourceUrl">
+> = {
   ollamaUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
   embeddingBatchSize: 10,
   reviewGate: "required",
@@ -206,6 +214,11 @@ export async function ingestDocument(
   let documentId = "";
 
   try {
+    if (!fullConfig.ownership) {
+      throw new Error("Trusted ownership is required before ingestion.");
+    }
+    assertClassifiedKnowledgeOwnership(fullConfig.ownership);
+    const ownership = fullConfig.ownership;
     // --- STAGE 1: Parsing ---
     onProgress?.({ stage: "parsing", detail: "Computing file hash", percentage: 5 });
 
@@ -233,6 +246,7 @@ export async function ingestDocument(
       filepath: resolve(filepath),
       fileHash,
       status: "pending" as DocumentStatus,
+      ...ownership,
     });
     documentId = doc.id;
 
@@ -398,6 +412,7 @@ export async function ingestDocument(
         fileHash,
         parserVersion: "unpdf-pdfplumber-v1",
         chunkerVersion,
+        ownership,
         report: prepared.report,
         candidates: prepared.candidates,
       });
@@ -513,6 +528,10 @@ export async function ingestDocument(
           amendmentNumber: metadata.amendmentNumber,
           amendedDocumentTypes: metadata.amendedDocumentTypes,
         },
+        visibility_scope: ownership.visibilityScope,
+        tenant_id: ownership.tenantId,
+        ownership_manifest_id: ownership.ownershipManifestId,
+        ownership_manifest_version: ownership.ownershipManifestVersion,
       };
 
       return {

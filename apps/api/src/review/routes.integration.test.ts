@@ -16,6 +16,12 @@ integrationDescribe("review routes", () => {
   let editRunId = "";
   let editCandidateId = "";
   let editCandidateHash = "";
+  const ownership = {
+    visibilityScope: "GLOBAL" as const,
+    tenantId: null,
+    ownershipManifestId: "review-route-test",
+    ownershipManifestVersion: 1,
+  };
 
   beforeAll(async () => {
     process.env.DATABASE_URL = testDatabaseUrl;
@@ -25,8 +31,15 @@ integrationDescribe("review routes", () => {
     await client.unsafe(`TRUNCATE review_events, chunk_flags, chunk_candidates,
       ingestion_runs, documents CASCADE`);
     const [document] = await client`
-      INSERT INTO documents (filename, filepath, file_hash, status)
-      VALUES ('review-ui.pdf', '/tmp/review-ui.pdf', ${"d".repeat(64)}, 'review_required')
+      INSERT INTO documents (
+        filename, filepath, file_hash, status, visibility_scope,
+        ownership_manifest_id, ownership_manifest_version
+      )
+      VALUES (
+        'review-ui.pdf', '/tmp/review-ui.pdf', ${"d".repeat(64)}, 'review_required',
+        ${ownership.visibilityScope}, ${ownership.ownershipManifestId},
+        ${ownership.ownershipManifestVersion}
+      )
       RETURNING id
     `;
     const candidateId = crypto.randomUUID();
@@ -39,6 +52,7 @@ integrationDescribe("review routes", () => {
       fileHash: "d".repeat(64),
       parserVersion: "pdf-v1",
       chunkerVersion: "chunk-v1",
+      ownership,
       report: {
         inspectorVersion: "inspect-v1",
         candidateChunkCount: 1,
@@ -73,8 +87,15 @@ integrationDescribe("review routes", () => {
     flagId = flag!.id as string;
 
     const [editableDocument] = await client`
-      INSERT INTO documents (filename, filepath, file_hash, page_count, status)
-      VALUES ('editable.pdf', '/tmp/editable.pdf', ${"f".repeat(64)}, 2, 'review_required')
+      INSERT INTO documents (
+        filename, filepath, file_hash, page_count, status, visibility_scope,
+        ownership_manifest_id, ownership_manifest_version
+      )
+      VALUES (
+        'editable.pdf', '/tmp/editable.pdf', ${"f".repeat(64)}, 2, 'review_required',
+        ${ownership.visibilityScope}, ${ownership.ownershipManifestId},
+        ${ownership.ownershipManifestVersion}
+      )
       RETURNING id
     `;
     const editableCandidateId = crypto.randomUUID();
@@ -86,6 +107,7 @@ integrationDescribe("review routes", () => {
       fileHash: "f".repeat(64),
       parserVersion: "pdf-v1",
       chunkerVersion: "chunk-v1",
+      ownership,
       report: {
         inspectorVersion: "inspect-v1",
         candidateChunkCount: 1,

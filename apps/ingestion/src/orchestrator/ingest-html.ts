@@ -48,15 +48,21 @@ import {
 // Vector store
 import { VectorClient } from "@mf-rag/vector";
 import type { HtmlChunkPayload, HtmlChunkWithVector } from "@mf-rag/vector";
+import {
+  assertClassifiedKnowledgeOwnership,
+  type ClassifiedKnowledgeOwnership,
+} from "@mf-rag/types";
 
 export interface HtmlIngestConfig {
   ollamaUrl?: string;
   embeddingBatchSize?: number;
   reviewGate?: "required" | "disabled";
   reviewExisting?: boolean;
+  /** Trusted manifest/operator ownership. Never derive this from frontmatter. */
+  ownership?: ClassifiedKnowledgeOwnership;
 }
 
-const DEFAULT_CONFIG: Required<HtmlIngestConfig> = {
+const DEFAULT_CONFIG: Required<Omit<HtmlIngestConfig, "ownership">> = {
   ollamaUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
   embeddingBatchSize: 10,
   reviewGate: "required",
@@ -106,6 +112,11 @@ export async function ingestHtmlDocument(
   let documentId = "";
 
   try {
+    if (!fullConfig.ownership) {
+      throw new Error("Trusted ownership is required before ingestion.");
+    }
+    assertClassifiedKnowledgeOwnership(fullConfig.ownership);
+    const ownership = fullConfig.ownership;
     // --- STAGE 1: Parse ---
     onProgress?.({ stage: "parsing", detail: "Computing file hash", percentage: 5 });
 
@@ -158,6 +169,7 @@ export async function ingestHtmlDocument(
       amcSlug: knowledgeScope.amcSlug,
       status: "processing" as DocumentStatus,
       scrapedAt: new Date(frontmatter.scraped_at),
+      ...ownership,
     });
     documentId = doc.id;
     if (existing) await updateHtmlDocumentStatus(db, documentId, "processing");
@@ -219,6 +231,7 @@ export async function ingestHtmlDocument(
         fileHash,
         parserVersion: "html-markdown-v1",
         chunkerVersion: "semantic-v1",
+        ownership,
         report: prepared.report,
         candidates: prepared.candidates,
       });
@@ -300,6 +313,10 @@ export async function ingestHtmlDocument(
         knowledge_domain: knowledgeScope.knowledgeDomain,
         source_collection: knowledgeScope.sourceCollection,
         amc_slug: knowledgeScope.amcSlug,
+        visibility_scope: ownership.visibilityScope,
+        tenant_id: ownership.tenantId,
+        ownership_manifest_id: ownership.ownershipManifestId,
+        ownership_manifest_version: ownership.ownershipManifestVersion,
       };
 
       return {

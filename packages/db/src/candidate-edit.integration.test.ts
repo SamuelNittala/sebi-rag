@@ -20,6 +20,12 @@ integrationDescribe("manual candidate editing", () => {
   let runId = "";
   let previousCandidateId = "";
   let previousHash = "";
+  const ownership = {
+    visibilityScope: "GLOBAL" as const,
+    tenantId: null,
+    ownershipManifestId: "candidate-edit-test",
+    ownershipManifestVersion: 1,
+  };
 
   beforeAll(async () => {
     await db.delete(schema.reviewEvents);
@@ -34,6 +40,7 @@ integrationDescribe("manual candidate editing", () => {
       fileHash: "1".repeat(64),
       pageCount: 100,
       status: "review_required",
+      ...ownership,
     }).returning();
     const previousId = crypto.randomUUID();
     const currentId = crypto.randomUUID();
@@ -44,6 +51,7 @@ integrationDescribe("manual candidate editing", () => {
       fileHash: "1".repeat(64),
       parserVersion: "pdf-v1",
       chunkerVersion: "semantic-v1",
+      ownership,
       report: {
         inspectorVersion: "1.0.0",
         candidateChunkCount: 2,

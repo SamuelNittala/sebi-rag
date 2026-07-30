@@ -18,6 +18,10 @@ function row(overrides: Partial<PublishedSourceChunk>): PublishedSourceChunk {
     pageNumbers: [],
     hasTable: false,
     sectionHeader: "Investment Objective",
+    visibilityScope: "TENANT",
+    tenantId: "mirae-asset",
+    ownershipManifestId: "metadata-stage-test",
+    ownershipManifestVersion: 1,
     ...overrides,
   };
 }
