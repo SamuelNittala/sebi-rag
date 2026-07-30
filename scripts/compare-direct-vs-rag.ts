@@ -13,8 +13,10 @@
 import { RAGPipeline } from "@mf-rag/core";
 import { Embedder } from "@mf-rag/core";
 import { VectorClient, type SearchFilters } from "@mf-rag/vector";
+import { createTenantAccessScope } from "@mf-rag/types";
 
 const query = process.argv[2] || "What is the expense ratio?";
+const accessScope = createTenantAccessScope(process.env.AMC_SCOPE ?? "");
 
 console.log("=".repeat(80));
 console.log("QUERY:", query);
@@ -22,6 +24,7 @@ console.log("=".repeat(80));
 
 // Initialize clients
 const pipeline = new RAGPipeline({
+  accessScope,
   ollama: {
     baseUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
     model: process.env.LLM_MODEL ?? "qwen2.5:7b",
@@ -51,6 +54,7 @@ try {
   // 2. Search pgvector
   const searchStart = Date.now();
   const results = await vectorClient.searchSimilar(queryVector, {
+    accessScope,
     limit: 10,
     scoreThreshold: 0.5,
   });

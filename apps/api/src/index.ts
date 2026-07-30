@@ -12,7 +12,10 @@ const reviewPassword = process.env.REVIEW_PASSWORD;
 if (reviewUsername && reviewPassword) {
   const retrievalSearch = new McpRetrievalSearch(new URL(
     process.env.KNOWLEDGE_MCP_URL ?? "http://localhost:3001/mcp",
-  ));
+  ), {
+    apiKey: process.env.MF_RAG_API_KEY ?? "",
+    tenantId: process.env.AMC_SCOPE ?? "",
+  });
   app.route("/review", createReviewApp(db, {
     username: reviewUsername,
     password: reviewPassword,

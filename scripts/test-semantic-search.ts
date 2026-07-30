@@ -4,10 +4,12 @@
 
 import { embedText } from "../apps/ingestion/src/embedding/embedder";
 import { VectorClient } from "@mf-rag/vector";
+import { createTenantAccessScope } from "@mf-rag/types";
 
 const OLLAMA_URL = "http://localhost:11434";
 
 async function testSemanticSearch() {
+  const accessScope = createTenantAccessScope(process.env.AMC_SCOPE ?? "");
   console.log("Testing Semantic Search\n");
   console.log("=".repeat(80));
 
@@ -35,6 +37,7 @@ async function testSemanticSearch() {
       // 2. Search pgvector
       console.log("Searching vector database...");
       const results = await vector.searchSimilar(queryVector, {
+        accessScope,
         limit: 3,
         scoreThreshold: 0.3,
       });
@@ -80,7 +83,7 @@ async function testSemanticSearch() {
   console.log("Collection Statistics:");
   console.log("─".repeat(80));
 
-  const info = await vector.getCollectionInfo();
+  const info = await vector.getCollectionInfo(accessScope);
   console.log(`Total vectors: ${info.vectors_count}`);
   console.log(`Collection status: ${info.status}`);
   console.log("=".repeat(80));

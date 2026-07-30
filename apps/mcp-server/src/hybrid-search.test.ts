@@ -3,11 +3,16 @@ import type {
   HtmlSearchResult,
   SearchFilters,
   SearchResult,
+  TenantAccessScope,
   VectorClient,
 } from "@mf-rag/vector";
 
 import { searchHybridDocuments } from "./hybrid-search.ts";
 import type { Reranker } from "./reranker.ts";
+
+const accessScope = Object.freeze({
+  tenantId: "tenant-a",
+}) as TenantAccessScope;
 
 function pdfResult(
   id = "chunk-1",
@@ -70,6 +75,46 @@ function htmlResult(
 }
 
 describe("searchHybridDocuments fund-filter fallback", () => {
+  test("passes the immutable access scope to every retrieval branch and fallback", async () => {
+    const calls: Array<{ method: string; tenantId: string }> = [];
+    const recordScope = (method: string) =>
+      mock(async (_query: unknown, options: { accessScope: { tenantId: string } }) => {
+        calls.push({ method, tenantId: options.accessScope.tenantId });
+        return [];
+      });
+    const vectorClient = {
+      searchSimilar: recordScope("pdf-dense"),
+      searchLexical: recordScope("pdf-lexical"),
+      searchHtmlSimilar: recordScope("html-dense"),
+      searchHtmlLexical: recordScope("html-lexical"),
+    } as unknown as VectorClient;
+
+    await searchHybridDocuments(vectorClient, "unknown scheme", [0.1], {
+      accessScope,
+      limit: 10,
+      scoreThreshold: 0.5,
+      pdfFilters: {
+        fund_name: "Unknown Scheme",
+        source_collection: "mirae_sif",
+      },
+      htmlFilters: { source_collection: "mirae_sif" },
+      searchPdf: true,
+      searchHtml: true,
+      allowFundFilterFallback: true,
+    });
+
+    expect(calls).toEqual([
+      { method: "pdf-dense", tenantId: "tenant-a" },
+      { method: "html-dense", tenantId: "tenant-a" },
+      { method: "pdf-lexical", tenantId: "tenant-a" },
+      { method: "html-lexical", tenantId: "tenant-a" },
+      { method: "pdf-dense", tenantId: "tenant-a" },
+      { method: "html-dense", tenantId: "tenant-a" },
+      { method: "pdf-lexical", tenantId: "tenant-a" },
+      { method: "html-lexical", tenantId: "tenant-a" },
+    ]);
+  });
+
   test("retries without the fund filter inside the same collection", async () => {
     const dense = mock(async (_vector: number[], options: { filters?: SearchFilters }) =>
       options.filters?.fund_name ? [] : [pdfResult()]);
@@ -83,6 +128,7 @@ describe("searchHybridDocuments fund-filter fallback", () => {
     } as unknown as VectorClient;
 
     const response = await searchHybridDocuments(vectorClient, "tell me about platinum", [0.1], {
+      accessScope,
       limit: 10,
       scoreThreshold: 0.5,
       pdfFilters: {
@@ -115,6 +161,7 @@ describe("searchHybridDocuments fund-filter fallback", () => {
     } as unknown as VectorClient;
 
     const response = await searchHybridDocuments(vectorClient, "unknown scheme", [0.1], {
+      accessScope,
       limit: 10,
       scoreThreshold: 0.5,
       pdfFilters: { fund_name: "Unknown Scheme" },
@@ -178,6 +225,7 @@ describe("searchHybridDocuments candidate fusion", () => {
       "when can I do redemption in platinum sif?",
       [0.1],
       {
+        accessScope,
         limit: 10,
         candidateLimit: 40,
         scoreThreshold: 0.5,
@@ -231,6 +279,7 @@ describe("searchHybridDocuments candidate fusion", () => {
       "What is the minimum SIP installment for Platinum SIF?",
       [0.1],
       {
+        accessScope,
         limit: 2,
         scoreThreshold: 0,
         searchPdf: true,

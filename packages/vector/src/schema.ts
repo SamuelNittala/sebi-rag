@@ -7,10 +7,14 @@
  * - SQL indexes for efficient filtering
  */
 
-import type { ChunkPayload, HtmlChunkPayload } from "@mf-rag/types";
+import type {
+  ChunkPayload,
+  HtmlChunkPayload,
+  TenantAccessScope,
+} from "@mf-rag/types";
 
 // Re-export payload types for convenience
-export type { ChunkPayload, HtmlChunkPayload };
+export type { ChunkPayload, HtmlChunkPayload, TenantAccessScope };
 
 /** BGE-M3 embedding dimensions */
 export const VECTOR_DIMENSIONS = 1024;

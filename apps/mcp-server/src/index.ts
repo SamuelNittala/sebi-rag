@@ -38,9 +38,15 @@ import {
   ApiKeyError,
 } from "@mf-rag/core";
 import { VectorClient, type SearchFilters, type HtmlSearchFilters } from "@mf-rag/vector";
-import type { ApiKey } from "@mf-rag/db/schema";
 import { resolveRetrievalScope } from "./retrieval-scope.ts";
 import { searchHybridDocuments, type MergedResult } from "./hybrid-search.ts";
+import {
+  RequestContextError,
+  createHttpRequestContext,
+  createTrustedRequestContext,
+  securityLogRecord,
+  type RequestContext,
+} from "./request-context.ts";
 import {
   createRerankerFromEnv,
   resolveRerankCandidateLimit,
@@ -72,7 +78,6 @@ const config = {
   },
   rateLimiting: {
     enabled: process.env.ENABLE_RATE_LIMITING === "true",
-    apiKey: process.env.MF_RAG_API_KEY,
   },
 };
 
@@ -85,44 +90,54 @@ const embedder = new Embedder({
 const vectorClient = new VectorClient();
 const reranker = createRerankerFromEnv(process.env);
 
-// Rate limiter (only initialized if enabled)
-const rateLimiter = config.rateLimiting.enabled ? new RateLimiter() : null;
-
-// Cached API key for the session
-let validatedApiKey: ApiKey | null = null;
+// Authentication and authorization are always enabled. Quota enforcement is optional.
+const rateLimiter = new RateLimiter();
 
 /**
  * Check rate limits before processing a tool call.
  */
-async function checkRateLimits(): Promise<ApiKey | null> {
-  if (!rateLimiter) {
-    return null;
-  }
-
-  if (!validatedApiKey) {
-    validatedApiKey = await rateLimiter.validateApiKey(config.rateLimiting.apiKey);
-  }
-
-  await rateLimiter.enforceLimit(validatedApiKey);
-  return validatedApiKey;
+async function checkRateLimits(context: RequestContext): Promise<void> {
+  if (!config.rateLimiting.enabled) return;
+  await rateLimiter.enforceLimit({
+    id: context.keyId,
+    tier: context.keyTier ?? "free",
+  });
 }
 
 /**
  * Record usage after a successful tool call.
  */
 async function recordUsage(
-  apiKey: ApiKey | null,
+  context: RequestContext,
   toolName: string,
   options?: {
     responseTimeMs?: number;
     chunksRetrieved?: number;
+    reasonCode?: string;
+    resultCount?: number;
   }
 ): Promise<void> {
-  if (!rateLimiter || !apiKey) {
-    return;
-  }
+  await rateLimiter.recordUsage(context.keyId, toolName, {
+    ...options,
+    correlationId: context.correlationId,
+    tenantId: context.tenantId,
+    operation: toolName,
+    decision: "allowed",
+    reasonCode: options?.reasonCode ?? "operation_complete",
+    resultCount: options?.resultCount ?? options?.chunksRetrieved ?? 0,
+  });
+}
 
-  await rateLimiter.recordUsage(apiKey.id, toolName, options);
+function logSecurityEvent(
+  context: RequestContext,
+  operation: string,
+  decision: "allowed" | "denied",
+  reason: string,
+  resultCount: number,
+): void {
+  console.error(JSON.stringify(
+    securityLogRecord(context, operation, decision, reason, resultCount),
+  ));
 }
 
 /**
@@ -328,13 +343,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // Handle tool calls
-async function handleToolCall(request: { params: { name: string; arguments?: Record<string, unknown> } }) {
+async function handleToolCall(
+  context: RequestContext,
+  request: { params: { name: string; arguments?: Record<string, unknown> } },
+) {
   const { name, arguments: args } = request.params;
   const startTime = Date.now();
 
   try {
-    // Check rate limits before processing (if enabled)
-    const apiKey = await checkRateLimits();
+    await checkRateLimits(context);
+    const accessScope = Object.freeze({ tenantId: context.tenantId });
 
     switch (name) {
       case "query_mutual_funds": {
@@ -363,6 +381,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
 
         // 2. Dual-table search
         const { results: merged, retrieval } = await searchHybridDocuments(vectorClient, question, queryVector, {
+          accessScope,
           limit: config.search.defaultLimit,
           scoreThreshold: config.search.scoreThreshold,
           candidateLimit: config.search.candidateLimit,
@@ -409,10 +428,13 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
         const responseTimeMs = Date.now() - startTime;
 
         // Record usage
-        await recordUsage(apiKey, name, {
+        await recordUsage(context, name, {
           responseTimeMs,
           chunksRetrieved: merged.length,
+          reasonCode: "retrieval_complete",
+          resultCount: merged.length,
         });
+        logSecurityEvent(context, name, "allowed", "retrieval_complete", merged.length);
 
         return {
           content: [
@@ -479,6 +501,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
 
         // 2. Dual-table search
         const { results: merged, retrieval } = await searchHybridDocuments(vectorClient, query, queryVector, {
+          accessScope,
           limit,
           scoreThreshold: config.search.scoreThreshold,
           candidateLimit: config.search.candidateLimit,
@@ -514,10 +537,13 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
         const responseTimeMs = Date.now() - startTime;
 
         // Record usage
-        await recordUsage(apiKey, name, {
+        await recordUsage(context, name, {
           responseTimeMs,
           chunksRetrieved: merged.length,
+          reasonCode: "retrieval_complete",
+          resultCount: merged.length,
         });
+        logSecurityEvent(context, name, "allowed", "retrieval_complete", merged.length);
 
         return {
           content: [
@@ -537,10 +563,14 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
       }
 
       case "list_schemes": {
-        const schemes = await vectorClient.getUniqueFundNames();
+        const schemes = await vectorClient.getUniqueFundNames(accessScope);
 
         // Record usage
-        await recordUsage(apiKey, name);
+        await recordUsage(context, name, {
+          reasonCode: "listing_complete",
+          resultCount: schemes.length,
+        });
+        logSecurityEvent(context, name, "allowed", "listing_complete", schemes.length);
 
         return {
           content: [
@@ -584,6 +614,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
           : healthyCount === 0
             ? "error"
             : "degraded";
+        logSecurityEvent(context, name, "allowed", `health_${status}`, 0);
 
         return {
           content: [
@@ -610,6 +641,7 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
       }
 
       default:
+        logSecurityEvent(context, name, "denied", "unknown_tool", 0);
         return {
           content: [
             {
@@ -621,6 +653,15 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
         };
     }
   } catch (error) {
+    const reason = error instanceof EmbeddingError
+      ? `embedding_${error.type}`
+      : error instanceof RateLimitError
+        ? "rate_limit_exceeded"
+        : error instanceof ApiKeyError
+          ? `api_key_${error.type}`
+          : "tool_error";
+    logSecurityEvent(context, name, "denied", reason, 0);
+
     // Handle embedding errors
     if (error instanceof EmbeddingError) {
       return {
@@ -694,9 +735,6 @@ async function handleToolCall(request: { params: { name: string; arguments?: Rec
   }
 }
 
-// Register handlers on the stdio server instance
-server.setRequestHandler(CallToolRequestSchema, handleToolCall);
-
 // Start server
 async function main() {
   const transportMode = process.env.MCP_TRANSPORT ?? "stdio";
@@ -716,6 +754,43 @@ async function main() {
         }
 
         if (url.pathname === "/mcp") {
+          const correlationId = crypto.randomUUID();
+          let requestContext: RequestContext;
+          try {
+            requestContext = await createHttpRequestContext(req, {
+              authorizer: rateLimiter,
+              allowedOrigins: new Set(
+                (process.env.MCP_ALLOWED_ORIGINS ?? "")
+                  .split(",")
+                  .map((origin) => origin.trim())
+                  .filter(Boolean),
+              ),
+              correlationId: () => correlationId,
+            });
+            logSecurityEvent(
+              requestContext,
+              "mcp_request",
+              "allowed",
+              "authorized",
+              0,
+            );
+          } catch (error) {
+            if (!(error instanceof RequestContextError)) throw error;
+            console.error(JSON.stringify({
+              correlationId,
+              keyId: null,
+              tenantId: null,
+              operation: "mcp_request",
+              decision: "denied",
+              reason: error.reason,
+              resultCount: 0,
+            }));
+            return Response.json(
+              { error: error.message },
+              { status: error.status },
+            );
+          }
+
           const transport = new WebStandardStreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
             enableJsonResponse: true,
@@ -726,7 +801,10 @@ async function main() {
             { capabilities: { tools: {} } },
           );
           reqServer.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
-          reqServer.setRequestHandler(CallToolRequestSchema, handleToolCall);
+          reqServer.setRequestHandler(
+            CallToolRequestSchema,
+            (request) => handleToolCall(requestContext, request),
+          );
 
           await reqServer.connect(transport);
           const response = await transport.handleRequest(req);
@@ -742,6 +820,14 @@ async function main() {
     console.error(`Embedding: ${config.embedding.model} @ ${config.embedding.baseUrl}`);
     console.error(`Reranker: ${reranker ? `${reranker.provider}/${reranker.model}` : "disabled"}`);
   } else {
+    const requestContext = await createTrustedRequestContext(
+      process.env,
+      rateLimiter,
+    );
+    server.setRequestHandler(
+      CallToolRequestSchema,
+      (request) => handleToolCall(requestContext, request),
+    );
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error("MF-RAG MCP Server running on stdio (LLM-free mode)");

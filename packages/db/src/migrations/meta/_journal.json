@@ -85,6 +85,13 @@
       "when": 1785415979928,
       "tag": "0011_tenant_ownership_expand",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785423600000,
+      "tag": "0012_api_key_fingerprint_contract",
+      "breakpoints": true
     }
   ]
 }

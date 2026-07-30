@@ -591,9 +591,8 @@ export const apiKeys = pgTable(
   "api_keys",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    key: varchar("key", { length: 64 }).unique().notNull(),
     keyFingerprint: varchar("key_fingerprint", { length: 64 })
-      .generatedAlwaysAs(sql`encode(digest("key", 'sha256'), 'hex')`)
+      .notNull()
       .unique(),
     tier: varchar("tier", { length: 20 }).default("free").notNull(),
     name: varchar("name", { length: 100 }),
@@ -602,7 +601,6 @@ export const apiKeys = pgTable(
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
-    index("api_keys_key_idx").on(table.key),
     index("api_keys_is_active_idx").on(table.isActive),
   ]
 );

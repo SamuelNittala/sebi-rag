@@ -10,7 +10,7 @@
 
 import { Command } from "commander";
 import { RAGPipeline } from "@mf-rag/core";
-import type { QueryFilters } from "@mf-rag/types";
+import { createTenantAccessScope, type QueryFilters } from "@mf-rag/types";
 
 // Configuration from environment
 const config = {
@@ -22,6 +22,7 @@ const config = {
 // Create pipeline instance
 function createPipeline(model?: string): RAGPipeline {
   return new RAGPipeline({
+    accessScope: createTenantAccessScope(process.env.AMC_SCOPE ?? ""),
     ollama: model ? { ...config.ollama, model } : config.ollama,
   });
 }

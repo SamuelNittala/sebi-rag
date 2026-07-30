@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTenantAccessScope } from "@mf-rag/types";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const integrationDescribe = testDatabaseUrl ? describe : describe.skip;
+const accessScope = createTenantAccessScope("tenant-test");
 
 integrationDescribe("PostgreSQL BM25 retrieval", () => {
   let packageClient: typeof import("@mf-rag/db/client")["client"];
@@ -49,6 +51,10 @@ integrationDescribe("PostgreSQL BM25 retrieval", () => {
       knowledge_domain: "sif" as const,
       source_collection: "mirae_sif" as const,
       amc_slug: "mirae-asset",
+      visibility_scope: "GLOBAL" as const,
+      tenant_id: null,
+      ownership_manifest_id: "bm25-fixture",
+      ownership_manifest_version: 1,
     };
 
     await vectorClient.upsertChunks([
@@ -122,6 +128,7 @@ integrationDescribe("PostgreSQL BM25 retrieval", () => {
     const results = await vectorClient.searchLexical(
       "Who is the fund manager for Platinum SIF?",
       {
+        accessScope,
         limit: 10,
         filters: {
           knowledge_domain: "sif",
@@ -144,6 +151,7 @@ integrationDescribe("PostgreSQL BM25 retrieval", () => {
     const results = await new VectorClient().searchLexical(
       "Platinum investment strategy",
       {
+        accessScope,
         limit: 10,
         filters: {
           fund_name: "Platinum Hybrid Long-Short Fund",

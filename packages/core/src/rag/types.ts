@@ -8,6 +8,7 @@ import type { LLMConfig } from "../llm/types.ts";
 import type { ContextConfig } from "../context/types.ts";
 import type { VectorClientConfig } from "@mf-rag/vector";
 import type { FundDetectorConfig } from "../fund-detector/types.ts";
+import type { TenantAccessScope } from "@mf-rag/types";
 
 /** Embedding configuration for query embedding. */
 export interface EmbeddingConfig {
@@ -55,6 +56,8 @@ export const DEFAULT_FUND_DETECTION_CONFIG: FundDetectionConfig = {
 
 /** Full RAG pipeline configuration. */
 export interface RAGPipelineConfig {
+  /** Mandatory tenant boundary for every repository read. */
+  accessScope: TenantAccessScope;
   /** LLM configuration */
   ollama: LLMConfig;
   /** Vector store configuration (pgvector) */
@@ -70,7 +73,7 @@ export interface RAGPipelineConfig {
 }
 
 /** Default RAG pipeline configuration. */
-export const DEFAULT_RAG_CONFIG: RAGPipelineConfig = {
+export const DEFAULT_RAG_CONFIG: Omit<RAGPipelineConfig, "accessScope"> = {
   ollama: {
     model: process.env.LLM_MODEL ?? "qwen2.5:7b",
     baseUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",

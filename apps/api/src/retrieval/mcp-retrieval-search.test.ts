@@ -1,6 +1,35 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseRetrievalToolResult } from "./mcp-retrieval-search.ts";
+import {
+  McpRetrievalSearch,
+  buildMcpRequestInit,
+  parseRetrievalToolResult,
+} from "./mcp-retrieval-search.ts";
+
+describe("MCP review transport context", () => {
+  test("attaches the protected bearer and canonical scope to the SDK request template", () => {
+    const init = buildMcpRequestInit({
+      apiKey: "mf_review_secret",
+      tenantId: "tenant-a",
+    });
+    const headers = new Headers(init.headers);
+
+    expect(headers.get("authorization")).toBe("Bearer mf_review_secret");
+    expect(headers.get("x-amc-scope")).toBe("tenant-a");
+  });
+
+  test("fails closed when either review credential or scope is absent", () => {
+    const endpoint = new URL("http://localhost:3001/mcp");
+    expect(() => new McpRetrievalSearch(endpoint, {
+      apiKey: "",
+      tenantId: "tenant-a",
+    })).toThrow("credential");
+    expect(() => new McpRetrievalSearch(endpoint, {
+      apiKey: "mf_review_secret",
+      tenantId: "",
+    })).toThrow("scope");
+  });
+});
 
 describe("parseRetrievalToolResult", () => {
   test("parses and orders full query_mutual_funds chunks", () => {

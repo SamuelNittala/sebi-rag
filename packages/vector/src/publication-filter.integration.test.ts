@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTenantAccessScope } from "@mf-rag/types";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const integrationDescribe = testDatabaseUrl ? describe : describe.skip;
+const accessScope = createTenantAccessScope("tenant-test");
 
 integrationDescribe("vector publication isolation", () => {
   let packageClient: typeof import("@mf-rag/db/client")["client"];
@@ -49,6 +51,10 @@ integrationDescribe("vector publication isolation", () => {
       knowledge_domain: "sif" as const,
       source_collection: "mirae_sif" as const,
       amc_slug: "mirae-asset",
+      visibility_scope: "GLOBAL" as const,
+      tenant_id: null,
+      ownership_manifest_id: "publication-filter-fixture",
+      ownership_manifest_version: 1,
     };
     const stagedVector = new Array(1024).fill(0);
     stagedVector[0] = 1;
@@ -86,7 +92,10 @@ integrationDescribe("vector publication isolation", () => {
       },
     ]);
 
-    const results = await vectorClient.searchSimilar(stagedVector, { limit: 10 });
+    const results = await vectorClient.searchSimilar(stagedVector, {
+      accessScope,
+      limit: 10,
+    });
     expect(results).toHaveLength(1);
     expect(results[0]?.payload.text).toBe("currently published");
   });

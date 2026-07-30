@@ -23,6 +23,7 @@ export {
   COLLECTION_NAME,
   VECTOR_DIMENSIONS,
   type SearchFilters,
+  type TenantAccessScope,
   type SearchResult,
   type CollectionInfo,
   type ChunkWithVector,

@@ -1,5 +1,29 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { createTenantId } from "@mf-rag/types";
+
+export interface McpRetrievalCredentials {
+  readonly apiKey: string;
+  readonly tenantId: string;
+}
+
+export function buildMcpRequestInit(
+  credentials: McpRetrievalCredentials,
+): RequestInit {
+  if (!credentials.apiKey) {
+    throw new Error("MCP review credential is required");
+  }
+  if (!credentials.tenantId) {
+    throw new Error("MCP review scope is required");
+  }
+  const tenantId = createTenantId(credentials.tenantId);
+  return {
+    headers: {
+      Authorization: `Bearer ${credentials.apiKey}`,
+      "X-AMC-Scope": tenantId,
+    },
+  };
+}
 
 export interface RetrievalTraceView {
   denseRank: number | null;
@@ -187,10 +211,19 @@ export function parseRetrievalToolResult(toolResult: unknown): RetrievalSearchRe
 }
 
 export class McpRetrievalSearch implements RetrievalSearch {
-  constructor(private readonly endpoint: URL) {}
+  private readonly requestInit: RequestInit;
+
+  constructor(
+    private readonly endpoint: URL,
+    credentials: McpRetrievalCredentials,
+  ) {
+    this.requestInit = buildMcpRequestInit(credentials);
+  }
 
   async search(query: string): Promise<RetrievalSearchResult> {
-    const transport = new StreamableHTTPClientTransport(this.endpoint);
+    const transport = new StreamableHTTPClientTransport(this.endpoint, {
+      requestInit: this.requestInit,
+    });
     const client = new Client(
       { name: "mf-rag-review-retrieval-debugger", version: "1.0.0" },
       { capabilities: {} },

@@ -1,4 +1,5 @@
 import type {
+  TenantAccessScope,
   HtmlSearchFilters,
   HtmlSearchResult,
   SearchFilters,
@@ -32,6 +33,7 @@ export interface MergedResult extends HybridRetrievalCandidate {
 }
 
 export interface HybridSearchOptions {
+  accessScope: TenantAccessScope;
   limit: number;
   scoreThreshold: number;
   candidateLimit?: number;
@@ -86,6 +88,7 @@ function globallyRank(candidates: MergedResult[]) {
 }
 
 interface CandidateSearchInput {
+  accessScope: TenantAccessScope;
   candidateLimit: number;
   scoreThreshold: number;
   pdfFilters?: SearchFilters;
@@ -108,7 +111,8 @@ async function retrieveCandidates(
     : undefined;
   const [pdfDense, htmlDense, pdfLexical, htmlLexical] = await Promise.all([
     input.searchPdf
-      ? vectorClient.searchSimilar(queryVector, {
+        ? vectorClient.searchSimilar(queryVector, {
+          accessScope: input.accessScope,
           limit: input.candidateLimit,
           filters: pdfFilters,
           scoreThreshold: input.scoreThreshold,
@@ -116,6 +120,7 @@ async function retrieveCandidates(
       : Promise.resolve([]),
     input.searchHtml
       ? vectorClient.searchHtmlSimilar(queryVector, {
+          accessScope: input.accessScope,
           limit: input.candidateLimit,
           filters: htmlFilters,
           scoreThreshold: input.scoreThreshold,
@@ -123,12 +128,14 @@ async function retrieveCandidates(
       : Promise.resolve([]),
     input.searchPdf
       ? vectorClient.searchLexical(query, {
+          accessScope: input.accessScope,
           limit: input.candidateLimit,
           filters: pdfFilters,
         })
       : Promise.resolve([]),
     input.searchHtml
       ? vectorClient.searchHtmlLexical(query, {
+          accessScope: input.accessScope,
           limit: input.candidateLimit,
           filters: htmlFilters,
         })
@@ -203,6 +210,7 @@ export async function searchHybridDocuments(
   options: HybridSearchOptions,
 ) {
   const {
+    accessScope,
     limit,
     scoreThreshold,
     candidateLimit: configuredCandidateLimit = 40,
@@ -221,6 +229,7 @@ export async function searchHybridDocuments(
     retrievalCandidateLimit(limit, rankingProfile),
   );
   let candidates = await retrieveCandidates(vectorClient, query, queryVector, {
+    accessScope,
     candidateLimit,
     scoreThreshold,
     pdfFilters,
@@ -236,6 +245,7 @@ export async function searchHybridDocuments(
     && candidates.lexical.length === 0;
   if (canRetry && pdfFilters) {
     candidates = await retrieveCandidates(vectorClient, query, queryVector, {
+      accessScope,
       candidateLimit,
       scoreThreshold,
       pdfFilters: withoutFundFilter(pdfFilters),
