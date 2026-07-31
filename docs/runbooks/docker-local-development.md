@@ -49,6 +49,63 @@ docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm \
   '
 ```
 
+## Production ownership cutover gate
+
+This is a release procedure, not a local-development command. Run it only from
+Docker containers using the immutable release image and deployment-managed
+`DATABASE_URL`; do not paste production connection strings or credentials into
+shell history. Scoped readers must remain disabled until every command below
+has succeeded.
+
+1. Run the release migration job. Confirm that migration `0011_tenant_ownership_expand`
+   completed before continuing; later additive migrations may complete in the
+   same job.
+
+```bash
+docker run --rm \
+  --env-file /run/secrets/mf-rag-release.env \
+  mf-rag-release:<immutable-image> \
+  bun run db:migrate
+```
+
+2. Mount the human-approved ownership manifest read-only and dry-run it before
+   applying it. The apply command classifies only `UNCLASSIFIED` rows under its
+   maintenance lock and is idempotent for the same approved manifest.
+
+```bash
+docker run --rm \
+  --env-file /run/secrets/mf-rag-release.env \
+  -v /run/approvals/tenant-ownership-manifest.json:/run/approved-manifest.json:ro \
+  mf-rag-release:<immutable-image> \
+  bun scripts/audit-tenant-ownership.ts --manifest /run/approved-manifest.json
+
+docker run --rm \
+  --env-file /run/secrets/mf-rag-release.env \
+  -v /run/approvals/tenant-ownership-manifest.json:/run/approved-manifest.json:ro \
+  mf-rag-release:<immutable-image> \
+  bun scripts/audit-tenant-ownership.ts --manifest /run/approved-manifest.json --apply
+```
+
+3. Run the production-only index and verification script from a PostgreSQL
+   client container. It uses `CREATE INDEX CONCURRENTLY IF NOT EXISTS`, checks
+   all four index names through `pg_indexes`, and aborts unless both published
+   `UNCLASSIFIED` chunk counts and BM25 rows joined to them are zero. Do not use
+   `psql -1` or any transaction wrapper for this command.
+
+```bash
+docker run --rm \
+  --env-file /run/secrets/mf-rag-release.env \
+  -v /opt/mf-rag/release/scripts/production-tenant-cutover.sql:/cutover.sql:ro \
+  postgres:16 \
+  sh -ceu 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /cutover.sql'
+```
+
+The final query output must report zero for
+`published_unclassified_chunks` and
+`bm25_rows_joined_to_published_unclassified_chunks`; otherwise stop the
+release and do not enable scoped retrieval. The SQL is intentionally outside
+Drizzle's transactional migrations so index creation does not block writers.
+
 ## Full local stack
 
 The first startup downloads `bge-m3` and the configured reranker model into

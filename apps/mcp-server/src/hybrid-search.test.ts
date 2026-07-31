@@ -339,8 +339,8 @@ describe("searchHybridDocuments candidate fusion", () => {
       .toContain("temporal:effective_addendum");
   });
 
-  test("limits repeated FAQ continuations and preserves distinct questions", async () => {
-    const repeated = Array.from({ length: 6 }, (_, index) => {
+  test("keeps distinct FAQ continuations, removes true duplicates, and bounds one question", async () => {
+    const continuations = Array.from({ length: 3 }, (_, index) => {
       const result = pdfResult(`sip-${index}`, 1 - index * 0.01);
       Object.assign(result.payload, {
         document_kind: "FAQ",
@@ -361,6 +361,11 @@ describe("searchHybridDocuments candidate fusion", () => {
         sebi_url: null,
       });
       return result;
+    });
+    const duplicateContinuation = pdfResult("sip-0-duplicate", 0.95);
+    Object.assign(duplicateContinuation.payload, {
+      ...continuations[0]!.payload,
+      continuation_index: undefined,
     });
     const distinct = ["nav", "kyc", "tax", "nomination"].map((topic, index) => {
       const result = pdfResult(topic, 0.8 - index * 0.01);
@@ -385,8 +390,8 @@ describe("searchHybridDocuments candidate fusion", () => {
       return result;
     });
     const vectorClient = {
-      searchSimilar: mock(async () => [...repeated, ...distinct]),
-      searchLexical: mock(async () => [...repeated, ...distinct]),
+      searchSimilar: mock(async () => [...continuations, duplicateContinuation, ...distinct]),
+      searchLexical: mock(async () => [...continuations, duplicateContinuation, ...distinct]),
       searchHtmlSimilar: mock(async () => []),
       searchHtmlLexical: mock(async () => []),
     } as unknown as VectorClient;
@@ -403,15 +408,16 @@ describe("searchHybridDocuments candidate fusion", () => {
       searchHtml: false,
     });
 
-    expect(response.results).toHaveLength(5);
+    expect(response.results).toHaveLength(6);
     expect(response.results.filter((result) => result.question === "How does a SIP work?"))
-      .toHaveLength(1);
+      .toHaveLength(3);
     expect(response.results.map((result) => result.id)).toEqual([
       "sip-0",
+      "sip-1",
+      "sip-2",
       "nav",
       "kyc",
       "tax",
-      "nomination",
     ]);
   });
 });

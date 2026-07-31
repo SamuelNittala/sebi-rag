@@ -52,8 +52,6 @@ ALTER TABLE "usage_records" ADD COLUMN "result_count" integer;--> statement-brea
 ALTER TABLE "api_key_tenant_scopes" ADD CONSTRAINT "api_key_tenant_scopes_api_key_id_api_keys_id_fk" FOREIGN KEY ("api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "api_key_tenant_scopes_tenant_idx" ON "api_key_tenant_scopes" USING btree ("tenant_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "tenant_ownership_manifest_checksum_uidx" ON "tenant_ownership_manifest_applications" USING btree ("manifest_checksum");--> statement-breakpoint
-CREATE INDEX "chunks_published_scope_tenant_idx" ON "chunks" USING btree ("publication_status","visibility_scope","tenant_id","knowledge_domain","source_collection");--> statement-breakpoint
-CREATE INDEX "html_chunks_published_scope_tenant_idx" ON "html_chunks" USING btree ("publication_status","visibility_scope","tenant_id","knowledge_domain","source_collection");--> statement-breakpoint
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_key_fingerprint_unique" UNIQUE("key_fingerprint");--> statement-breakpoint
 ALTER TABLE "chunk_candidates" ADD CONSTRAINT "chunk_candidates_ownership_invariant_ck" CHECK ((
   ("visibility_scope" = 'UNCLASSIFIED'

@@ -230,7 +230,7 @@ function diversifyFaqResults(
       ?? item.candidate.documentId
       ?? item.candidate.documentFilename
       ?? item.candidate.id;
-    const sourceQuestionKey = `${sourceKey}:${questionKey}`;
+    const sourceQuestionKey = `${sourceKey}:${questionKey}:${item.candidate.continuationIndex ?? 0}`;
     if (sourceQuestionKeys.has(sourceQuestionKey)) continue;
     if ((questionCounts.get(questionKey) ?? 0) >= perQuestionLimit) continue;
     sourceQuestionKeys.add(sourceQuestionKey);

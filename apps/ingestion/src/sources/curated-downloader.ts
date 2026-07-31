@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { link, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import {
@@ -10,6 +10,7 @@ import {
 export interface CuratedDownloadOptions {
   root?: string;
   fetcher?: typeof fetch;
+  timeoutMs?: number;
 }
 
 export interface CuratedDownloadResult {
@@ -22,6 +23,7 @@ export interface CuratedDownloadResult {
 }
 
 const DEFAULT_ROOT = "data/curated-faq";
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -36,7 +38,9 @@ async function readVerifiedArtifact(
   expectedSha256: string,
 ): Promise<Uint8Array | null> {
   try {
-    const bytes = new Uint8Array(await readFile(artifactPath));
+    const file = Bun.file(artifactPath);
+    if (!await file.exists()) return null;
+    const bytes = new Uint8Array(await file.arrayBuffer());
     if (!hasPdfSignature(bytes) || sha256(bytes) !== expectedSha256) {
       throw new Error(`Existing curated artifact failed integrity verification: ${artifactPath}`);
     }
@@ -53,6 +57,7 @@ export async function downloadCuratedFaqSource(
 ): Promise<CuratedDownloadResult> {
   const source = validateFaqSource(sourceInput);
   const root = resolve(options.root ?? DEFAULT_ROOT);
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const artifactPath = join(root, "artifacts", source.id, `${source.sha256}.pdf`);
   const existing = await readVerifiedArtifact(artifactPath, source.sha256);
   if (existing) {
@@ -69,6 +74,7 @@ export async function downloadCuratedFaqSource(
   const response = await (options.fetcher ?? fetch)(source.canonicalUrl, {
     redirect: "follow",
     headers: { accept: "application/pdf" },
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!response.ok) {
     throw new Error(`FAQ source download failed (${response.status}): ${source.id}`);
@@ -99,7 +105,7 @@ export async function downloadCuratedFaqSource(
 
   await mkdir(dirname(artifactPath), { recursive: true });
   const tempPath = `${artifactPath}.${crypto.randomUUID()}.tmp`;
-  await writeFile(tempPath, bytes, { flag: "wx" });
+  await Bun.write(tempPath, bytes);
   try {
     await link(tempPath, artifactPath);
   } catch (error) {

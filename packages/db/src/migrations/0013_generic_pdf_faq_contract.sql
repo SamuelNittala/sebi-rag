@@ -23,5 +23,3 @@ ALTER TABLE "chunks" ADD COLUMN "question_number" varchar(50);--> statement-brea
 ALTER TABLE "chunks" ADD COLUMN "normalized_question_key" text;--> statement-breakpoint
 ALTER TABLE "chunks" ADD COLUMN "original_question" text;--> statement-breakpoint
 ALTER TABLE "chunks" ADD COLUMN "continuation_index" integer;--> statement-breakpoint
-CREATE INDEX "chunks_normalized_question_idx" ON "chunks" USING btree ("normalized_question_key");--> statement-breakpoint
-CREATE INDEX "chunks_generic_document_idx" ON "chunks" USING btree ("document_kind","source_url","publication_status");

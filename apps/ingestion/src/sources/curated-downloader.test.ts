@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
@@ -51,7 +51,7 @@ describe("curated FAQ downloader", () => {
     expect(second.reused).toBe(true);
     expect(first.artifactPath).toBe(second.artifactPath);
     expect(calls).toBe(1);
-    expect(new Uint8Array(await readFile(first.artifactPath))).toEqual(PDF_BYTES);
+    expect(await Bun.file(first.artifactPath).bytes()).toEqual(PDF_BYTES);
   });
 
   test("rejects checksum mismatches and keeps changed checksums in separate paths", async () => {
@@ -78,5 +78,21 @@ describe("curated FAQ downloader", () => {
     });
 
     expect(original.artifactPath).not.toBe(changed.artifactPath);
+  });
+
+  test("aborts a stalled source download at the configured timeout", async () => {
+    const root = await mkdtemp(join(tmpdir(), "faq-download-"));
+    const sha256 = createHash("sha256").update(PDF_BYTES).digest("hex");
+    const fetcher: typeof fetch = ((_url, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {
+        once: true,
+      });
+    })) as typeof fetch;
+
+    await expect(downloadCuratedFaqSource(fixtureSource(sha256), {
+      root,
+      fetcher,
+      timeoutMs: 1,
+    })).rejects.toThrow(/timed out/i);
   });
 });
