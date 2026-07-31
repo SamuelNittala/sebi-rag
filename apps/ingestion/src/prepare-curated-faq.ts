@@ -1,7 +1,11 @@
-import { prepareCuratedFaqSource } from "./orchestrator/prepare-curated-faq.ts";
+import {
+  prepareCuratedFaqSource,
+  stagePreparedCuratedFaqReview,
+} from "./orchestrator/prepare-curated-faq.ts";
 
-function selectedSourceIds(args: string[]): string[] {
+function parseArgs(args: string[]): { sourceIds: string[]; stageReview: boolean } {
   const ids: string[] = [];
+  let stageReview = false;
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === "--source") {
       const value = args[index + 1];
@@ -12,6 +16,10 @@ function selectedSourceIds(args: string[]): string[] {
       index += 1;
       continue;
     }
+    if (args[index] === "--stage-review") {
+      stageReview = true;
+      continue;
+    }
     throw new Error(`Unknown argument: ${args[index]}`);
   }
   if (ids.length === 0) {
@@ -19,13 +27,16 @@ function selectedSourceIds(args: string[]): string[] {
       "Select curated manifest entries explicitly with --source <source-id>.",
     );
   }
-  return [...new Set(ids)];
+  return { sourceIds: [...new Set(ids)], stageReview };
 }
 
-const sourceIds = selectedSourceIds(Bun.argv.slice(2));
+const { sourceIds, stageReview } = parseArgs(Bun.argv.slice(2));
 let blocked = false;
 for (const sourceId of sourceIds) {
   const prepared = await prepareCuratedFaqSource(sourceId);
+  const reviewRun = stageReview && prepared.parse.reviewReady
+    ? await stagePreparedCuratedFaqReview(prepared)
+    : null;
   console.log(JSON.stringify({
     sourceId,
     sha256: prepared.source.sha256,
@@ -37,6 +48,7 @@ for (const sourceId of sourceIds) {
     warningCount: prepared.parse.warnings.length,
     markdownPreviewPath: prepared.markdownPreviewPath,
     chunkManifestPath: prepared.chunkManifestPath,
+    reviewRunId: reviewRun?.id ?? null,
   }));
   blocked ||= !prepared.parse.reviewReady;
 }

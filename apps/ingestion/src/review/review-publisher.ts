@@ -285,13 +285,22 @@ export async function publishApprovedReviewRun(
       chunkIndex: candidate.chunkIndex,
       text: buildContextualEmbeddingText(candidate.text, {
         fund: metadataString(candidate.metadata, "fundName") || null,
-        document: metadataString(candidate.metadata, "documentType", detail.run.sourceName),
+        document: metadataString(
+          candidate.metadata,
+          "documentTitle",
+          metadataString(candidate.metadata, "documentType", detail.run.sourceName),
+        ),
+        publisher: metadataString(candidate.metadata, "publisher") || null,
+        topic: metadataString(candidate.metadata, "topic") || null,
+        question: metadataString(candidate.metadata, "originalQuestion") || null,
         section: candidate.sectionHeader,
         pages: candidate.pageNumbers,
         contentType: candidate.hasTable
           ? "table row"
           : detail.run.sourceType === "html"
             ? "article"
+            : metadataString(candidate.metadata, "documentKind") === "FAQ"
+              ? "FAQ answer"
             : "document text",
       }),
     }));
@@ -321,16 +330,29 @@ export async function publishApprovedReviewRun(
           documentId: detail.run.sourceDocumentId,
           documentFilename: detail.run.sourceName,
           pageNumbers: candidate.pageNumbers,
-          fundName: metadataString(metadata, "fundName"),
-          amcName: metadataString(metadata, "amcName"),
-          schemeType: metadataString(metadata, "schemeType"),
-          schemeCategory: metadataString(metadata, "schemeCategory"),
+          fundName: metadataString(metadata, "fundName") || null,
+          amcName: metadataString(metadata, "amcName") || null,
+          schemeType: metadataString(metadata, "schemeType") || null,
+          schemeCategory: metadataString(metadata, "schemeCategory") || null,
           docType: requiredMetadataString(metadata, "documentType"),
-          documentDate: metadataString(metadata, "documentDate"),
+          documentDate: metadataString(metadata, "documentDate") || null,
           hasTable: candidate.hasTable,
           sectionHeader: candidate.sectionHeader,
-          sebiSchemeId: metadataString(metadata, "sebiSchemeId"),
-          sebiUrl: metadataString(metadata, "sebiUrl"),
+          sebiSchemeId: metadataString(metadata, "sebiSchemeId") || null,
+          sebiUrl: metadataString(metadata, "sebiUrl") || null,
+          documentKind: metadataString(metadata, "documentKind", "scheme"),
+          documentTitle: metadataString(metadata, "documentTitle") || null,
+          publisher: metadataString(metadata, "publisher") || null,
+          sourceUrl: metadataString(metadata, "sourceUrl") || null,
+          sourceDate: metadataString(metadata, "sourceDate") || null,
+          authority: metadataString(metadata, "authority") || null,
+          topic: metadataString(metadata, "topic") || null,
+          questionNumber: metadataString(metadata, "questionNumber") || null,
+          normalizedQuestionKey: metadataString(metadata, "normalizedQuestionKey") || null,
+          originalQuestion: metadataString(metadata, "originalQuestion") || null,
+          continuationIndex: typeof metadata.continuationIndex === "number"
+            ? metadata.continuationIndex
+            : null,
           knowledgeDomain: requiredMetadataString(metadata, "knowledgeDomain"),
           sourceCollection: requiredMetadataString(metadata, "sourceCollection"),
           amcSlug: metadataString(metadata, "amcSlug") || null,

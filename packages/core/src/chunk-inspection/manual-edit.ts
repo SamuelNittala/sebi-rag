@@ -23,9 +23,25 @@ function editedCandidates(
   tokenCount: number,
   hash: string,
 ): EditableInspectionCandidate[] {
-  return candidates.map((candidate) => candidate.id === candidateId
-    ? { ...candidate, text, tokenCount, contentHash: hash }
-    : candidate);
+  return candidates.map((candidate) => {
+    if (candidate.id !== candidateId) return candidate;
+    const faq = candidate.metadata.documentKind === "FAQ"
+      || candidate.metadata.sourceCollection === "general_mf_faq";
+    if (!faq) return { ...candidate, text, tokenCount, contentHash: hash };
+    const question = text.match(/(?:^|\n)Question:\s*(.+?)(?=\n|$)/i)?.[1]?.trim();
+    const answer = text.match(/(?:^|\n)Answer(?:\s*\([^)]*\))?:\s*([\s\S]+)$/i)?.[1]?.trim();
+    return {
+      ...candidate,
+      text,
+      tokenCount,
+      contentHash: hash,
+      metadata: {
+        ...candidate.metadata,
+        originalQuestion: question ?? "",
+        answer: answer ?? "",
+      },
+    };
+  });
 }
 
 export function prepareManualChunkEdit(
@@ -49,7 +65,11 @@ export function prepareManualChunkEdit(
     tokenCount,
     afterContentHash,
   );
-  const report = new ChunkInspector().inspect({ document: input.document, candidates });
+  const report = new ChunkInspector().inspect({
+    document: input.document,
+    candidates,
+    ownership: input.ownership,
+  });
   return {
     candidateId: candidate.id,
     text,

@@ -43,6 +43,25 @@ export interface CandidateChunkMetadata {
   documentType?: string | null;
   sourceUrl?: string | null;
   documentDate?: string | null;
+  /** Generic PDF identity. Scheme documents may leave these unset. */
+  documentKind?: "scheme" | "FAQ" | "generic_pdf";
+  documentTitle?: string | null;
+  publisher?: string | null;
+  authority?: "regulator" | "sebi_established_institute" | "issuer" | "unknown";
+  sourceDate?: string | null;
+  sourceChecksum?: string | null;
+  sourceProfile?: string | null;
+  /** FAQ identity and governance fields. */
+  topic?: string | null;
+  questionNumber?: string | null;
+  normalizedQuestionKey?: string | null;
+  originalQuestion?: string | null;
+  answer?: string | null;
+  continuationIndex?: number;
+  firstPage?: number;
+  lastPage?: number;
+  sourceCoverageComplete?: boolean;
+  intentionalDuplicateDisposition?: "retain_distinct_authority" | "replace";
   effectiveDate?: string | null;
   amendmentNumber?: string | null;
   amendedDocumentTypes?: string[];

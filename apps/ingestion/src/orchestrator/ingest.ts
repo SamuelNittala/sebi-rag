@@ -403,6 +403,7 @@ export async function ingestDocument(
           knowledgeDomain: knowledgeScope.knowledgeDomain,
           amcSlug: knowledgeScope.amcSlug,
         },
+        ownership,
       });
       const reviewRun = await stageInspectionReview(db, {
         sourceType: "pdf",

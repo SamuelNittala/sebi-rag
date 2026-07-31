@@ -41,6 +41,10 @@ import { VectorClient, type SearchFilters, type HtmlSearchFilters } from "@mf-ra
 import { resolveRetrievalScope } from "./retrieval-scope.ts";
 import { searchHybridDocuments, type MergedResult } from "./hybrid-search.ts";
 import {
+  buildGenericDocumentCitations,
+  buildSchemeDocumentCitations,
+} from "./citations.ts";
+import {
   RequestContextError,
   createHttpRequestContext,
   createTrustedRequestContext,
@@ -143,42 +147,6 @@ function logSecurityEvent(
 /**
  * Build citations from search results, preserving distinct authoritative documents.
  */
-function buildCitations(results: MergedResult[]) {
-  const citationMap = new Map<string, {
-    fundName: string;
-    docType: string;
-    amendmentNumber: string;
-    pageNumbers: number[];
-    sebiUrl: string;
-    sourceUrl: string;
-  }>();
-
-  for (const result of results.filter((item) => item.source_type === "scheme_document")) {
-    const amendmentNumber = typeof result.metadata?.amendmentNumber === "string"
-      ? result.metadata.amendmentNumber
-      : "";
-    const key = result.sourceUrl
-      ? `${result.sourceUrl}|${amendmentNumber}`
-      : `${result.fundName}|${result.docType}|${amendmentNumber}`;
-    const existing = citationMap.get(key);
-    if (existing) {
-      const pages = new Set([...existing.pageNumbers, ...(result.pageNumbers ?? [])]);
-      existing.pageNumbers = Array.from(pages).sort((a, b) => a - b);
-    } else {
-      citationMap.set(key, {
-        fundName: result.fundName ?? "",
-        docType: result.docType ?? "",
-        amendmentNumber,
-        pageNumbers: [...(result.pageNumbers ?? [])],
-        sebiUrl: result.sebiUrl ?? "",
-        sourceUrl: result.sourceUrl ?? "",
-      });
-    }
-  }
-
-  return Array.from(citationMap.values());
-}
-
 /**
  * Build citations from HTML search results, deduplicating by title.
  */
@@ -415,6 +383,17 @@ async function handleToolCall(
             sebiUrl: r.sebiUrl,
             sourceUrl: r.sourceUrl,
           }),
+          ...(r.source_type === "generic_document" && {
+            documentTitle: r.documentTitle,
+            publisher: r.publisher,
+            sourceUrl: r.sourceUrl,
+            sourceDate: r.sourceDate,
+            authority: r.authority,
+            pageNumbers: r.pageNumbers,
+            topic: r.topic,
+            question: r.question,
+            questionNumber: r.questionNumber,
+          }),
           // HTML fields (present when source_type is "knowledge_base")
           ...(r.source_type === "knowledge_base" && {
             documentTitle: r.documentTitle,
@@ -423,7 +402,8 @@ async function handleToolCall(
           }),
         }));
 
-        const pdfCitations = buildCitations(merged);
+        const pdfCitations = buildSchemeDocumentCitations(merged);
+        const genericCitations = buildGenericDocumentCitations(merged);
         const htmlCitations = buildHtmlCitations(merged);
         const responseTimeMs = Date.now() - startTime;
 
@@ -445,6 +425,7 @@ async function handleToolCall(
                   chunks,
                   citations: {
                     scheme_documents: pdfCitations,
+                    generic_documents: genericCitations,
                     knowledge_base: htmlCitations,
                   },
                   metadata: {
@@ -452,6 +433,7 @@ async function handleToolCall(
                     chunksRetrieved: merged.length,
                     sources: {
                       scheme_documents: merged.filter((item) => item.source_type === "scheme_document").length,
+                      generic_documents: merged.filter((item) => item.source_type === "generic_document").length,
                       knowledge_base: merged.filter((item) => item.source_type === "knowledge_base").length,
                     },
                     retrieval,
@@ -524,6 +506,15 @@ async function handleToolCall(
             scheme: r.fundName,
             document: r.docType,
             pages: r.pageNumbers,
+          }),
+          ...(r.source_type === "generic_document" && {
+            title: r.documentTitle,
+            publisher: r.publisher,
+            url: r.sourceUrl,
+            sourceDate: r.sourceDate,
+            pages: r.pageNumbers,
+            question: r.question,
+            topic: r.topic,
           }),
           ...(r.source_type === "knowledge_base" && {
             title: r.documentTitle,

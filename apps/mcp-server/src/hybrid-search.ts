@@ -18,7 +18,7 @@ import type { Reranker } from "./reranker.ts";
 
 export interface MergedResult extends HybridRetrievalCandidate {
   score: number;
-  source_type: "scheme_document" | "knowledge_base";
+  source_type: "scheme_document" | "generic_document" | "knowledge_base";
   text: string;
   sectionHeader: string | null;
   retrievalTrace?: RetrievalTrace;
@@ -30,6 +30,12 @@ export interface MergedResult extends HybridRetrievalCandidate {
   documentTitle?: string;
   contentCategory?: string;
   sourceUrl?: string;
+  publisher?: string;
+  sourceDate?: string;
+  authority?: string;
+  topic?: string;
+  question?: string;
+  questionNumber?: string;
 }
 
 export interface HybridSearchOptions {
@@ -49,20 +55,32 @@ export interface HybridSearchOptions {
 }
 
 function pdfCandidate(result: SearchResult): MergedResult {
+  const generic = result.payload.document_kind === "FAQ"
+    || result.payload.document_kind === "generic_pdf";
+  const sourceType = generic ? "generic_document" : "scheme_document";
   return {
     id: result.id,
-    sourceType: "scheme_document",
+    sourceType,
     metadata: result.payload.retrieval_metadata ?? null,
     score: result.score,
-    source_type: "scheme_document",
+    source_type: sourceType,
     text: result.payload.text,
     sectionHeader: result.payload.section_header,
-    fundName: result.payload.fund_name,
+    fundName: result.payload.fund_name ?? undefined,
     docType: result.payload.doc_type,
     pageNumbers: result.payload.page_numbers,
     documentFilename: result.payload.document_filename,
-    sebiUrl: result.payload.sebi_url,
-    sourceUrl: result.payload.retrieval_metadata?.sourceUrl ?? undefined,
+    sebiUrl: result.payload.sebi_url ?? undefined,
+    documentTitle: result.payload.document_title ?? undefined,
+    sourceUrl: result.payload.source_url
+      ?? result.payload.retrieval_metadata?.sourceUrl
+      ?? undefined,
+    publisher: result.payload.publisher ?? undefined,
+    sourceDate: result.payload.source_date ?? undefined,
+    authority: result.payload.authority ?? undefined,
+    topic: result.payload.topic ?? undefined,
+    question: result.payload.original_question ?? undefined,
+    questionNumber: result.payload.question_number ?? undefined,
   };
 }
 

@@ -9,6 +9,7 @@ describe("ReviewApprovalPolicy", () => {
       candidateChunkCount: 12,
       inspectedChunkCount: 12,
       openBlockingCount: 0,
+      openWarningCount: 0,
     });
 
     expect(result).toEqual({ allowed: true, reasons: [] });
@@ -20,6 +21,7 @@ describe("ReviewApprovalPolicy", () => {
       candidateChunkCount: 12,
       inspectedChunkCount: 11,
       openBlockingCount: 0,
+      openWarningCount: 0,
     });
 
     expect(result.allowed).toBe(false);
@@ -32,6 +34,7 @@ describe("ReviewApprovalPolicy", () => {
       candidateChunkCount: 12,
       inspectedChunkCount: 12,
       openBlockingCount: 1,
+      openWarningCount: 0,
     });
 
     expect(result.allowed).toBe(false);
@@ -44,9 +47,23 @@ describe("ReviewApprovalPolicy", () => {
       candidateChunkCount: 12,
       inspectedChunkCount: 12,
       openBlockingCount: 0,
+      openWarningCount: 0,
     });
 
     expect(result.allowed).toBe(false);
     expect(result.reasons).toContain("Review run is not ready for review.");
+  });
+
+  test("rejects approval until every warning is acknowledged or resolved", () => {
+    const result = new ReviewApprovalPolicy().evaluate({
+      status: "review_ready",
+      candidateChunkCount: 12,
+      inspectedChunkCount: 12,
+      openBlockingCount: 0,
+      openWarningCount: 1,
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.reasons).toContain("Inspection warnings remain unacknowledged.");
   });
 });

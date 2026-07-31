@@ -222,6 +222,7 @@ export async function ingestHtmlDocument(
           knowledgeDomain: knowledgeScope.knowledgeDomain,
           amcSlug: knowledgeScope.amcSlug,
         },
+        ownership,
       });
       const reviewRun = await stageInspectionReview(db, {
         sourceType: "html",

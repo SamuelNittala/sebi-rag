@@ -16,6 +16,7 @@ interface ReviewableChunk {
   hasTable: boolean;
   sectionHeader: string | null;
   tokenCount: number;
+  metadata?: Partial<CandidateChunkMetadata>;
 }
 
 export interface ReviewCandidate extends InspectionCandidate {
@@ -26,6 +27,10 @@ export interface PrepareChunkReviewInput {
   document: InspectionDocument;
   chunks: ReviewableChunk[];
   metadata: CandidateChunkMetadata;
+  ownership?: {
+    visibilityScope: "GLOBAL" | "TENANT" | "UNCLASSIFIED";
+    tenantId: string | null;
+  };
 }
 
 export interface PreparedChunkReview {
@@ -63,7 +68,7 @@ function toCandidate(
     tokenCount: chunk.tokenCount,
     hasTable: chunk.hasTable,
     sectionHeader: chunk.sectionHeader,
-    metadata: { ...metadata, ...section },
+    metadata: { ...metadata, ...chunk.metadata, ...section },
     contentHash,
   };
 }
@@ -75,6 +80,7 @@ export function prepareChunkReview(input: PrepareChunkReviewInput): PreparedChun
   const report = new ChunkInspector().inspect({
     document: input.document,
     candidates,
+    ownership: input.ownership,
   });
   return { candidates, report };
 }

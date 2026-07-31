@@ -108,4 +108,38 @@ describe("parseRetrievalToolResult", () => {
       "did not return a text payload",
     );
   });
+
+  test("parses the additive generic FAQ result without changing scheme results", () => {
+    const parsed = parseRetrievalToolResult({
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          chunks: [{
+            rank: 1,
+            source_type: "generic_document",
+            text: "KYC answer",
+            documentTitle: "FAQs for Mutual Fund Investors",
+            publisher: "Securities and Exchange Board of India",
+            sourceUrl: "https://sebi.example/faq.pdf",
+            sourceDate: "2024-09-25",
+            authority: "regulator",
+            pageNumbers: [4, 5],
+            question: "How do I complete KYC?",
+            topic: "KYC",
+          }],
+          metadata: { retrieval: {} },
+        }),
+      }],
+    });
+
+    expect(parsed.chunks[0]).toEqual(expect.objectContaining({
+      sourceType: "generic_document",
+      documentTitle: "FAQs for Mutual Fund Investors",
+      publisher: "Securities and Exchange Board of India",
+      sourceDate: "2024-09-25",
+      pageNumbers: [4, 5],
+      question: "How do I complete KYC?",
+      topic: "KYC",
+    }));
+  });
 });

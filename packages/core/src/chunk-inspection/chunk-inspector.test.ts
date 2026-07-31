@@ -154,4 +154,119 @@ describe("ChunkInspector", () => {
       ruleCode: "TOKEN_LIMIT_EXCEEDED",
     }));
   });
+
+  test("blocks FAQ candidates with missing structural, source, or ownership metadata", () => {
+    const report = new ChunkInspector().inspect({
+      document: { id: "faq-1", filename: "faq.pdf", pageCount: 10 },
+      ownership: {
+        visibilityScope: "TENANT",
+        tenantId: "tenant-a",
+      },
+      candidates: [candidate(0, "Question: \nAnswer: ", {
+        metadata: {
+          documentScope: "regulatory",
+          documentKind: "FAQ",
+          sourceCollection: "general_mf_faq",
+          documentTitle: "",
+          publisher: "",
+          sourceUrl: "",
+          originalQuestion: "",
+          answer: "",
+        },
+      })],
+    });
+
+    expect(report.findings.map((finding) => finding.ruleCode)).toEqual(
+      expect.arrayContaining([
+        "FAQ_QUESTION_MISSING",
+        "FAQ_ANSWER_MISSING",
+        "FAQ_SOURCE_MISSING",
+        "FAQ_GLOBAL_OWNERSHIP_REQUIRED",
+      ]),
+    );
+    expect(report.findings.filter((finding) =>
+      finding.ruleCode.startsWith("FAQ_")).every((finding) => finding.blocksApproval)
+    ).toBe(true);
+  });
+
+  test("blocks merged questions, source loss, index leakage, and exact duplicate FAQ text", () => {
+    const metadata = {
+      documentScope: "regulatory" as const,
+      documentKind: "FAQ" as const,
+      sourceCollection: "general_mf_faq",
+      documentTitle: "Investor FAQ",
+      publisher: "Authority",
+      sourceUrl: "https://example.test/faq.pdf",
+      originalQuestion: "What is NAV?",
+      answer: "NAV is the per-unit value.",
+      normalizedQuestionKey: "what is nav",
+      sourceCoverageComplete: false,
+    };
+    const duplicateText = "Question: What is NAV? Answer: NAV is the per-unit value.";
+    const report = new ChunkInspector().inspect({
+      document: { id: "faq-1", filename: "faq.pdf", pageCount: 10 },
+      ownership: { visibilityScope: "GLOBAL", tenantId: null },
+      candidates: [
+        candidate(0, `Contents\n${duplicateText}\n2. What is expense ratio?`, { metadata }),
+        candidate(1, duplicateText, { metadata }),
+        candidate(2, duplicateText, { metadata }),
+      ],
+    });
+
+    expect(report.findings.map((finding) => finding.ruleCode)).toEqual(
+      expect.arrayContaining([
+        "FAQ_MERGED_QUESTIONS",
+        "FAQ_SOURCE_TEXT_LOSS",
+        "FAQ_INDEX_LEAKAGE",
+        "FAQ_EXACT_DUPLICATE",
+      ]),
+    );
+  });
+
+  test("warns for time-sensitive FAQ guidance and materially different cross-source answers", () => {
+    const base = {
+      documentScope: "regulatory" as const,
+      documentKind: "FAQ" as const,
+      sourceCollection: "general_mf_faq",
+      originalQuestion: "What is the tax on mutual funds?",
+      normalizedQuestionKey: "what is the tax on mutual funds",
+      sourceUrl: "https://example.test/faq.pdf",
+      sourceDate: "2024-09-25",
+    };
+    const report = new ChunkInspector().inspect({
+      document: { id: "faq-1", filename: "faq.pdf", pageCount: 10 },
+      ownership: { visibilityScope: "GLOBAL", tenantId: null },
+      candidates: [
+        candidate(0, "Question: What is the tax? Answer: The current tax rate is 10%.", {
+          metadata: {
+            ...base,
+            documentTitle: "SEBI FAQ",
+            publisher: "SEBI",
+            answer: "The current tax rate is 10%.",
+          },
+        }),
+        candidate(1, "Question: What is the tax? Answer: The applicable tax rate is 12.5%.", {
+          metadata: {
+            ...base,
+            documentTitle: "NISM FAQ",
+            publisher: "NISM",
+            sourceUrl: "https://example.test/nism.pdf",
+            sourceDate: "2021-02-01",
+            answer: "The applicable tax rate is 12.5%.",
+          },
+        }),
+      ],
+    });
+
+    expect(report.findings).toContainEqual(expect.objectContaining({
+      ruleCode: "FAQ_TIME_SENSITIVE",
+      severity: "warning",
+      blocksApproval: false,
+    }));
+    expect(report.findings).toContainEqual(expect.objectContaining({
+      ruleCode: "FAQ_CROSS_SOURCE_CONFLICT",
+      severity: "warning",
+      blocksApproval: false,
+    }));
+  });
 });

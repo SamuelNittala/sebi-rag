@@ -114,6 +114,17 @@ export class VectorClient {
         sectionHeader: chunk.payload.section_header,
         sebiSchemeId: chunk.payload.sebi_scheme_id,
         sebiUrl: chunk.payload.sebi_url,
+        documentKind: chunk.payload.document_kind ?? "scheme",
+        documentTitle: chunk.payload.document_title ?? null,
+        publisher: chunk.payload.publisher ?? null,
+        sourceUrl: chunk.payload.source_url ?? null,
+        sourceDate: chunk.payload.source_date ?? null,
+        authority: chunk.payload.authority ?? null,
+        topic: chunk.payload.topic ?? null,
+        questionNumber: chunk.payload.question_number ?? null,
+        normalizedQuestionKey: chunk.payload.normalized_question_key ?? null,
+        originalQuestion: chunk.payload.original_question ?? null,
+        continuationIndex: chunk.payload.continuation_index ?? null,
         knowledgeDomain: chunk.payload.knowledge_domain ?? "mutual_fund",
         sourceCollection: chunk.payload.source_collection ?? "default_corpus",
         amcSlug: chunk.payload.amc_slug ?? null,
@@ -145,6 +156,17 @@ export class VectorClient {
           sectionHeader: sql`EXCLUDED.section_header`,
           sebiSchemeId: sql`EXCLUDED.sebi_scheme_id`,
           sebiUrl: sql`EXCLUDED.sebi_url`,
+          documentKind: sql`EXCLUDED.document_kind`,
+          documentTitle: sql`EXCLUDED.document_title`,
+          publisher: sql`EXCLUDED.publisher`,
+          sourceUrl: sql`EXCLUDED.source_url`,
+          sourceDate: sql`EXCLUDED.source_date`,
+          authority: sql`EXCLUDED.authority`,
+          topic: sql`EXCLUDED.topic`,
+          questionNumber: sql`EXCLUDED.question_number`,
+          normalizedQuestionKey: sql`EXCLUDED.normalized_question_key`,
+          originalQuestion: sql`EXCLUDED.original_question`,
+          continuationIndex: sql`EXCLUDED.continuation_index`,
           knowledgeDomain: sql`EXCLUDED.knowledge_domain`,
           sourceCollection: sql`EXCLUDED.source_collection`,
           amcSlug: sql`EXCLUDED.amc_slug`,
@@ -210,6 +232,17 @@ export class VectorClient {
       section_header: string | null;
       sebi_scheme_id: string;
       sebi_url: string;
+      document_kind: ChunkPayload["document_kind"];
+      document_title: string | null;
+      publisher: string | null;
+      source_url: string | null;
+      source_date: string | null;
+      authority: string | null;
+      topic: string | null;
+      question_number: string | null;
+      normalized_question_key: string | null;
+      original_question: string | null;
+      continuation_index: number | null;
       knowledge_domain: string;
       source_collection: string;
       amc_slug: string | null;
@@ -236,6 +269,17 @@ export class VectorClient {
         section_header,
         sebi_scheme_id,
         sebi_url,
+        document_kind,
+        document_title,
+        publisher,
+        source_url,
+        source_date,
+        authority,
+        topic,
+        question_number,
+        normalized_question_key,
+        original_question,
+        continuation_index,
         knowledge_domain,
         source_collection,
         amc_slug,
@@ -270,6 +314,17 @@ export class VectorClient {
         section_header: row.section_header,
         sebi_scheme_id: row.sebi_scheme_id,
         sebi_url: row.sebi_url,
+        document_kind: row.document_kind ?? "scheme",
+        document_title: row.document_title,
+        publisher: row.publisher,
+        source_url: row.source_url,
+        source_date: row.source_date,
+        authority: row.authority,
+        topic: row.topic,
+        question_number: row.question_number,
+        normalized_question_key: row.normalized_question_key,
+        original_question: row.original_question,
+        continuation_index: row.continuation_index,
         knowledge_domain: row.knowledge_domain as ChunkPayload["knowledge_domain"],
         source_collection: row.source_collection as ChunkPayload["source_collection"],
         amc_slug: row.amc_slug,
@@ -312,6 +367,17 @@ export class VectorClient {
       section_header: string | null;
       sebi_scheme_id: string;
       sebi_url: string;
+      document_kind: ChunkPayload["document_kind"];
+      document_title: string | null;
+      publisher: string | null;
+      source_url: string | null;
+      source_date: string | null;
+      authority: string | null;
+      topic: string | null;
+      question_number: string | null;
+      normalized_question_key: string | null;
+      original_question: string | null;
+      continuation_index: number | null;
       knowledge_domain: string;
       source_collection: string;
       amc_slug: string | null;
@@ -410,6 +476,17 @@ export class VectorClient {
         section_header,
         sebi_scheme_id,
         sebi_url,
+        document_kind,
+        document_title,
+        publisher,
+        source_url,
+        source_date,
+        authority,
+        topic,
+        question_number,
+        normalized_question_key,
+        original_question,
+        continuation_index,
         knowledge_domain,
         source_collection,
         amc_slug,
@@ -441,6 +518,17 @@ export class VectorClient {
         section_header: row.section_header,
         sebi_scheme_id: row.sebi_scheme_id,
         sebi_url: row.sebi_url,
+        document_kind: row.document_kind ?? "scheme",
+        document_title: row.document_title,
+        publisher: row.publisher,
+        source_url: row.source_url,
+        source_date: row.source_date,
+        authority: row.authority,
+        topic: row.topic,
+        question_number: row.question_number,
+        normalized_question_key: row.normalized_question_key,
+        original_question: row.original_question,
+        continuation_index: row.continuation_index,
         knowledge_domain: row.knowledge_domain as ChunkPayload["knowledge_domain"],
         source_collection: row.source_collection as ChunkPayload["source_collection"],
         amc_slug: row.amc_slug,

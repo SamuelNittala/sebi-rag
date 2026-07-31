@@ -30,4 +30,18 @@ describe("buildContextualEmbeddingText", () => {
     expect(embeddingText).not.toContain("Section:");
     expect(embeddingText).toContain("Document: What is a Specialized Investment Fund?");
   });
+
+  test("includes generic FAQ identity in contextual embedding text", () => {
+    const embeddingText = buildContextualEmbeddingText("Use the applicable KYC process.", {
+      document: "FAQs for Mutual Fund Investors",
+      publisher: "Securities and Exchange Board of India",
+      topic: "Know Your Customer",
+      question: "How do I complete KYC?",
+      contentType: "FAQ answer",
+    });
+
+    expect(embeddingText).toContain("Publisher: Securities and Exchange Board of India");
+    expect(embeddingText).toContain("Topic: Know Your Customer");
+    expect(embeddingText).toContain("Question: How do I complete KYC?");
+  });
 });

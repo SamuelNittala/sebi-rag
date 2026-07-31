@@ -52,7 +52,7 @@ export interface RetrievalChunkView {
   rank: number;
   score: number;
   chunkId: string | null;
-  sourceType: "scheme_document" | "knowledge_base";
+  sourceType: "scheme_document" | "generic_document" | "knowledge_base";
   text: string;
   sectionHeader: string | null;
   retrievalTrace?: RetrievalTraceView;
@@ -65,6 +65,12 @@ export interface RetrievalChunkView {
   documentTitle?: string;
   contentCategory?: string;
   sourceUrl?: string;
+  publisher?: string;
+  sourceDate?: string;
+  authority?: string;
+  topic?: string;
+  question?: string;
+  questionNumber?: string;
 }
 
 export interface RetrievalSearchResult {
@@ -133,7 +139,9 @@ function parseChunk(value: unknown, index: number): RetrievalChunkView {
   const chunk = record(value);
   const sourceType = chunk.source_type === "knowledge_base"
     ? "knowledge_base"
-    : "scheme_document";
+    : chunk.source_type === "generic_document"
+      ? "generic_document"
+      : "scheme_document";
   const retrievalMetadata = typeof chunk.retrievalMetadata === "object"
     && chunk.retrievalMetadata !== null
     ? record(chunk.retrievalMetadata)
@@ -164,6 +172,14 @@ function parseChunk(value: unknown, index: number): RetrievalChunkView {
       contentCategory: optionalString(chunk.contentCategory),
     }),
     ...(optionalString(chunk.sourceUrl) && { sourceUrl: optionalString(chunk.sourceUrl) }),
+    ...(optionalString(chunk.publisher) && { publisher: optionalString(chunk.publisher) }),
+    ...(optionalString(chunk.sourceDate) && { sourceDate: optionalString(chunk.sourceDate) }),
+    ...(optionalString(chunk.authority) && { authority: optionalString(chunk.authority) }),
+    ...(optionalString(chunk.topic) && { topic: optionalString(chunk.topic) }),
+    ...(optionalString(chunk.question) && { question: optionalString(chunk.question) }),
+    ...(optionalString(chunk.questionNumber) && {
+      questionNumber: optionalString(chunk.questionNumber),
+    }),
   };
 }
 

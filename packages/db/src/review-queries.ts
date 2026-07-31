@@ -158,6 +158,7 @@ export async function updateReviewCandidateMetadata(
     const [updatedRun] = await tx.update(ingestionRuns).set({
       flaggedChunkCount: new Set(openFlags.flatMap((flag) => flag.chunkCandidateId ? [flag.chunkCandidateId] : [])).size,
       criticalCount: openFlags.filter((flag) => flag.severity === "critical").length,
+      warningCount: openFlags.filter((flag) => flag.severity === "warning").length,
       blockingCount: openFlags.filter((flag) => flag.blocksApproval).length,
       updatedAt: new Date(),
     }).where(eq(ingestionRuns.id, input.ingestionRunId)).returning();
@@ -213,6 +214,71 @@ function ownershipMatches(
     && record.ownershipManifestVersion === ownership.ownershipManifestVersion;
 }
 
+function metadataObject(
+  value: CandidateChunkMetadata | string | null,
+): CandidateChunkMetadata {
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as CandidateChunkMetadata;
+    } catch {
+      return { documentScope: "unknown" };
+    }
+  }
+  return value ?? { documentScope: "unknown" };
+}
+
+function normalizedFaqAnswer(metadata: CandidateChunkMetadata): string {
+  return typeof metadata.answer === "string"
+    ? metadata.answer.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim()
+    : "";
+}
+
+async function assertFaqDuplicateDisposition(
+  tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
+  sourceDocumentId: string,
+  candidates: Array<{ metadata: CandidateChunkMetadata; text: string }>,
+): Promise<void> {
+  const faqCandidates = candidates.filter((candidate) =>
+    candidate.metadata.documentKind === "FAQ"
+    || candidate.metadata.sourceCollection === "general_mf_faq"
+  );
+  if (faqCandidates.length === 0) return;
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('general_mf_faq:publication'))`);
+  const published = await tx.select({
+    documentId: chunks.documentId,
+    metadata: chunks.retrievalMetadata,
+  }).from(chunks).where(and(
+    eq(chunks.publicationStatus, "published"),
+    eq(chunks.sourceCollection, "general_mf_faq"),
+  ));
+  for (const candidate of faqCandidates) {
+    const question = candidate.metadata.normalizedQuestionKey?.trim();
+    const answer = normalizedFaqAnswer(candidate.metadata);
+    if (!question || !answer) continue;
+    const duplicate = published.find((row) => {
+      if (row.documentId === sourceDocumentId) return false;
+      const metadata = metadataObject(row.metadata);
+      return metadata.normalizedQuestionKey === question
+        && normalizedFaqAnswer(metadata) === answer;
+    });
+    if (!duplicate) continue;
+    if (candidate.metadata.intentionalDuplicateDisposition !== "retain_distinct_authority") {
+      throw new Error(
+        "Published FAQ contains the same normalized question and answer; reviewed intentional duplicate disposition is required.",
+      );
+    }
+    const existingMetadata = metadataObject(duplicate.metadata);
+    if (
+      existingMetadata.sourceUrl === candidate.metadata.sourceUrl
+      || existingMetadata.authority === candidate.metadata.authority
+    ) {
+      throw new Error(
+        "Intentional FAQ duplicate retention requires a distinct source and authority.",
+      );
+    }
+  }
+}
+
 function classifiedOwnershipFromRecord(record: OwnershipRecord): ClassifiedKnowledgeOwnership {
   const ownership = {
     visibilityScope: record.visibilityScope,
@@ -266,9 +332,6 @@ export async function stageInspectionReview(
   input: StageInspectionReviewInput,
 ): Promise<IngestionRun> {
   validateInspection(input);
-  const flaggedChunkCount = new Set(
-    input.report.findings.flatMap((item) => item.candidateId ? [item.candidateId] : []),
-  ).size;
   // Inspector candidate IDs are deterministic within a document version. The
   // persisted IDs must be unique across historical reinspection runs.
   const persistedCandidateIds = new Map(
@@ -290,6 +353,59 @@ export async function stageInspectionReview(
     if ((input.reviewPurpose ?? "content") === "content" && source.fileHash !== input.fileHash) {
       throw new Error("Source document changed before review staging.");
     }
+
+    const faqCandidates = input.candidates.flatMap((candidate) => {
+      const metadata = metadataObject(candidate.metadata);
+      return metadata.documentKind === "FAQ"
+        || metadata.sourceCollection === "general_mf_faq"
+        ? [{ candidate, metadata }]
+        : [];
+    });
+    const priorFaqCandidates = faqCandidates.length === 0
+      ? []
+      : await tx.select({
+          id: chunkCandidates.id,
+          metadata: chunkCandidates.metadata,
+          runStatus: ingestionRuns.status,
+        }).from(chunkCandidates).innerJoin(
+          ingestionRuns,
+          eq(chunkCandidates.ingestionRunId, ingestionRuns.id),
+        ).where(ne(ingestionRuns.sourceDocumentId, input.sourceDocumentId));
+    const crossRunWarnings: PersistedInspectionFinding[] = faqCandidates.flatMap(
+      ({ candidate, metadata }) => {
+        const question = metadata.normalizedQuestionKey?.trim();
+        const answer = normalizedFaqAnswer(metadata);
+        if (!question || !answer) return [];
+        const conflict = priorFaqCandidates.find((prior) => {
+          if (prior.runStatus === "failed") return false;
+          const priorMetadata = metadataObject(prior.metadata);
+          const priorAnswer = normalizedFaqAnswer(priorMetadata);
+          return priorMetadata.normalizedQuestionKey?.trim() === question
+            && priorMetadata.sourceUrl !== metadata.sourceUrl
+            && Boolean(priorAnswer)
+            && priorAnswer !== answer;
+        });
+        if (!conflict) return [];
+        const conflictMetadata = metadataObject(conflict.metadata);
+        return [{
+          candidateId: candidate.id,
+          chunkIndex: candidate.chunkIndex,
+          ruleCode: "FAQ_CROSS_SOURCE_CONFLICT",
+          severity: "warning" as const,
+          blocksApproval: false,
+          message: "A separately staged authoritative source provides a materially different answer to the same normalized question.",
+          evidence: {
+            comparedCandidateId: conflict.id,
+            sourceUrls: [conflictMetadata.sourceUrl ?? null, metadata.sourceUrl ?? null],
+            sourceDates: [conflictMetadata.sourceDate ?? null, metadata.sourceDate ?? null],
+          },
+        }];
+      },
+    );
+    const findings = [...input.report.findings, ...crossRunWarnings];
+    const flaggedChunkCount = new Set(
+      findings.flatMap((item) => item.candidateId ? [item.candidateId] : []),
+    ).size;
     const [run] = await tx.insert(ingestionRuns).values({
       sourceType: input.sourceType,
       reviewPurpose: input.reviewPurpose ?? "content",
@@ -305,6 +421,7 @@ export async function stageInspectionReview(
       inspectedChunkCount: input.report.inspectedChunkCount,
       flaggedChunkCount,
       criticalCount: input.report.criticalCount,
+      warningCount: input.report.warningCount + crossRunWarnings.length,
       blockingCount: input.report.blockingCount,
       ...input.ownership,
     }).returning();
@@ -320,8 +437,8 @@ export async function stageInspectionReview(
         })),
       );
     }
-    if (input.report.findings.length > 0) {
-      await tx.insert(chunkFlags).values(input.report.findings.map((item) => ({
+    if (findings.length > 0) {
+      await tx.insert(chunkFlags).values(findings.map((item) => ({
         ingestionRunId: run.id,
         chunkCandidateId: item.candidateId
           ? persistedCandidateIds.get(item.candidateId)!
@@ -342,7 +459,7 @@ export async function stageInspectionReview(
       details: {
         inspectorVersion: input.report.inspectorVersion,
         candidateChunkCount: input.candidates.length,
-        findingCount: input.report.findings.length,
+        findingCount: findings.length,
       },
     });
 
@@ -497,6 +614,7 @@ export async function applyCandidateEditInspection(
       inspectedChunkCount: input.report.inspectedChunkCount,
       flaggedChunkCount,
       criticalCount: input.report.criticalCount,
+      warningCount: input.report.warningCount,
       blockingCount: input.report.blockingCount,
       updatedAt: new Date(),
     }).where(eq(ingestionRuns.id, input.ingestionRunId)).returning();
@@ -537,16 +655,19 @@ export async function applyCandidateEditInspection(
   });
 }
 
-async function refreshOpenBlockingCount(
+async function refreshOpenFindingCounts(
   tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
   runId: string,
 ): Promise<void> {
   const flags = await tx.select({
     status: chunkFlags.status,
     blocksApproval: chunkFlags.blocksApproval,
+    severity: chunkFlags.severity,
   }).from(chunkFlags).where(eq(chunkFlags.ingestionRunId, runId));
-  const blockingCount = flags.filter((flag) => flag.status === "open" && flag.blocksApproval).length;
-  await tx.update(ingestionRuns).set({ blockingCount, updatedAt: new Date() })
+  const open = flags.filter((flag) => flag.status === "open");
+  const blockingCount = open.filter((flag) => flag.blocksApproval).length;
+  const warningCount = open.filter((flag) => flag.severity === "warning").length;
+  await tx.update(ingestionRuns).set({ blockingCount, warningCount, updatedAt: new Date() })
     .where(eq(ingestionRuns.id, runId));
 }
 
@@ -574,18 +695,23 @@ export async function decideChunkFlag(
       note: decision.note,
       details: { ruleCode: existing.ruleCode },
     });
-    await refreshOpenBlockingCount(tx, existing.ingestionRunId);
+    await refreshOpenFindingCounts(tx, existing.ingestionRunId);
     return updated;
   });
 }
 
-function approvalReasons(run: IngestionRun, openBlockingCount: number): string[] {
+function approvalReasons(
+  run: IngestionRun,
+  openBlockingCount: number,
+  openWarningCount: number,
+): string[] {
   const reasons: string[] = [];
   if (run.status !== "review_ready") reasons.push("Review run is not ready for review.");
   if (run.inspectedChunkCount !== run.candidateChunkCount) {
     reasons.push("Not every candidate chunk was inspected.");
   }
   if (openBlockingCount > 0) reasons.push("Blocking inspection findings remain open.");
+  if (openWarningCount > 0) reasons.push("Inspection warnings remain unacknowledged.");
   return reasons;
 }
 
@@ -603,7 +729,13 @@ export async function approveReviewRun(
       eq(chunkFlags.status, "open"),
       eq(chunkFlags.blocksApproval, true),
     ));
-    const reasons = approvalReasons(run, blockers.length);
+    const warnings = await tx.select({ id: chunkFlags.id }).from(chunkFlags).where(and(
+      eq(chunkFlags.ingestionRunId, runId),
+      eq(chunkFlags.status, "open"),
+      eq(chunkFlags.blocksApproval, false),
+      eq(chunkFlags.severity, "warning"),
+    ));
+    const reasons = approvalReasons(run, blockers.length, warnings.length);
     let runOwnership: ClassifiedKnowledgeOwnership | undefined;
     try {
       runOwnership = classifiedOwnershipFromRecord(run);
@@ -749,6 +881,8 @@ export async function publishReviewRun(
       throw new Error("Source document changed after review staging.");
     }
     const candidates = await tx.select({
+      text: chunkCandidates.text,
+      metadata: chunkCandidates.metadata,
       visibilityScope: chunkCandidates.visibilityScope,
       tenantId: chunkCandidates.tenantId,
       ownershipManifestId: chunkCandidates.ownershipManifestId,
@@ -758,6 +892,7 @@ export async function publishReviewRun(
       || candidates.some((candidate) => !ownershipMatches(candidate, ownership))) {
       throw new Error("Candidate ownership does not match the staged review run.");
     }
+    await assertFaqDuplicateDisposition(tx, run.sourceDocumentId, candidates);
 
     if (run.sourceType === "pdf") {
       const staged = await tx.select({

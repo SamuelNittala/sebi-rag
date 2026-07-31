@@ -29,6 +29,8 @@ export {
 
 export {
   prepareCuratedFaqSource,
+  prepareCuratedFaqReview,
+  stagePreparedCuratedFaqReview,
   assertFaqReviewReady,
   type PreparedCuratedFaq,
   type PrepareCuratedFaqOptions,

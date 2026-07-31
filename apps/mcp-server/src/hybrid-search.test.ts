@@ -176,6 +176,51 @@ describe("searchHybridDocuments fund-filter fallback", () => {
 });
 
 describe("searchHybridDocuments candidate fusion", () => {
+  test("maps generic PDF payloads to the additive FAQ result variant", async () => {
+    const faq = pdfResult("faq", 0.9, {
+      documentScope: "regulatory",
+      documentKind: "FAQ",
+      originalQuestion: "How do I complete KYC?",
+    });
+    Object.assign(faq.payload, {
+      document_kind: "FAQ",
+      document_title: "FAQs for Mutual Fund Investors",
+      publisher: "Securities and Exchange Board of India",
+      source_url: "https://sebi.example/faq.pdf",
+      source_date: "2024-09-25",
+      authority: "regulator",
+      topic: "KYC",
+      original_question: "How do I complete KYC?",
+      fund_name: null,
+      amc_name: null,
+      scheme_type: null,
+      scheme_category: null,
+      sebi_scheme_id: null,
+      sebi_url: null,
+    });
+    const vectorClient = {
+      searchSimilar: mock(async () => [faq]),
+      searchLexical: mock(async () => []),
+      searchHtmlSimilar: mock(async () => []),
+      searchHtmlLexical: mock(async () => []),
+    } as unknown as VectorClient;
+
+    const response = await searchHybridDocuments(vectorClient, "KYC", [0.1], {
+      accessScope,
+      limit: 10,
+      scoreThreshold: 0.5,
+      searchPdf: true,
+      searchHtml: false,
+    });
+
+    expect(response.results[0]).toEqual(expect.objectContaining({
+      source_type: "generic_document",
+      documentTitle: "FAQs for Mutual Fund Investors",
+      publisher: "Securities and Exchange Board of India",
+      question: "How do I complete KYC?",
+    }));
+  });
+
   test("keeps per-source candidates until reviewed metadata reranking", async () => {
     const minimumInvestment = pdfResult("minimum-investment", 6, {
       documentScope: "strategy",

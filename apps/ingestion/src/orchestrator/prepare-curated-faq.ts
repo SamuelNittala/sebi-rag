@@ -1,6 +1,18 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
+import {
+  and,
+  createDocument,
+  db,
+  documents,
+  eq,
+  getDocumentByHash,
+  ingestionRuns,
+  stageInspectionReview,
+  type Database,
+  type IngestionRun,
+} from "@mf-rag/db";
 import { chunkFaqItems, type FaqChunkResult } from "../chunkers/faq-chunker.ts";
 import { parseFaqPages, type FaqParseResult } from "../parsers/faq-parser.ts";
 import { parsePDF } from "../parsers/pdf-parser.ts";
@@ -9,6 +21,7 @@ import {
   getFaqSource,
   type FaqSourceDefinition,
 } from "../sources/index.ts";
+import { prepareChunkReview, type PreparedChunkReview } from "../review/review-preparation.ts";
 
 export interface PrepareCuratedFaqOptions {
   root?: string;
@@ -22,6 +35,134 @@ export interface PreparedCuratedFaq {
   chunkManifestPath: string;
   parse: FaqParseResult;
   chunks: FaqChunkResult;
+}
+
+function faqAnswer(text: string): string {
+  return text.match(/(?:^|\n)Answer(?:\s*\([^)]*\))?:\s*([\s\S]+)$/i)?.[1]?.trim() ?? "";
+}
+
+function faqPageCount(prepared: PreparedCuratedFaq): number {
+  return Math.max(
+    0,
+    ...prepared.parse.items.flatMap((item) => item.pageNumbers),
+    ...prepared.parse.coverage.excluded.map((segment) => segment.pageNumber),
+    ...prepared.parse.coverage.unexplained.map((segment) => segment.pageNumber),
+  );
+}
+
+export function prepareCuratedFaqReview(
+  prepared: PreparedCuratedFaq,
+  documentId: string,
+): PreparedChunkReview {
+  const source = prepared.source;
+  return prepareChunkReview({
+    document: {
+      id: documentId,
+      filename: `${source.id}.pdf`,
+      pageCount: faqPageCount(prepared),
+    },
+    ownership: source.ownership,
+    metadata: {
+      documentScope: "regulatory",
+      documentKind: source.documentKind,
+      documentTitle: source.title,
+      publisher: source.publisher,
+      authority: source.authority,
+      sourceUrl: source.canonicalUrl,
+      sourceDate: source.sourceDate,
+      sourceChecksum: source.sha256,
+      sourceProfile: source.parserProfile,
+      documentType: "FAQ",
+      knowledgeDomain: source.knowledgeDomain,
+      sourceCollection: source.sourceCollection,
+      sourceCoverageComplete: prepared.parse.coverage.unexplained.length === 0,
+    },
+    chunks: prepared.chunks.chunks.map((chunk) => ({
+      ...chunk,
+      metadata: {
+        topic: chunk.faq.topic,
+        questionNumber: chunk.faq.questionNumber,
+        normalizedQuestionKey: chunk.faq.normalizedQuestionKey,
+        originalQuestion: chunk.faq.originalQuestion,
+        answer: faqAnswer(chunk.text),
+        continuationIndex: chunk.faq.continuationIndex,
+        firstPage: chunk.faq.firstPage,
+        lastPage: chunk.faq.lastPage,
+      },
+    })),
+  });
+}
+
+/** Stage immutable preview output into the existing human review lifecycle. */
+export async function stagePreparedCuratedFaqReview(
+  prepared: PreparedCuratedFaq,
+  database: Database = db,
+): Promise<IngestionRun> {
+  assertFaqReviewReady(prepared);
+  const source = prepared.source;
+  const existingDocument = await getDocumentByHash(database, source.sha256);
+  if (existingDocument && (
+    existingDocument.visibilityScope !== source.ownership.visibilityScope
+    || existingDocument.tenantId !== source.ownership.tenantId
+    || existingDocument.ownershipManifestId !== source.ownership.ownershipManifestId
+    || existingDocument.ownershipManifestVersion !== source.ownership.ownershipManifestVersion
+  )) {
+    throw new Error("Existing FAQ document ownership does not match the trusted source manifest.");
+  }
+  if (existingDocument) {
+    const [existingRun] = await database.select().from(ingestionRuns).where(and(
+      eq(ingestionRuns.sourceType, "pdf"),
+      eq(ingestionRuns.sourceDocumentId, existingDocument.id),
+      eq(ingestionRuns.fileHash, source.sha256),
+    ));
+    if (existingRun) return existingRun;
+  }
+  const document = existingDocument ?? await createDocument(database, {
+    filename: `${source.id}.pdf`,
+    filepath: prepared.artifactPath,
+    fileHash: source.sha256,
+    docType: "FAQ",
+    documentDate: new Date(`${source.sourceDate}T00:00:00.000Z`),
+    pageCount: faqPageCount(prepared),
+    chunkCount: prepared.chunks.totalChunks,
+    status: "review_required",
+    documentKind: source.documentKind,
+    title: source.title,
+    publisher: source.publisher,
+    sourceUrl: source.canonicalUrl,
+    sourceDate: new Date(`${source.sourceDate}T00:00:00.000Z`),
+    authority: source.authority,
+    ...source.ownership,
+  });
+  if (existingDocument) {
+    await database.update(documents).set({
+      docType: "FAQ",
+      documentDate: new Date(`${source.sourceDate}T00:00:00.000Z`),
+      pageCount: faqPageCount(prepared),
+      chunkCount: prepared.chunks.totalChunks,
+      status: "review_required",
+      documentKind: source.documentKind,
+      title: source.title,
+      publisher: source.publisher,
+      sourceUrl: source.canonicalUrl,
+      sourceDate: new Date(`${source.sourceDate}T00:00:00.000Z`),
+      authority: source.authority,
+      updatedAt: new Date(),
+    }).where(eq(documents.id, document.id));
+  }
+  const review = prepareCuratedFaqReview(prepared, document.id);
+  return stageInspectionReview(database, {
+    sourceType: "pdf",
+    sourceDocumentId: document.id,
+    sourceName: source.title,
+    sourceLocation: source.canonicalUrl,
+    fileHash: source.sha256,
+    parserVersion: source.parserProfile,
+    chunkerVersion: "faq-semantic-v1",
+    ownership: source.ownership,
+    report: review.report,
+    candidates: review.candidates,
+  });
 }
 
 interface FaqPreviewManifest {

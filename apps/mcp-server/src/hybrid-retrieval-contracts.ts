@@ -1,6 +1,6 @@
 import type { CandidateChunkMetadata, SupersessionKey } from "@mf-rag/types";
 
-export type RetrievalSourceType = "scheme_document" | "knowledge_base";
+export type RetrievalSourceType = "scheme_document" | "generic_document" | "knowledge_base";
 
 export type RetrievalFactIntent =
   | "fund_manager"

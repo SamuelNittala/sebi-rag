@@ -21,6 +21,7 @@ export interface ReviewDashboardItem {
   candidateChunkCount: number;
   flaggedChunkCount: number;
   criticalCount: number;
+  warningCount?: number;
   blockingCount: number;
   parserVersion: string;
   chunkerVersion: string;
@@ -39,6 +40,7 @@ interface ReviewRunView {
   inspectedChunkCount: number;
   flaggedChunkCount: number;
   criticalCount: number;
+  warningCount?: number;
   blockingCount: number;
   parserVersion: string;
   chunkerVersion: string;
@@ -208,6 +210,9 @@ function chunkLocation(chunk: RetrievalChunkView): string {
     chunk.pageNumbers?.length ? `pages ${chunk.pageNumbers.join(", ")}` : undefined,
     chunk.sectionHeader ?? undefined,
     chunk.contentCategory,
+    chunk.publisher,
+    chunk.sourceDate,
+    chunk.question ?? chunk.topic,
   ];
   return values.filter(Boolean).join(" · ");
 }
@@ -355,7 +360,9 @@ export function renderDocumentReview(model: DocumentReviewViewModel): string {
   }).join("");
 
   const run = model.run;
-  const approvalDisabled = run.blockingCount > 0 || run.inspectedChunkCount !== run.candidateChunkCount;
+  const approvalDisabled = run.blockingCount > 0
+    || (run.warningCount ?? 0) > 0
+    || run.inspectedChunkCount !== run.candidateChunkCount;
   const decisionPanel = run.status === "review_ready"
     ? `<section class="document-actions"><h2>Document decision</h2>
       <form method="post" action="/review/documents/${escapeHtml(run.id)}/decision">
@@ -371,7 +378,7 @@ export function renderDocumentReview(model: DocumentReviewViewModel): string {
       : `<section class="document-actions"><h2>Workflow status</h2><p>This review run is ${escapeHtml(run.status)}.</p></section>`;
   return layout(run.sourceName, `<p><a href="/review">← All documents</a> · <a href="/review/documents/${escapeHtml(run.id)}/chunks">Edit all candidate chunks</a></p>
     <div class="top"><div><h1>${escapeHtml(run.sourceName)}</h1><p class="muted">${escapeHtml(run.sourceLocation)}</p></div>
-    <div class="summary"><span class="pill">${escapeHtml(run.reviewPurpose ?? "content")} review</span><span class="pill">${escapeHtml(run.status)}</span><span class="pill">${run.inspectedChunkCount}/${run.candidateChunkCount} inspected</span><span class="pill critical">${run.blockingCount} blocking</span></div></div>
+    <div class="summary"><span class="pill">${escapeHtml(run.reviewPurpose ?? "content")} review</span><span class="pill">${escapeHtml(run.status)}</span><span class="pill">${run.inspectedChunkCount}/${run.candidateChunkCount} inspected</span><span class="pill critical">${run.blockingCount} blocking</span><span class="pill warning">${run.warningCount ?? 0} warnings to acknowledge</span></div></div>
     <p class="muted">Parser ${escapeHtml(run.parserVersion)} · Chunker ${escapeHtml(run.chunkerVersion)} · Inspector ${escapeHtml(run.inspectorVersion)}</p>
     ${ownershipSummary(run)}
     <h2>Flagged chunks (${model.flags.length})</h2>

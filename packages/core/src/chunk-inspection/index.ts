@@ -129,6 +129,66 @@ function candidateFindings(
     findings.push(finding(candidate, "REQUIRED_METADATA_MISSING", "warning", false, "Document scope is unknown.", { field: "documentScope" }));
   }
 
+  const faq = candidate.metadata.documentKind === "FAQ"
+    || candidate.metadata.sourceCollection === "general_mf_faq";
+  if (faq) {
+    const question = typeof candidate.metadata.originalQuestion === "string"
+      ? candidate.metadata.originalQuestion.trim()
+      : "";
+    const answer = typeof candidate.metadata.answer === "string"
+      ? candidate.metadata.answer.trim()
+      : "";
+    const title = typeof candidate.metadata.documentTitle === "string"
+      ? candidate.metadata.documentTitle.trim()
+      : "";
+    const publisher = typeof candidate.metadata.publisher === "string"
+      ? candidate.metadata.publisher.trim()
+      : "";
+    const sourceUrl = typeof candidate.metadata.sourceUrl === "string"
+      ? candidate.metadata.sourceUrl.trim()
+      : "";
+    if (!question) {
+      findings.push(finding(candidate, "FAQ_QUESTION_MISSING", "critical", true, "FAQ candidate has no original question."));
+    }
+    if (!answer) {
+      findings.push(finding(candidate, "FAQ_ANSWER_MISSING", "critical", true, "FAQ candidate has no answer."));
+    }
+    if (!title || !publisher || !sourceUrl) {
+      findings.push(finding(candidate, "FAQ_SOURCE_MISSING", "critical", true, "FAQ candidate is missing title, publisher, or canonical source URL.", {
+        fields: [
+          ...(!title ? ["documentTitle"] : []),
+          ...(!publisher ? ["publisher"] : []),
+          ...(!sourceUrl ? ["sourceUrl"] : []),
+        ],
+      }));
+    }
+    if (input.ownership?.visibilityScope !== "GLOBAL" || input.ownership.tenantId !== null) {
+      findings.push(finding(candidate, "FAQ_GLOBAL_OWNERSHIP_REQUIRED", "critical", true, "Curated FAQ candidates must use GLOBAL ownership."));
+    }
+    const questionMarkers = candidate.text.match(
+      /(?:^|\n)\s*(?:Question\s*:|\d+[.)]\s+(?:what|why|when|where|who|which|how|can|could|do|does|is|are|should|will|would|may|if)\b)/gi,
+    ) ?? [];
+    if (questionMarkers.length > 1) {
+      findings.push(finding(candidate, "FAQ_MERGED_QUESTIONS", "critical", true, "FAQ candidate appears to contain more than one question.", {
+        questionMarkers: questionMarkers.length,
+      }));
+    }
+    if (candidate.metadata.sourceCoverageComplete === false) {
+      findings.push(finding(candidate, "FAQ_SOURCE_TEXT_LOSS", "critical", true, "FAQ parse contains unexplained source-text loss."));
+    }
+    if (/(?:^|\n)\s*(?:table of contents|contents|index)\s*(?:\n|$)/i.test(candidate.text)) {
+      findings.push(finding(candidate, "FAQ_INDEX_LEAKAGE", "critical", true, "FAQ candidate contains cover or index-like content."));
+    }
+    if (/\b(?:tax|regulat(?:ion|ory)|limit|cut[- ]?off|deadline|current(?:ly)?|process|rate|percent|%)\b/i.test(
+      `${question}\n${answer}`,
+    )) {
+      findings.push(finding(candidate, "FAQ_TIME_SENSITIVE", "warning", false, "FAQ guidance may be time-sensitive and requires reviewer acknowledgement.", {
+        sourceDate: candidate.metadata.sourceDate ?? null,
+        authority: candidate.metadata.authority ?? null,
+      }));
+    }
+  }
+
   return findings;
 }
 
@@ -144,6 +204,42 @@ function crossChunkFindings(candidates: InspectionCandidate[]): InspectionFindin
       previousEnding: previous.text.trim().slice(-120),
       currentBeginning: current.text.trim().slice(0, 120),
     }));
+  }
+  const faqCandidates = candidates.filter((candidate) =>
+    candidate.metadata.documentKind === "FAQ"
+    || candidate.metadata.sourceCollection === "general_mf_faq"
+  );
+  const normalizedText = new Map<string, InspectionCandidate>();
+  const normalizedQuestion = new Map<string, InspectionCandidate>();
+  for (const candidate of faqCandidates) {
+    const textKey = candidate.text.replace(/\s+/g, " ").trim().toLowerCase();
+    const duplicate = normalizedText.get(textKey);
+    if (textKey && duplicate) {
+      findings.push(finding(candidate, "FAQ_EXACT_DUPLICATE", "critical", true, "FAQ candidate text exactly duplicates another candidate.", {
+        duplicateCandidateId: duplicate.id,
+      }));
+    } else if (textKey) {
+      normalizedText.set(textKey, candidate);
+    }
+
+    const questionKey = typeof candidate.metadata.normalizedQuestionKey === "string"
+      ? candidate.metadata.normalizedQuestionKey.trim()
+      : "";
+    const previous = normalizedQuestion.get(questionKey);
+    if (questionKey && previous) {
+      const previousAnswer = String(previous.metadata.answer ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+      const answer = String(candidate.metadata.answer ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+      const differentSource = previous.metadata.sourceUrl !== candidate.metadata.sourceUrl;
+      if (differentSource && previousAnswer && answer && previousAnswer !== answer) {
+        findings.push(finding(candidate, "FAQ_CROSS_SOURCE_CONFLICT", "warning", false, "Different authoritative sources provide materially different answers to the same normalized question.", {
+          comparedCandidateId: previous.id,
+          sourceUrls: [previous.metadata.sourceUrl, candidate.metadata.sourceUrl],
+          sourceDates: [previous.metadata.sourceDate, candidate.metadata.sourceDate],
+        }));
+      }
+    } else if (questionKey) {
+      normalizedQuestion.set(questionKey, candidate);
+    }
   }
   return findings;
 }
