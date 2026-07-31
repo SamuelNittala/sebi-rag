@@ -39,6 +39,7 @@ import {
   createHtmlDocument,
   getHtmlDocumentByHash,
   getHtmlDocumentByUrl,
+  updateHtmlDocumentSourceVersion,
   updateHtmlDocumentStatus,
   updateHtmlDocumentChunkCount,
   stageInspectionReview,
@@ -51,6 +52,7 @@ import type { HtmlChunkPayload, HtmlChunkWithVector } from "@mf-rag/vector";
 import {
   assertClassifiedKnowledgeOwnership,
   type ClassifiedKnowledgeOwnership,
+  type KnowledgeOwnership,
 } from "@mf-rag/types";
 
 export interface HtmlIngestConfig {
@@ -97,6 +99,21 @@ async function computeFileHash(filePath: string): Promise<string> {
   return hash.digest("hex");
 }
 
+function hasMatchingOwnership(
+  document: {
+    visibilityScope: KnowledgeOwnership["visibilityScope"];
+    tenantId: string | null;
+    ownershipManifestId: string | null;
+    ownershipManifestVersion: number | null;
+  },
+  ownership: ClassifiedKnowledgeOwnership,
+): boolean {
+  return document.visibilityScope === ownership.visibilityScope
+    && document.tenantId === ownership.tenantId
+    && document.ownershipManifestId === ownership.ownershipManifestId
+    && document.ownershipManifestVersion === ownership.ownershipManifestVersion;
+}
+
 /**
  * Ingest a single .md file into html_chunks.
  */
@@ -124,6 +141,9 @@ export async function ingestHtmlDocument(
 
     // Check for duplicate (identical content)
     const hashMatch = await getHtmlDocumentByHash(db, fileHash);
+    if (hashMatch && !hasMatchingOwnership(hashMatch, ownership)) {
+      throw new Error("Trusted ownership does not match the existing HTML source document.");
+    }
     if (hashMatch && !fullConfig.reviewExisting) {
       return {
         documentId: hashMatch.id,
@@ -156,9 +176,11 @@ export async function ingestHtmlDocument(
 
     // Reinspection reuses the source document and leaves its published vectors
     // untouched until the approved candidate version is atomically promoted.
-    const doc = existing ?? await createHtmlDocument(db, {
+    if (existing && !hasMatchingOwnership(existing, ownership)) {
+      throw new Error("Trusted ownership does not match the existing HTML source document.");
+    }
+    const sourceVersion = {
       title: frontmatter.title,
-      sourceUrl: frontmatter.source_url,
       sourceSlug: basename(filePath, ".md"),
       filePath: resolve(filePath),
       fileHash,
@@ -167,12 +189,20 @@ export async function ingestHtmlDocument(
       knowledgeDomain: knowledgeScope.knowledgeDomain,
       sourceCollection: knowledgeScope.sourceCollection,
       amcSlug: knowledgeScope.amcSlug,
-      status: "processing" as DocumentStatus,
       scrapedAt: new Date(frontmatter.scraped_at),
-      ...ownership,
-    });
+    };
+    const doc = existing
+      ? await updateHtmlDocumentSourceVersion(db, existing.id, sourceVersion)
+      : await createHtmlDocument(db, {
+        ...sourceVersion,
+        sourceUrl: frontmatter.source_url,
+        status: "processing" as DocumentStatus,
+        ...ownership,
+      });
+    if (!doc) {
+      throw new Error("Failed to update the existing HTML source document.");
+    }
     documentId = doc.id;
-    if (existing) await updateHtmlDocumentStatus(db, documentId, "processing");
 
     // --- STAGE 2: Chunk ---
     onProgress?.({ stage: "chunking", detail: "Creating chunks from headings", percentage: 30 });

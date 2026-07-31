@@ -33,9 +33,12 @@ docker compose --env-file .env -f docker/docker-compose.dev.yml build runner
 # Start a clean database and apply every migration.
 docker compose --env-file .env -f docker/docker-compose.dev.yml down --volumes
 docker compose --env-file .env -f docker/docker-compose.dev.yml up -d --wait postgres
-docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner run db:migrate
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm migrate
 
 # Run type checking, all tests, or the tenant-isolation suite in the runner.
+# The runner retains the development DATABASE_URL for operational commands.
+# Integration tests select the separately migrated TEST_DATABASE_URL, so they
+# cannot delete or truncate the development corpus in `postgres`.
 docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner x tsc --noEmit
 docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner test
 docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm \

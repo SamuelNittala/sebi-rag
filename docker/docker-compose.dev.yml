@@ -2,7 +2,7 @@ name: mf-rag-dev
 
 x-app-environment: &app-environment
   DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-mf_rag}
-  TEST_DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-mf_rag}
+  TEST_DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres-test:5432/${POSTGRES_TEST_DB:-mf_rag_test}
   REDIS_URL: redis://redis:6379
   OLLAMA_BASE_URL: http://ollama:11434
   EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
@@ -41,6 +41,23 @@ services:
       interval: 2s
       timeout: 5s
       retries: 20
+
+  postgres-test:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_TEST_DB:-mf_rag_test}
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - mf-rag-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_TEST_DB:-mf_rag_test}"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    profiles: ["tools"]
 
   redis:
     image: redis:7-alpine
@@ -97,7 +114,9 @@ services:
       - |
         for (let attempt = 1; attempt <= 120; attempt++) {
           try {
-            const response = await fetch("http://reranker:80/health");
+            const response = await fetch("http://reranker:80/health", {
+              signal: AbortSignal.timeout(5_000),
+            });
             if (response.ok) process.exit(0);
           } catch {}
           await Bun.sleep(1000);
@@ -115,6 +134,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    restart: "no"
+
+  test-migrate:
+    <<: *app-service
+    command: ["bun", "run", "db:migrate"]
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres-test:5432/${POSTGRES_TEST_DB:-mf_rag_test}
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    profiles: ["tools"]
     restart: "no"
 
   dev-auth:
@@ -193,6 +224,9 @@ services:
 
   runner:
     <<: *app-service
+    depends_on:
+      test-migrate:
+        condition: service_completed_successfully
     profiles: ["tools"]
     entrypoint: ["bun"]
     command: ["--help"]
@@ -203,6 +237,7 @@ networks:
 
 volumes:
   postgres_dev_data:
+  postgres_test_data:
   redis_dev_data:
   ollama_dev_data:
   reranker_dev_data:

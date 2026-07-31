@@ -101,6 +101,7 @@ describe("embedder", () => {
       expect(DEFAULT_EMBEDDING_CONFIG.baseUrl).toBe("http://localhost:11434");
       expect(DEFAULT_EMBEDDING_CONFIG.batchSize).toBe(10);
       expect(DEFAULT_EMBEDDING_CONFIG.dimensions).toBe(1024);
+      expect(DEFAULT_EMBEDDING_CONFIG.timeoutMs).toBe(30_000);
     });
   });
 
@@ -154,6 +155,29 @@ describe("embedder", () => {
       globalThis.fetch = createMockFetch({ networkError: true });
 
       await expect(embedText("test")).rejects.toThrow(/connection refused/i);
+    });
+
+    test("aborts a stalled Ollama request at the configured timeout", async () => {
+      globalThis.fetch = (_url, init) => new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {
+          once: true,
+        });
+      });
+
+      await expect(embedText("test", { timeoutMs: 1 })).rejects.toThrow(/timed out/i);
+    });
+
+    test("fails rather than returning a zero vector when a NaN split retry fails", async () => {
+      let calls = 0;
+      globalThis.fetch = async () => {
+        calls += 1;
+        if (calls === 1) return new Response("NaN", { status: 500 });
+        throw new Error("split embedding unavailable");
+      };
+
+      await expect(embedText("A sufficiently long input that forces the NaN split retry path to run safely.")).rejects.toThrow(
+        "split embedding unavailable",
+      );
     });
   });
 
