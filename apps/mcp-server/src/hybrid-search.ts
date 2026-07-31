@@ -36,6 +36,11 @@ export interface MergedResult extends HybridRetrievalCandidate {
   topic?: string;
   question?: string;
   questionNumber?: string;
+  normalizedQuestionKey?: string;
+  continuationIndex?: number;
+  documentId?: string;
+  knowledgeDomain?: string;
+  sourceCollection?: string;
 }
 
 export interface HybridSearchOptions {
@@ -81,6 +86,11 @@ function pdfCandidate(result: SearchResult): MergedResult {
     topic: result.payload.topic ?? undefined,
     question: result.payload.original_question ?? undefined,
     questionNumber: result.payload.question_number ?? undefined,
+    normalizedQuestionKey: result.payload.normalized_question_key ?? undefined,
+    continuationIndex: result.payload.continuation_index ?? undefined,
+    documentId: result.payload.document_id,
+    knowledgeDomain: result.payload.knowledge_domain,
+    sourceCollection: result.payload.source_collection,
   };
 }
 
@@ -96,6 +106,8 @@ function htmlCandidate(result: HtmlSearchResult): MergedResult {
     documentTitle: result.payload.document_title,
     contentCategory: result.payload.content_category,
     sourceUrl: result.payload.source_url,
+    knowledgeDomain: result.payload.knowledge_domain,
+    sourceCollection: result.payload.source_collection,
   };
 }
 
@@ -187,6 +199,48 @@ function fallbackReason(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown reranker failure";
 }
 
+function normalizedQuestion(candidate: MergedResult): string | null {
+  if (candidate.source_type !== "generic_document") return null;
+  const value = candidate.normalizedQuestionKey ?? candidate.question;
+  const normalized = value
+    ?.toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized || null;
+}
+
+function diversifyFaqResults(
+  candidates: Array<FusedRetrievalCandidate<MergedResult>>,
+  limit: number,
+): Array<FusedRetrievalCandidate<MergedResult>> {
+  const perQuestionLimit = Math.max(1, Math.floor(limit / 2));
+  const questionCounts = new Map<string, number>();
+  const sourceQuestionKeys = new Set<string>();
+  const results: Array<FusedRetrievalCandidate<MergedResult>> = [];
+
+  for (const item of candidates) {
+    if (results.length >= limit) break;
+    const questionKey = normalizedQuestion(item.candidate);
+    if (!questionKey) {
+      results.push(item);
+      continue;
+    }
+    const sourceKey = item.candidate.sourceUrl
+      ?? item.candidate.documentId
+      ?? item.candidate.documentFilename
+      ?? item.candidate.id;
+    const sourceQuestionKey = `${sourceKey}:${questionKey}`;
+    if (sourceQuestionKeys.has(sourceQuestionKey)) continue;
+    if ((questionCounts.get(questionKey) ?? 0) >= perQuestionLimit) continue;
+    sourceQuestionKeys.add(sourceQuestionKey);
+    questionCounts.set(questionKey, (questionCounts.get(questionKey) ?? 0) + 1);
+    results.push(item);
+  }
+
+  return results;
+}
+
 async function applyReranker(
   reranker: Reranker,
   query: string,
@@ -274,9 +328,10 @@ export async function searchHybridDocuments(
     fundFilterFallbackApplied = true;
   }
   const intent = resolveRetrievalIntent(query);
-  const fusionLimit = reranker
-    ? Math.max(limit, Math.min(candidateLimit, rerankCandidateLimit))
-    : limit;
+  const fusionLimit = Math.max(
+    limit,
+    Math.min(candidateLimit, rerankCandidateLimit),
+  );
   const fused = fuseHybridCandidates({
     dense: candidates.dense,
     lexical: candidates.lexical,
@@ -284,7 +339,7 @@ export async function searchHybridDocuments(
     limit: fusionLimit,
     rrfK,
   });
-  let ranked = fused.slice(0, limit);
+  let ranked = fused;
   let reranking = {
     applied: false,
     provider: reranker?.provider ?? null,
@@ -294,13 +349,13 @@ export async function searchHybridDocuments(
   };
   if (reranker && fused.length > 0) {
     try {
-      ranked = await applyReranker(reranker, query, fused, limit);
+      ranked = await applyReranker(reranker, query, fused, fusionLimit);
       reranking = { ...reranking, applied: true };
     } catch (error) {
       reranking = { ...reranking, fallbackReason: fallbackReason(error) };
     }
   }
-  const results = ranked.map(({ candidate, trace }) => ({
+  const results = diversifyFaqResults(ranked, limit).map(({ candidate, trace }) => ({
     ...candidate,
     score: trace.finalScore,
     retrievalTrace: trace,

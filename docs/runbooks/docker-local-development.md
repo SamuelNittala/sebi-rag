@@ -91,6 +91,14 @@ docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner 
   --entrypoint sh -lc 'bun run eval:basic docker-local \
   --mcp-url http://mcp-server:3001/mcp \
   --mcp-api-key "$MF_RAG_API_KEY" --amc-scope "$AMC_SCOPE"'
+
+# Deterministic evaluator-contract smoke test (no corpus or embeddings needed)
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner \
+  run retrieval:evaluate-general-mf-faq --mode=replay
+
+# Actual published-corpus gate (both approved FAQ sources and Ollama required)
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner \
+  run retrieval:evaluate-general-mf-faq
 ```
 
 The evaluation expands both values inside the runner, so the bearer does not
@@ -99,6 +107,18 @@ Application security logs are structured records containing correlation ID,
 internal key ID, authorized tenant, operation, decision, reason, and result
 count. They must not contain bearer values, authorization headers, connection
 strings, or raw questions.
+
+Replay mode proves the evaluator contract; it is not retrieval-quality
+evidence. Live mode is the corpus gate. The checked-in thresholds require 100%
+top-three relevance for SIP, NAV, KYC, tax, nomination, and process; complete
+generic citations; SIF exclusion; lexical participation; identical global FAQ
+IDs for tenant A and B; and no repeated normalized question above half the
+result set. The report records missing authority, stale sources, and
+cross-authority conflicts.
+
+The report keeps investor-agent parity marked unmet until the
+[external MCP contract](../contracts/investor-agent-mcp-transport.md) checklist
+is complete.
 
 ## Fail-closed checks
 

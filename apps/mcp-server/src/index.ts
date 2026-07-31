@@ -191,7 +191,7 @@ const TOOLS: Tool[] = [
         },
         topic: {
           type: "string",
-          enum: ["sif"],
+          enum: ["sif", "general_mutual_fund"],
           description: "Optional recognized knowledge topic. The MCP validates and maps it to internal retrieval scope.",
         },
         amc_name: {
@@ -236,7 +236,7 @@ const TOOLS: Tool[] = [
         },
         topic: {
           type: "string",
-          enum: ["sif"],
+          enum: ["sif", "general_mutual_fund"],
           description: "Optional recognized knowledge topic.",
         },
         amc_name: {

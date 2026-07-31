@@ -233,6 +233,19 @@ function normalizedFaqAnswer(metadata: CandidateChunkMetadata): string {
     : "";
 }
 
+function hasLexicalSearchDocument(chunk: {
+  knowledgeDomain: string;
+  sourceCollection: string;
+}): boolean {
+  return (
+    chunk.knowledgeDomain === "sif"
+    && chunk.sourceCollection === "mirae_sif"
+  ) || (
+    chunk.knowledgeDomain === "mutual_fund"
+    && chunk.sourceCollection === "general_mf_faq"
+  );
+}
+
 async function assertFaqDuplicateDisposition(
   tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
   sourceDocumentId: string,
@@ -915,8 +928,7 @@ export async function publishReviewRun(
       }
       await tx.update(chunks).set({ publicationStatus: "published" })
         .where(eq(chunks.ingestionRunId, runId));
-      const expectedLexicalCount = staged.filter((chunk) =>
-        chunk.knowledgeDomain === "sif" && chunk.sourceCollection === "mirae_sif").length;
+      const expectedLexicalCount = staged.filter(hasLexicalSearchDocument).length;
       const [lexical] = await tx.select({
         count: sql<number>`count(*)::int`,
       }).from(chunkSearchDocuments).innerJoin(
@@ -957,8 +969,7 @@ export async function publishReviewRun(
       }
       await tx.update(htmlChunks).set({ publicationStatus: "published" })
         .where(eq(htmlChunks.ingestionRunId, runId));
-      const expectedLexicalCount = staged.filter((chunk) =>
-        chunk.knowledgeDomain === "sif" && chunk.sourceCollection === "mirae_sif").length;
+      const expectedLexicalCount = staged.filter(hasLexicalSearchDocument).length;
       const [lexical] = await tx.select({
         count: sql<number>`count(*)::int`,
       }).from(htmlChunkSearchDocuments).innerJoin(

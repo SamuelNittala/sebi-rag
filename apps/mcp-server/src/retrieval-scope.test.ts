@@ -94,7 +94,9 @@ describe("resolveRetrievalScope", () => {
 
     expect(scope.searchPdf).toBe(false);
     expect(scope.searchHtml).toBe(true);
-    expect(scope.htmlFilters.source_collection).toBe("sebi_regulatory");
+    expect(scope.htmlFilters.knowledge_domain).toBe("sif");
+    expect(scope.htmlFilters.content_category).toEqual(["regulatory", "education"]);
+    expect(scope.htmlFilters.source_collection).toBeUndefined();
   });
 
   test("keeps an explicit scheme query limited to scheme documents", () => {
@@ -147,15 +149,30 @@ describe("resolveRetrievalScope", () => {
     expect(scope.rankingProfile).toBe("mirae_sif_fund_manager");
   });
 
-  test("preserves the existing broad search for an unrelated generic question", () => {
+  test("routes an explicit general mutual-fund intent only to the reviewed FAQ collection", () => {
+    const scope = resolveRetrievalScope({
+      question: "How does SIP investing work?",
+      topic: "general_mutual_fund",
+    });
+
+    expect(scope.searchPdf).toBe(true);
+    expect(scope.searchHtml).toBe(false);
+    expect(scope.pdfFilters).toEqual({
+      knowledge_domain: "mutual_fund",
+      source_collection: "general_mf_faq",
+    });
+    expect(scope.htmlFilters).toEqual({});
+  });
+
+  test("restricts an unrelated generic question to the mutual-fund domain", () => {
     const scope = resolveRetrievalScope({
       question: "How does SIP investing work?",
     });
 
     expect(scope.searchPdf).toBe(true);
     expect(scope.searchHtml).toBe(true);
-    expect(scope.pdfFilters).toEqual({});
-    expect(scope.htmlFilters).toEqual({});
+    expect(scope.pdfFilters).toEqual({ knowledge_domain: "mutual_fund" });
+    expect(scope.htmlFilters).toEqual({ knowledge_domain: "mutual_fund" });
   });
 
   test("does not allow a fund-filter fallback for an unreviewed scheme", () => {

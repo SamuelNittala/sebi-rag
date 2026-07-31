@@ -52,6 +52,9 @@ function isSifRequest(
   request: RetrievalScopeRequest,
   hasManifestTarget: boolean,
 ): boolean {
+  if (request.topic?.trim().toLowerCase() === "general_mutual_fund") {
+    return false;
+  }
   return request.topic?.trim().toLowerCase() === "sif"
     || SIF_PATTERN.test(request.question)
     || SIF_PATTERN.test(request.scheme_name ?? "")
@@ -101,6 +104,8 @@ export function resolveRetrievalScope(
   );
   const hasHtmlArguments = Boolean(request.content_category);
   const hasManifestTarget = Boolean(manifestStrategy);
+  const generalMutualFundRequest =
+    request.topic?.trim().toLowerCase() === "general_mutual_fund";
   const sifRequest = isSifRequest(request, hasManifestTarget);
   const miraeRequest = isMiraeRequest(request, hasManifestTarget);
   const rankingProfile = sifRequest && miraeRequest
@@ -124,6 +129,9 @@ export function resolveRetrievalScope(
   }
 
   if (hasPdfArguments) {
+    if (!sifRequest) {
+      pdfFilters.knowledge_domain = "mutual_fund";
+    }
     return {
       pdfFilters,
       htmlFilters,
@@ -135,6 +143,9 @@ export function resolveRetrievalScope(
   }
 
   if (hasHtmlArguments) {
+    if (!sifRequest) {
+      htmlFilters.knowledge_domain = "mutual_fund";
+    }
     return { pdfFilters, htmlFilters, searchPdf: false, searchHtml: true, allowFundFilterFallback: false, rankingProfile };
   }
 
@@ -142,5 +153,31 @@ export function resolveRetrievalScope(
     return { pdfFilters, htmlFilters, searchPdf: false, searchHtml: true, allowFundFilterFallback: false, rankingProfile };
   }
 
+  if (sifRequest) {
+    return {
+      pdfFilters,
+      htmlFilters,
+      searchPdf: true,
+      searchHtml: true,
+      allowFundFilterFallback: false,
+      rankingProfile,
+    };
+  }
+
+  if (generalMutualFundRequest) {
+    pdfFilters.knowledge_domain = "mutual_fund";
+    pdfFilters.source_collection = "general_mf_faq";
+    return {
+      pdfFilters,
+      htmlFilters,
+      searchPdf: true,
+      searchHtml: false,
+      allowFundFilterFallback: false,
+      rankingProfile,
+    };
+  }
+
+  pdfFilters.knowledge_domain = "mutual_fund";
+  htmlFilters.knowledge_domain = "mutual_fund";
   return { pdfFilters, htmlFilters, searchPdf: true, searchHtml: true, allowFundFilterFallback: false, rankingProfile };
 }

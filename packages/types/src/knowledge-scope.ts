@@ -3,7 +3,8 @@ export type KnowledgeDomain = "mutual_fund" | "sif";
 export type SourceCollection =
   | "default_corpus"
   | "mirae_sif"
-  | "sebi_regulatory";
+  | "sebi_regulatory"
+  | "general_mf_faq";
 
 export interface KnowledgeScope {
   knowledgeDomain: KnowledgeDomain;

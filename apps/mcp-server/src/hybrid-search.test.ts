@@ -338,4 +338,80 @@ describe("searchHybridDocuments candidate fusion", () => {
     expect(response.results[0]?.retrievalTrace?.metadataSignals)
       .toContain("temporal:effective_addendum");
   });
+
+  test("limits repeated FAQ continuations and preserves distinct questions", async () => {
+    const repeated = Array.from({ length: 6 }, (_, index) => {
+      const result = pdfResult(`sip-${index}`, 1 - index * 0.01);
+      Object.assign(result.payload, {
+        document_kind: "FAQ",
+        document_title: "FAQs for Mutual Fund Investors",
+        publisher: "Securities and Exchange Board of India",
+        source_url: "https://sebi.example/faq.pdf",
+        source_date: "2024-09-25",
+        authority: "regulator",
+        topic: "SIP",
+        original_question: "How does a SIP work?",
+        normalized_question_key: "how does a sip work",
+        continuation_index: index,
+        fund_name: null,
+        amc_name: null,
+        scheme_type: null,
+        scheme_category: null,
+        sebi_scheme_id: null,
+        sebi_url: null,
+      });
+      return result;
+    });
+    const distinct = ["nav", "kyc", "tax", "nomination"].map((topic, index) => {
+      const result = pdfResult(topic, 0.8 - index * 0.01);
+      Object.assign(result.payload, {
+        document_kind: "FAQ",
+        document_title: "NISM Mutual Fund FAQ",
+        publisher: "NISM",
+        source_url: "https://nism.example/faq.pdf",
+        source_date: "2024-01-01",
+        authority: "educator",
+        topic,
+        original_question: `How does ${topic} work?`,
+        normalized_question_key: `how does ${topic} work`,
+        continuation_index: 0,
+        fund_name: null,
+        amc_name: null,
+        scheme_type: null,
+        scheme_category: null,
+        sebi_scheme_id: null,
+        sebi_url: null,
+      });
+      return result;
+    });
+    const vectorClient = {
+      searchSimilar: mock(async () => [...repeated, ...distinct]),
+      searchLexical: mock(async () => [...repeated, ...distinct]),
+      searchHtmlSimilar: mock(async () => []),
+      searchHtmlLexical: mock(async () => []),
+    } as unknown as VectorClient;
+
+    const response = await searchHybridDocuments(vectorClient, "mutual fund process", [0.1], {
+      accessScope,
+      limit: 6,
+      scoreThreshold: 0,
+      pdfFilters: {
+        knowledge_domain: "mutual_fund",
+        source_collection: "general_mf_faq",
+      },
+      searchPdf: true,
+      searchHtml: false,
+    });
+
+    expect(response.results).toHaveLength(5);
+    expect(response.results.filter((result) => result.question === "How does a SIP work?"))
+      .toHaveLength(1);
+    expect(response.results.map((result) => result.id)).toEqual([
+      "sip-0",
+      "nav",
+      "kyc",
+      "tax",
+      "nomination",
+    ]);
+  });
 });
