@@ -1,4 +1,7 @@
-import type { ChunkFlagSeverity } from "@mf-rag/types";
+import {
+  isCuratedFaqMetadata,
+  type ChunkFlagSeverity,
+} from "@mf-rag/types";
 
 import type {
   ChunkInspectorConfig,
@@ -12,6 +15,7 @@ import type {
 export * from "./types.ts";
 export * from "./review-policy.ts";
 export * from "./manual-edit.ts";
+export * from "./faq.ts";
 
 const DEFAULT_CONFIG: ChunkInspectorConfig = {
   inspectorVersion: "1.0.0",
@@ -129,8 +133,7 @@ function candidateFindings(
     findings.push(finding(candidate, "REQUIRED_METADATA_MISSING", "warning", false, "Document scope is unknown.", { field: "documentScope" }));
   }
 
-  const faq = candidate.metadata.documentKind === "FAQ"
-    || candidate.metadata.sourceCollection === "general_mf_faq";
+  const faq = isCuratedFaqMetadata(candidate.metadata);
   if (faq) {
     const question = typeof candidate.metadata.originalQuestion === "string"
       ? candidate.metadata.originalQuestion.trim()
@@ -206,8 +209,7 @@ function crossChunkFindings(candidates: InspectionCandidate[]): InspectionFindin
     }));
   }
   const faqCandidates = candidates.filter((candidate) =>
-    candidate.metadata.documentKind === "FAQ"
-    || candidate.metadata.sourceCollection === "general_mf_faq"
+    isCuratedFaqMetadata(candidate.metadata)
   );
   const normalizedText = new Map<string, InspectionCandidate>();
   const normalizedQuestion = new Map<string, InspectionCandidate>();

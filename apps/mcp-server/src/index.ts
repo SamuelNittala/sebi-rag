@@ -144,12 +144,6 @@ function logSecurityEvent(
   ));
 }
 
-/**
- * Build citations from search results, preserving distinct authoritative documents.
- */
-/**
- * Build citations from HTML search results, deduplicating by title.
- */
 function buildHtmlCitations(results: MergedResult[]) {
   const citationMap = new Map<string, {
     title: string;

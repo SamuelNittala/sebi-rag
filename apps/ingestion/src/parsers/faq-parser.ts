@@ -107,7 +107,7 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function normalizedQuestionKey(question: string): string {
+export function normalizedQuestionKey(question: string): string {
   return question
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
@@ -229,10 +229,7 @@ function preclassifyBoilerplate(
 
 function finalizeItem(item: MutableFaqItem): FaqItem {
   const question = normalizeWhitespace(item.questionSegments.map((segment) => {
-    const withoutNumber = item.questionNumber
-      ? segment.text.replace(/^\d+\s*[.)]\s*/, "")
-      : segment.text.replace(/^\d+\s*[.)]\s*/, "");
-    return withoutNumber;
+    return segment.text.replace(/^\d+\s*[.)]\s*/, "");
   }).join(" "));
   const answer = normalizeWhitespace(item.answerSegments.map((segment) => segment.text).join(" "));
   return {

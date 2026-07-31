@@ -7,7 +7,10 @@ import type {
   ReviewPurpose,
   ReviewSourceType,
 } from "@mf-rag/types";
-import { assertClassifiedKnowledgeOwnership } from "@mf-rag/types";
+import {
+  assertClassifiedKnowledgeOwnership,
+  isCuratedFaqMetadata,
+} from "@mf-rag/types";
 
 import type { Database } from "./client.ts";
 import {
@@ -252,8 +255,7 @@ async function assertFaqDuplicateDisposition(
   candidates: Array<{ metadata: CandidateChunkMetadata; text: string }>,
 ): Promise<void> {
   const faqCandidates = candidates.filter((candidate) =>
-    candidate.metadata.documentKind === "FAQ"
-    || candidate.metadata.sourceCollection === "general_mf_faq"
+    isCuratedFaqMetadata(candidate.metadata)
   );
   if (faqCandidates.length === 0) return;
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('general_mf_faq:publication'))`);
@@ -369,8 +371,7 @@ export async function stageInspectionReview(
 
     const faqCandidates = input.candidates.flatMap((candidate) => {
       const metadata = metadataObject(candidate.metadata);
-      return metadata.documentKind === "FAQ"
-        || metadata.sourceCollection === "general_mf_faq"
+      return isCuratedFaqMetadata(metadata)
         ? [{ candidate, metadata }]
         : [];
     });

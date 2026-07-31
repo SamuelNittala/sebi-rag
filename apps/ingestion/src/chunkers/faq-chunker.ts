@@ -1,5 +1,8 @@
 import { estimateTokenCount, type Chunk } from "./semantic-chunker.ts";
-import type { FaqItem } from "../parsers/faq-parser.ts";
+import {
+  normalizedQuestionKey,
+  type FaqItem,
+} from "../parsers/faq-parser.ts";
 import type {
   FaqAuthority,
   FaqParserProfile,
@@ -48,14 +51,6 @@ export interface FaqChunkInput {
   source: FaqChunkSource;
   items: FaqItem[];
   maxTokens?: number;
-}
-
-function normalizedQuestionKey(question: string): string {
-  return question
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function splitWords(text: string, maxTokens: number): string[] {

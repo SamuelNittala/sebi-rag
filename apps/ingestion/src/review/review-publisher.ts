@@ -143,6 +143,17 @@ function requiredMetadataString(metadata: CandidateChunkMetadata, key: string): 
   return value;
 }
 
+function embeddingContentType(
+  hasTable: boolean,
+  sourceType: "pdf" | "html",
+  metadata: CandidateChunkMetadata,
+): string {
+  if (hasTable) return "table row";
+  if (sourceType === "html") return "article";
+  if (metadata.documentKind === "FAQ") return "FAQ answer";
+  return "document text";
+}
+
 async function publishApprovedMetadataReview(
   database: Database,
   detail: NonNullable<Awaited<ReturnType<typeof getReviewRunDetail>>>,
@@ -295,13 +306,11 @@ export async function publishApprovedReviewRun(
         question: metadataString(candidate.metadata, "originalQuestion") || null,
         section: candidate.sectionHeader,
         pages: candidate.pageNumbers,
-        contentType: candidate.hasTable
-          ? "table row"
-          : detail.run.sourceType === "html"
-            ? "article"
-            : metadataString(candidate.metadata, "documentKind") === "FAQ"
-              ? "FAQ answer"
-            : "document text",
+        contentType: embeddingContentType(
+          candidate.hasTable,
+          detail.run.sourceType,
+          candidate.metadata,
+        ),
       }),
     }));
     const embeddings = await embedder.embedBatch(embeddingInputs, (progress) => {

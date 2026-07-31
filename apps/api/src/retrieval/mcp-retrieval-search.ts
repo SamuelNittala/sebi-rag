@@ -135,13 +135,18 @@ function parseTrace(value: unknown): RetrievalTraceView | undefined {
   };
 }
 
+function parseSourceType(
+  value: unknown,
+): RetrievalChunkView["sourceType"] {
+  if (value === "knowledge_base" || value === "generic_document") {
+    return value;
+  }
+  return "scheme_document";
+}
+
 function parseChunk(value: unknown, index: number): RetrievalChunkView {
   const chunk = record(value);
-  const sourceType = chunk.source_type === "knowledge_base"
-    ? "knowledge_base"
-    : chunk.source_type === "generic_document"
-      ? "generic_document"
-      : "scheme_document";
+  const sourceType = parseSourceType(chunk.source_type);
   const retrievalMetadata = typeof chunk.retrievalMetadata === "object"
     && chunk.retrievalMetadata !== null
     ? record(chunk.retrievalMetadata)

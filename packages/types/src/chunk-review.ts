@@ -68,3 +68,10 @@ export interface CandidateChunkMetadata {
   supersessionKey?: SupersessionKey | null;
   [key: string]: unknown;
 }
+
+export function isCuratedFaqMetadata(
+  metadata: Pick<CandidateChunkMetadata, "documentKind" | "sourceCollection">,
+): boolean {
+  return metadata.documentKind === "FAQ"
+    || metadata.sourceCollection === "general_mf_faq";
+}

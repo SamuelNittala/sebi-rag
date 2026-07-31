@@ -13,6 +13,7 @@ import {
   type Database,
   type IngestionRun,
 } from "@mf-rag/db";
+import { extractFaqAnswer } from "@mf-rag/core/chunk-inspection";
 import { chunkFaqItems, type FaqChunkResult } from "../chunkers/faq-chunker.ts";
 import { parseFaqPages, type FaqParseResult } from "../parsers/faq-parser.ts";
 import { parsePDF } from "../parsers/pdf-parser.ts";
@@ -35,10 +36,6 @@ export interface PreparedCuratedFaq {
   chunkManifestPath: string;
   parse: FaqParseResult;
   chunks: FaqChunkResult;
-}
-
-function faqAnswer(text: string): string {
-  return text.match(/(?:^|\n)Answer(?:\s*\([^)]*\))?:\s*([\s\S]+)$/i)?.[1]?.trim() ?? "";
 }
 
 function faqPageCount(prepared: PreparedCuratedFaq): number {
@@ -84,7 +81,7 @@ export function prepareCuratedFaqReview(
         questionNumber: chunk.faq.questionNumber,
         normalizedQuestionKey: chunk.faq.normalizedQuestionKey,
         originalQuestion: chunk.faq.originalQuestion,
-        answer: faqAnswer(chunk.text),
+        answer: extractFaqAnswer(chunk.text),
         continuationIndex: chunk.faq.continuationIndex,
         firstPage: chunk.faq.firstPage,
         lastPage: chunk.faq.lastPage,

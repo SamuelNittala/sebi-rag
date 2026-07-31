@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 
+import { isCuratedFaqMetadata } from "@mf-rag/types";
+
+import { extractFaqAnswer } from "./faq.ts";
 import { ChunkInspector } from "./index.ts";
 import type {
   EditableInspectionCandidate,
@@ -25,11 +28,10 @@ function editedCandidates(
 ): EditableInspectionCandidate[] {
   return candidates.map((candidate) => {
     if (candidate.id !== candidateId) return candidate;
-    const faq = candidate.metadata.documentKind === "FAQ"
-      || candidate.metadata.sourceCollection === "general_mf_faq";
+    const faq = isCuratedFaqMetadata(candidate.metadata);
     if (!faq) return { ...candidate, text, tokenCount, contentHash: hash };
     const question = text.match(/(?:^|\n)Question:\s*(.+?)(?=\n|$)/i)?.[1]?.trim();
-    const answer = text.match(/(?:^|\n)Answer(?:\s*\([^)]*\))?:\s*([\s\S]+)$/i)?.[1]?.trim();
+    const answer = extractFaqAnswer(text);
     return {
       ...candidate,
       text,
@@ -38,7 +40,7 @@ function editedCandidates(
       metadata: {
         ...candidate.metadata,
         originalQuestion: question ?? "",
-        answer: answer ?? "",
+        answer,
       },
     };
   });

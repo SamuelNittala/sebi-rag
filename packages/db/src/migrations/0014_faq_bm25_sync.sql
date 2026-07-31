@@ -80,7 +80,6 @@ AFTER INSERT OR UPDATE OF
   publisher,
   topic,
   original_question,
-  normalized_question_key,
   knowledge_domain,
   source_collection,
   publication_status,
