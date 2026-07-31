@@ -116,5 +116,10 @@ describe("prepareManualChunkEdit", () => {
       ruleCode: "FAQ_TIME_SENSITIVE",
       severity: "warning",
     }));
+    expect(result.metadata).toMatchObject({
+      originalQuestion: "What is the current tax rate?",
+      answer: "The current rate is 10%.",
+      normalizedQuestionKey: "what is the current tax rate",
+    });
   });
 });

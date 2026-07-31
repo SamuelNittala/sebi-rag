@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { link, mkdir, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import {
@@ -297,16 +297,20 @@ function buildManifest(
 
 async function writeImmutable(path: string, content: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
+  const temporaryPath = `${path}.${crypto.randomUUID()}.tmp`;
+  await Bun.write(temporaryPath, content);
   try {
-    await writeFile(path, content, { flag: "wx" });
+    await link(temporaryPath, path);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    const existing = await readFile(path, "utf8");
+    const existing = await Bun.file(path).text();
     if (existing !== content) {
       throw new Error(
         `Immutable FAQ preview already exists with different content: ${path}`,
       );
     }
+  } finally {
+    await unlink(temporaryPath).catch(() => undefined);
   }
 }
 

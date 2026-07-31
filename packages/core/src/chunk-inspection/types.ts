@@ -81,5 +81,6 @@ export interface PreparedManualChunkEdit {
   tokenCount: number;
   beforeContentHash: string;
   afterContentHash: string;
+  metadata: CandidateChunkMetadata;
   report: InspectionReport;
 }

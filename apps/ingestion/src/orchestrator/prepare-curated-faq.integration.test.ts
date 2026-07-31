@@ -180,6 +180,7 @@ integrationDescribe("curated FAQ review staging", () => {
       },
       chunks: {
         ...prepared.chunks,
+        totalChunks: 2,
         chunks: [{
           ...prepared.chunks.chunks[0]!,
           text: "Source: Mutual Fund FAQs\nPublisher: National Institute of Securities Markets\nQuestion: How do I complete KYC?\nAnswer: Complete KYC through the intermediary's current process.",
@@ -194,6 +195,24 @@ integrationDescribe("curated FAQ review staging", () => {
             sourceChecksum: "6".repeat(64),
             sourceProfile: "nism-numbered-v1",
             questionNumber: "1",
+          },
+        }, {
+          ...prepared.chunks.chunks[0]!,
+          chunkIndex: 1,
+          text: "Source: Mutual Fund FAQs\nPublisher: National Institute of Securities Markets\nQuestion: How do I update KYC?\nAnswer: Follow the current intermediary instructions.",
+          faq: {
+            ...prepared.chunks.chunks[0]!.faq,
+            sourceId: "test-nism-faq",
+            sourceTitle: "Mutual Fund FAQs",
+            publisher: "National Institute of Securities Markets",
+            authority: "sebi_established_institute",
+            sourceUrl: "https://www.nism.ac.in/test-faq.pdf",
+            sourceDate: "2021-02-01",
+            sourceChecksum: "6".repeat(64),
+            sourceProfile: "nism-numbered-v1",
+            originalQuestion: "How do I update KYC?",
+            normalizedQuestionKey: "how do i update kyc",
+            questionNumber: "2",
           },
         }],
       },
@@ -212,5 +231,26 @@ integrationDescribe("curated FAQ review staging", () => {
       status: "open",
     }));
     expect(Number(warning?.warning_count)).toBeGreaterThanOrEqual(1);
+
+    const { getReviewRunDetail, approveReviewRun } = await import("@mf-rag/db");
+    const beforeEdit = await getReviewRunDetail(database, secondRun.id);
+    const unrelated = beforeEdit!.candidates.find((candidate) => candidate.chunkIndex === 1)!;
+    const { editReviewCandidate } = await import("../../../api/src/review/candidate-editor.ts");
+    await editReviewCandidate(database, {
+      candidateId: unrelated.id,
+      expectedContentHash: unrelated.contentHash,
+      text: "Source: Mutual Fund FAQs\nPublisher: National Institute of Securities Markets\nQuestion: How do I update KYC?\nAnswer: Follow current intermediary instructions.",
+      editor: "reviewer@example.com",
+      note: "Corrected unrelated FAQ wording.",
+    });
+
+    const afterEdit = await getReviewRunDetail(database, secondRun.id);
+    expect(afterEdit!.flags).toContainEqual(expect.objectContaining({
+      ruleCode: "FAQ_CROSS_SOURCE_CONFLICT",
+      status: "open",
+    }));
+    const approval = await approveReviewRun(database, secondRun.id, "reviewer@example.com", "Reviewed");
+    expect(approval.approved).toBe(false);
+    expect(approval.reasons).toContain("Inspection warnings remain unacknowledged.");
   });
 });

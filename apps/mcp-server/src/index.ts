@@ -23,7 +23,6 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -45,8 +44,6 @@ import {
   buildSchemeDocumentCitations,
 } from "./citations.ts";
 import {
-  RequestContextError,
-  createHttpRequestContext,
   createTrustedRequestContext,
   securityLogRecord,
   type RequestContext,
@@ -55,6 +52,10 @@ import {
   createRerankerFromEnv,
   resolveRerankCandidateLimit,
 } from "./retrieval-config.ts";
+import { checkReadiness } from "./readiness.ts";
+import { buildRawSearchResults } from "./search-results.ts";
+import { createMcpHttpHandler } from "./http-transport.ts";
+import { createTrustedToolCallHandler } from "./trusted-tool-handler.ts";
 
 // Configuration from environment
 function positiveNumber(value: string | undefined, fallback: number): number {
@@ -492,32 +493,7 @@ async function handleToolCall(
           rerankCandidateLimit: config.search.rerankCandidateLimit,
         });
 
-        const searchResults = merged.map((r, i) => ({
-          rank: i + 1,
-          score: r.score.toFixed(3),
-          source_type: r.source_type,
-          ...(r.source_type === "scheme_document" && {
-            scheme: r.fundName,
-            document: r.docType,
-            pages: r.pageNumbers,
-          }),
-          ...(r.source_type === "generic_document" && {
-            title: r.documentTitle,
-            publisher: r.publisher,
-            url: r.sourceUrl,
-            sourceDate: r.sourceDate,
-            pages: r.pageNumbers,
-            question: r.question,
-            topic: r.topic,
-          }),
-          ...(r.source_type === "knowledge_base" && {
-            title: r.documentTitle,
-            category: r.contentCategory,
-            url: r.sourceUrl,
-          }),
-          excerpt: r.text.slice(0, 300) + (r.text.length > 300 ? "..." : ""),
-          retrievalTrace: r.retrievalTrace,
-        }));
+        const searchResults = buildRawSearchResults(merged);
 
         const responseTimeMs = Date.now() - startTime;
 
@@ -575,30 +551,11 @@ async function handleToolCall(
       }
 
       case "check_status": {
-        // Check embedding service health
-        const embeddingHealthy = await embedder.checkHealth();
-
-        // Check vector store health
-        let vectorHealthy = false;
-        try {
-          await vectorClient.collectionExists();
-          vectorHealthy = true;
-        } catch {
-          vectorHealthy = false;
-        }
-
-        const services = {
-          embedding: embeddingHealthy,
-          pgvector: vectorHealthy,
-          ...(reranker && { reranker: await reranker.checkHealth() }),
-        };
-
-        const healthyCount = Object.values(services).filter(Boolean).length;
-        const status = healthyCount === Object.keys(services).length
-          ? "ok"
-          : healthyCount === 0
-            ? "error"
-            : "degraded";
+        const { status, services } = await checkReadiness({
+          embedder,
+          vectorClient,
+          reranker,
+        });
         logSecurityEvent(context, name, "allowed", `health_${status}`, 0);
 
         return {
@@ -726,6 +683,24 @@ async function main() {
 
   if (transportMode === "http") {
     const port = parseInt(process.env.PORT ?? "3001", 10);
+    const mcpHandler = createMcpHttpHandler({
+      authorizer: rateLimiter,
+      allowedOrigins: new Set(
+        (process.env.MCP_ALLOWED_ORIGINS ?? "")
+          .split(",")
+          .map((origin) => origin.trim())
+          .filter(Boolean),
+      ),
+      tools: TOOLS,
+      handleToolCall,
+      logAuthorized: (context) => logSecurityEvent(
+        context,
+        "mcp_request",
+        "allowed",
+        "authorized",
+        0,
+      ),
+    });
 
     Bun.serve({
       port,
@@ -738,63 +713,15 @@ async function main() {
           return new Response("ok");
         }
 
-        if (url.pathname === "/mcp") {
-          const correlationId = crypto.randomUUID();
-          let requestContext: RequestContext;
-          try {
-            requestContext = await createHttpRequestContext(req, {
-              authorizer: rateLimiter,
-              allowedOrigins: new Set(
-                (process.env.MCP_ALLOWED_ORIGINS ?? "")
-                  .split(",")
-                  .map((origin) => origin.trim())
-                  .filter(Boolean),
-              ),
-              correlationId: () => correlationId,
-            });
-            logSecurityEvent(
-              requestContext,
-              "mcp_request",
-              "allowed",
-              "authorized",
-              0,
-            );
-          } catch (error) {
-            if (!(error instanceof RequestContextError)) throw error;
-            console.error(JSON.stringify({
-              correlationId,
-              keyId: null,
-              tenantId: null,
-              operation: "mcp_request",
-              decision: "denied",
-              reason: error.reason,
-              resultCount: 0,
-            }));
-            return Response.json(
-              { error: error.message },
-              { status: error.status },
-            );
-          }
-
-          const transport = new WebStandardStreamableHTTPServerTransport({
-            sessionIdGenerator: undefined,
-            enableJsonResponse: true,
+        if (url.pathname === "/ready") {
+          const readiness = await checkReadiness({ embedder, vectorClient, reranker });
+          return Response.json(readiness, {
+            status: readiness.status === "ok" ? 200 : 503,
           });
+        }
 
-          const reqServer = new Server(
-            { name: "mf-rag", version: "0.3.0" },
-            { capabilities: { tools: {} } },
-          );
-          reqServer.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
-          reqServer.setRequestHandler(
-            CallToolRequestSchema,
-            (request) => handleToolCall(requestContext, request),
-          );
-
-          await reqServer.connect(transport);
-          const response = await transport.handleRequest(req);
-          await reqServer.close();
-          return response;
+        if (url.pathname === "/mcp") {
+          return mcpHandler(req);
         }
 
         return new Response("Not Found", { status: 404 });
@@ -805,13 +732,13 @@ async function main() {
     console.error(`Embedding: ${config.embedding.model} @ ${config.embedding.baseUrl}`);
     console.error(`Reranker: ${reranker ? `${reranker.provider}/${reranker.model}` : "disabled"}`);
   } else {
-    const requestContext = await createTrustedRequestContext(
+    await createTrustedRequestContext(
       process.env,
       rateLimiter,
     );
     server.setRequestHandler(
       CallToolRequestSchema,
-      (request) => handleToolCall(requestContext, request),
+      createTrustedToolCallHandler(process.env, rateLimiter, handleToolCall),
     );
     const transport = new StdioServerTransport();
     await server.connect(transport);

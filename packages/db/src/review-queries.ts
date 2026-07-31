@@ -92,6 +92,7 @@ export interface ApplyCandidateEditInspectionInput {
   tokenCount: number;
   beforeContentHash: string;
   afterContentHash: string;
+  metadata: CandidateChunkMetadata;
   editor: string;
   note: string;
   report: PersistedInspectionReport;
@@ -236,6 +237,60 @@ function normalizedFaqAnswer(metadata: CandidateChunkMetadata): string {
     : "";
 }
 
+interface CrossRunFaqCandidate {
+  id: string;
+  chunkIndex: number;
+  metadata: CandidateChunkMetadata;
+}
+
+async function crossRunFaqWarnings(
+  tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
+  sourceDocumentId: string,
+  candidates: CrossRunFaqCandidate[],
+): Promise<PersistedInspectionFinding[]> {
+  const faqCandidates = candidates.filter((candidate) =>
+    isCuratedFaqMetadata(candidate.metadata)
+  );
+  if (faqCandidates.length === 0) return [];
+  const priorFaqCandidates = await tx.select({
+    id: chunkCandidates.id,
+    metadata: chunkCandidates.metadata,
+    runStatus: ingestionRuns.status,
+  }).from(chunkCandidates).innerJoin(
+    ingestionRuns,
+    eq(chunkCandidates.ingestionRunId, ingestionRuns.id),
+  ).where(ne(ingestionRuns.sourceDocumentId, sourceDocumentId));
+  return faqCandidates.flatMap(({ id, chunkIndex, metadata }) => {
+    const question = metadata.normalizedQuestionKey?.trim();
+    const answer = normalizedFaqAnswer(metadata);
+    if (!question || !answer) return [];
+    const conflict = priorFaqCandidates.find((prior) => {
+      if (prior.runStatus === "failed") return false;
+      const priorMetadata = metadataObject(prior.metadata);
+      const priorAnswer = normalizedFaqAnswer(priorMetadata);
+      return priorMetadata.normalizedQuestionKey?.trim() === question
+        && priorMetadata.sourceUrl !== metadata.sourceUrl
+        && Boolean(priorAnswer)
+        && priorAnswer !== answer;
+    });
+    if (!conflict) return [];
+    const conflictMetadata = metadataObject(conflict.metadata);
+    return [{
+      candidateId: id,
+      chunkIndex,
+      ruleCode: "FAQ_CROSS_SOURCE_CONFLICT",
+      severity: "warning" as const,
+      blocksApproval: false,
+      message: "A separately staged authoritative source provides a materially different answer to the same normalized question.",
+      evidence: {
+        comparedCandidateId: conflict.id,
+        sourceUrls: [conflictMetadata.sourceUrl ?? null, metadata.sourceUrl ?? null],
+        sourceDates: [conflictMetadata.sourceDate ?? null, metadata.sourceDate ?? null],
+      },
+    }];
+  });
+}
+
 function hasLexicalSearchDocument(chunk: {
   knowledgeDomain: string;
   sourceCollection: string;
@@ -369,52 +424,14 @@ export async function stageInspectionReview(
       throw new Error("Source document changed before review staging.");
     }
 
-    const faqCandidates = input.candidates.flatMap((candidate) => {
-      const metadata = metadataObject(candidate.metadata);
-      return isCuratedFaqMetadata(metadata)
-        ? [{ candidate, metadata }]
-        : [];
-    });
-    const priorFaqCandidates = faqCandidates.length === 0
-      ? []
-      : await tx.select({
-          id: chunkCandidates.id,
-          metadata: chunkCandidates.metadata,
-          runStatus: ingestionRuns.status,
-        }).from(chunkCandidates).innerJoin(
-          ingestionRuns,
-          eq(chunkCandidates.ingestionRunId, ingestionRuns.id),
-        ).where(ne(ingestionRuns.sourceDocumentId, input.sourceDocumentId));
-    const crossRunWarnings: PersistedInspectionFinding[] = faqCandidates.flatMap(
-      ({ candidate, metadata }) => {
-        const question = metadata.normalizedQuestionKey?.trim();
-        const answer = normalizedFaqAnswer(metadata);
-        if (!question || !answer) return [];
-        const conflict = priorFaqCandidates.find((prior) => {
-          if (prior.runStatus === "failed") return false;
-          const priorMetadata = metadataObject(prior.metadata);
-          const priorAnswer = normalizedFaqAnswer(priorMetadata);
-          return priorMetadata.normalizedQuestionKey?.trim() === question
-            && priorMetadata.sourceUrl !== metadata.sourceUrl
-            && Boolean(priorAnswer)
-            && priorAnswer !== answer;
-        });
-        if (!conflict) return [];
-        const conflictMetadata = metadataObject(conflict.metadata);
-        return [{
-          candidateId: candidate.id,
-          chunkIndex: candidate.chunkIndex,
-          ruleCode: "FAQ_CROSS_SOURCE_CONFLICT",
-          severity: "warning" as const,
-          blocksApproval: false,
-          message: "A separately staged authoritative source provides a materially different answer to the same normalized question.",
-          evidence: {
-            comparedCandidateId: conflict.id,
-            sourceUrls: [conflictMetadata.sourceUrl ?? null, metadata.sourceUrl ?? null],
-            sourceDates: [conflictMetadata.sourceDate ?? null, metadata.sourceDate ?? null],
-          },
-        }];
-      },
+    const crossRunWarnings = await crossRunFaqWarnings(
+      tx,
+      input.sourceDocumentId,
+      input.candidates.map((candidate) => ({
+        id: candidate.id,
+        chunkIndex: candidate.chunkIndex,
+        metadata: metadataObject(candidate.metadata),
+      })),
     );
     const findings = [...input.report.findings, ...crossRunWarnings];
     const flaggedChunkCount = new Set(
@@ -588,11 +605,31 @@ export async function applyCandidateEditInspection(
       text: input.text.trim(),
       tokenCount: input.tokenCount,
       contentHash: input.afterContentHash,
+      metadata: input.metadata,
     }).where(and(
       eq(chunkCandidates.id, input.candidateId),
       eq(chunkCandidates.contentHash, input.beforeContentHash),
     )).returning();
     if (!updatedCandidate) throw new Error("Chunk changed after this page was loaded.");
+    await tx.execute(sql`
+      UPDATE ${chunkCandidates}
+      SET metadata = (${chunkCandidates.metadata} #>> '{}')::jsonb
+      WHERE ${chunkCandidates.id} = ${input.candidateId}
+        AND jsonb_typeof(${chunkCandidates.metadata}) = 'string'
+    `);
+
+    const crossRunWarnings = await crossRunFaqWarnings(
+      tx,
+      run.sourceDocumentId,
+      candidates.map((item) => ({
+        id: item.id,
+        chunkIndex: item.chunkIndex,
+        metadata: item.id === input.candidateId
+          ? input.metadata
+          : metadataObject(item.metadata),
+      })),
+    );
+    const findings = [...input.report.findings, ...crossRunWarnings];
 
     const [edit] = await tx.insert(chunkCandidateEdits).values({
       ingestionRunId: input.ingestionRunId,
@@ -606,8 +643,8 @@ export async function applyCandidateEditInspection(
       note: input.note.trim(),
     }).returning();
     await tx.delete(chunkFlags).where(eq(chunkFlags.ingestionRunId, input.ingestionRunId));
-    if (input.report.findings.length > 0) {
-      await tx.insert(chunkFlags).values(input.report.findings.map((finding) => ({
+    if (findings.length > 0) {
+      await tx.insert(chunkFlags).values(findings.map((finding) => ({
         ingestionRunId: input.ingestionRunId,
         chunkCandidateId: finding.candidateId,
         chunkIndex: finding.chunkIndex,
@@ -620,7 +657,7 @@ export async function applyCandidateEditInspection(
       })));
     }
 
-    const flaggedChunkCount = new Set(input.report.findings.flatMap((finding) =>
+    const flaggedChunkCount = new Set(findings.flatMap((finding) =>
       finding.candidateId ? [finding.candidateId] : [])).size;
     const [updatedRun] = await tx.update(ingestionRuns).set({
       inspectorVersion: input.report.inspectorVersion,
@@ -628,7 +665,7 @@ export async function applyCandidateEditInspection(
       inspectedChunkCount: input.report.inspectedChunkCount,
       flaggedChunkCount,
       criticalCount: input.report.criticalCount,
-      warningCount: input.report.warningCount,
+      warningCount: input.report.warningCount + crossRunWarnings.length,
       blockingCount: input.report.blockingCount,
       updatedAt: new Date(),
     }).where(eq(ingestionRuns.id, input.ingestionRunId)).returning();
@@ -654,7 +691,7 @@ export async function applyCandidateEditInspection(
         actor: "system",
         details: {
           inspectorVersion: input.report.inspectorVersion,
-          findingCount: input.report.findings.length,
+          findingCount: findings.length,
           previousFindings: previousFlags.map((flag) => ({
             chunkIndex: flag.chunkIndex,
             ruleCode: flag.ruleCode,

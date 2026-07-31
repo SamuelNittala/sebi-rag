@@ -308,6 +308,29 @@ integrationDescribe("approved review publisher", () => {
         contentHash: "8".repeat(64),
       }],
     });
+    const { getReviewRunDetail } = await import("@mf-rag/db");
+    const beforeEdit = await getReviewRunDetail(database, run.id);
+    const { editReviewCandidate } = await import("../../../api/src/review/candidate-editor.ts");
+    await editReviewCandidate(database, {
+      candidateId: beforeEdit!.candidates[0]!.id,
+      expectedContentHash: beforeEdit!.candidates[0]!.contentHash,
+      text: "Question: How do I complete KYC?\nAnswer: Complete KYC through the currently required intermediary.",
+      editor: "reviewer@example.com",
+      note: "Corrected question and answer from the source PDF.",
+    });
+    const afterEdit = await getReviewRunDetail(database, run.id);
+    expect(afterEdit!.candidates[0]!.metadata).toMatchObject({
+      originalQuestion: "How do I complete KYC?",
+      answer: "Complete KYC through the currently required intermediary.",
+      normalizedQuestionKey: "how do i complete kyc",
+    });
+    const { decideChunkFlag } = await import("@mf-rag/db");
+    const timeSensitiveFlag = afterEdit!.flags.find((flag) => flag.ruleCode === "FAQ_TIME_SENSITIVE");
+    await decideChunkFlag(database, timeSensitiveFlag!.id, {
+      status: "accepted",
+      reviewer: "reviewer@example.com",
+      note: "Acknowledged current KYC guidance.",
+    });
     await approveReviewRun(database, run.id, "reviewer@example.com", "Verified");
     const embeddedTexts: string[] = [];
     const embedder: Embedder = {
@@ -332,7 +355,12 @@ integrationDescribe("approved review publisher", () => {
       SELECT document_kind, document_title, publisher, source_url, source_date,
         authority, topic, normalized_question_key, original_question,
         fund_name, amc_name, scheme_type, scheme_category, sebi_scheme_id, sebi_url,
-        visibility_scope, tenant_id
+        visibility_scope, tenant_id,
+        CASE
+          WHEN jsonb_typeof(retrieval_metadata) = 'string'
+            THEN (retrieval_metadata #>> '{}')::jsonb
+          ELSE retrieval_metadata
+        END AS retrieval_metadata
       FROM chunks WHERE ingestion_run_id = ${run.id}::uuid
     `;
     expect(stored).toEqual(expect.objectContaining({
@@ -353,6 +381,11 @@ integrationDescribe("approved review publisher", () => {
       sebi_url: null,
       visibility_scope: "GLOBAL",
       tenant_id: null,
+    }));
+    expect(stored?.retrieval_metadata).toEqual(expect.objectContaining({
+      originalQuestion: "How do I complete KYC?",
+      answer: "Complete KYC through the currently required intermediary.",
+      normalizedQuestionKey: "how do i complete kyc",
     }));
     expect(embeddedTexts[0]).toContain("Publisher: Securities and Exchange Board of India");
     expect(embeddedTexts[0]).toContain("Topic: KYC");
@@ -395,7 +428,7 @@ integrationDescribe("approved review publisher", () => {
       candidates: [{
         id: crypto.randomUUID(),
         chunkIndex: 0,
-        text: "Question: How do I complete KYC?\nAnswer: Follow the applicable KYC process.",
+        text: "Question: How do I complete KYC?\nAnswer: Complete KYC through the currently required intermediary.",
         pageNumbers: [12],
         tokenCount: 16,
         hasTable: false,
@@ -411,7 +444,7 @@ integrationDescribe("approved review publisher", () => {
           topic: "KYC",
           normalizedQuestionKey: "how do i complete kyc",
           originalQuestion: "How do I complete KYC?",
-          answer: "Follow the applicable KYC process.",
+          answer: "Complete KYC through the currently required intermediary.",
           continuationIndex: 0,
           documentType: "FAQ",
           knowledgeDomain: "mutual_fund",

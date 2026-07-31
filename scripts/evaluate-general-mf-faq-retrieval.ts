@@ -45,6 +45,17 @@ export interface GoldenFixture {
 }
 
 type TenantObservations = Record<string, Record<string, EvaluationResult[]>>;
+export type EvaluationMode = "live" | "replay";
+
+export interface GoldenEvaluationSummary {
+  cases: number;
+  passed: number;
+  failed: number;
+  passRate: number;
+  /** Replay fixtures do not contain distinct tenant observations. */
+  tenantParity: boolean | null;
+  passedThreshold: boolean;
+}
 
 function normalizedText(value: string): string {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
@@ -106,6 +117,7 @@ export function evaluateGoldenObservations(
   fixture: GoldenFixture,
   observations: TenantObservations,
   now = new Date(),
+  mode: EvaluationMode = "live",
 ) {
   const primaryTenant = fixture.tenants[0]!;
   const evaluations = fixture.cases.map((golden) => {
@@ -142,7 +154,7 @@ export function evaluateGoldenObservations(
       resultIds: results.map((result) => result.id),
     };
   });
-  const tenantParity = fixture.cases.every((golden) => {
+  const observedTenantParity = fixture.cases.every((golden) => {
     const expected = (observations[primaryTenant]?.[golden.id] ?? [])
       .map((result) => result.id);
     return fixture.tenants.slice(1).every((tenant) => {
@@ -151,20 +163,23 @@ export function evaluateGoldenObservations(
       return JSON.stringify(actual) === JSON.stringify(expected);
     });
   });
+  const tenantParity = mode === "live" ? observedTenantParity : null;
   const allResults = fixture.cases.flatMap((golden) =>
     observations[primaryTenant]?.[golden.id] ?? []);
   const passed = evaluations.filter((item) => item.passed).length;
   const passRate = evaluations.length === 0 ? 0 : passed / evaluations.length;
+  const summary: GoldenEvaluationSummary = {
+    cases: evaluations.length,
+    passed,
+    failed: evaluations.length - passed,
+    passRate,
+    tenantParity,
+    passedThreshold:
+      passRate >= fixture.thresholds.minimumPassRate
+      && (tenantParity ?? true),
+  };
   return {
-    summary: {
-      cases: evaluations.length,
-      passed,
-      failed: evaluations.length - passed,
-      passRate,
-      tenantParity,
-      passedThreshold:
-        passRate >= fixture.thresholds.minimumPassRate && tenantParity,
-    },
+    summary,
     evaluations,
     warnings: {
       missingAuthority: allResults
@@ -255,7 +270,7 @@ export async function runGeneralMfFaqEvaluation(args = process.argv.slice(2)) {
   const fixturePath = args.find((arg) => arg.startsWith("--fixture="))
     ?.slice("--fixture=".length)
     ?? "tests/retrieval/general-mf-faq-golden.json";
-  const mode = args.includes("--mode=replay") ? "replay" : "live";
+  const mode: EvaluationMode = args.includes("--mode=replay") ? "replay" : "live";
   const fixture = await Bun.file(fixturePath).json() as GoldenFixture;
   const observations = mode === "replay"
     ? replayObservations(fixture)
@@ -263,7 +278,7 @@ export async function runGeneralMfFaqEvaluation(args = process.argv.slice(2)) {
   return {
     mode,
     fixture: fixturePath,
-    ...evaluateGoldenObservations(fixture, observations),
+    ...evaluateGoldenObservations(fixture, observations, new Date(), mode),
   };
 }
 

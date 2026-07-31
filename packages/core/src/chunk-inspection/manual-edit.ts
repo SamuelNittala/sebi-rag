@@ -19,6 +19,14 @@ function estimateTokenCount(text: string): number {
   return Math.round(words * 1.3);
 }
 
+function normalizedFaqQuestion(question: string): string {
+  return question
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function editedCandidates(
   candidates: EditableInspectionCandidate[],
   candidateId: string,
@@ -41,6 +49,7 @@ function editedCandidates(
         ...candidate.metadata,
         originalQuestion: question ?? "",
         answer,
+        normalizedQuestionKey: question ? normalizedFaqQuestion(question) : "",
       },
     };
   });
@@ -78,6 +87,7 @@ export function prepareManualChunkEdit(
     tokenCount,
     beforeContentHash: candidate.contentHash,
     afterContentHash,
+    metadata: candidates.find((item) => item.id === candidate.id)!.metadata,
     report,
   };
 }
