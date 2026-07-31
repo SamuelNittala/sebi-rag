@@ -12,16 +12,13 @@ import {
   type CredentialAuthorizer,
   type RequestContext,
 } from "./request-context.ts";
-
-type ToolCallRequest = {
-  params: { name: string; arguments?: Record<string, unknown> };
-};
+import type { ToolCallHandler } from "./tool-call.ts";
 
 export interface HttpMcpDependencies {
   readonly authorizer: CredentialAuthorizer;
   readonly allowedOrigins: ReadonlySet<string>;
   readonly tools: Tool[];
-  readonly handleToolCall: (context: RequestContext, request: ToolCallRequest) => Promise<unknown>;
+  readonly handleToolCall: ToolCallHandler;
   readonly logAuthorized?: (context: RequestContext) => void;
 }
 

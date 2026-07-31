@@ -56,6 +56,7 @@ import { checkReadiness } from "./readiness.ts";
 import { buildRawSearchResults } from "./search-results.ts";
 import { createMcpHttpHandler } from "./http-transport.ts";
 import { createTrustedToolCallHandler } from "./trusted-tool-handler.ts";
+import type { ToolCallHandler } from "./tool-call.ts";
 
 // Configuration from environment
 function positiveNumber(value: string | undefined, fallback: number): number {
@@ -306,10 +307,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // Handle tool calls
-async function handleToolCall(
-  context: RequestContext,
-  request: { params: { name: string; arguments?: Record<string, unknown> } },
-) {
+const handleToolCall: ToolCallHandler = async (context, request) => {
   const { name, arguments: args } = request.params;
   const startTime = Date.now();
 
@@ -675,7 +673,7 @@ async function handleToolCall(
       isError: true,
     };
   }
-}
+};
 
 // Start server
 async function main() {

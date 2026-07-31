@@ -402,10 +402,16 @@ export async function stageInspectionReview(
   input: StageInspectionReviewInput,
 ): Promise<IngestionRun> {
   validateInspection(input);
+  const candidatesWithIds = input.candidates.map((candidate) => {
+    if (!candidate.id) {
+      throw new Error("Inspection candidates require stable IDs.");
+    }
+    return { ...candidate, id: candidate.id };
+  });
   // Inspector candidate IDs are deterministic within a document version. The
   // persisted IDs must be unique across historical reinspection runs.
   const persistedCandidateIds = new Map(
-    input.candidates.map((candidate) => [candidate.id, crypto.randomUUID()]),
+    candidatesWithIds.map((candidate) => [candidate.id, crypto.randomUUID()]),
   );
   for (const finding of input.report.findings) {
     if (finding.candidateId && !persistedCandidateIds.has(finding.candidateId)) {
@@ -427,7 +433,7 @@ export async function stageInspectionReview(
     const crossRunWarnings = await crossRunFaqWarnings(
       tx,
       input.sourceDocumentId,
-      input.candidates.map((candidate) => ({
+      candidatesWithIds.map((candidate) => ({
         id: candidate.id,
         chunkIndex: candidate.chunkIndex,
         metadata: metadataObject(candidate.metadata),
@@ -448,7 +454,7 @@ export async function stageInspectionReview(
       chunkerVersion: input.chunkerVersion,
       inspectorVersion: input.report.inspectorVersion,
       status: "review_ready",
-      candidateChunkCount: input.candidates.length,
+      candidateChunkCount: candidatesWithIds.length,
       inspectedChunkCount: input.report.inspectedChunkCount,
       flaggedChunkCount,
       criticalCount: input.report.criticalCount,
@@ -458,9 +464,9 @@ export async function stageInspectionReview(
     }).returning();
     if (!run) throw new Error("Failed to create ingestion review run.");
 
-    if (input.candidates.length > 0) {
+    if (candidatesWithIds.length > 0) {
       await tx.insert(chunkCandidates).values(
-        input.candidates.map((candidate) => ({
+        candidatesWithIds.map((candidate) => ({
           ...candidate,
           id: persistedCandidateIds.get(candidate.id)!,
           ingestionRunId: run.id,
