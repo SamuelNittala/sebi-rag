@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, it } from "bun:test";
 
 import { resolveKnowledgeScope } from "./knowledge-scope.ts";
 
