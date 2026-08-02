@@ -87,6 +87,22 @@ function addPdfArguments(
 export function resolveRetrievalScope(
   request: RetrievalScopeRequest
 ): RetrievalScope {
+  if (request.topic?.trim().toLowerCase() === "microfinance") {
+    return {
+      pdfFilters: {
+        knowledge_domain: "microfinance",
+        source_collection: "indusind_demo",
+      },
+      htmlFilters: {
+        knowledge_domain: "microfinance",
+        source_collection: "indusind_demo",
+      },
+      searchPdf: true,
+      searchHtml: true,
+      allowFundFilterFallback: false,
+    };
+  }
+
   const pdfFilters: SearchFilters = {};
   const htmlFilters: HtmlSearchFilters = {};
   const manifestStrategy = resolveManifestStrategy(request.question, request.scheme_name);

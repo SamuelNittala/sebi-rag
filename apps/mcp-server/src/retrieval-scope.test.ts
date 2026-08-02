@@ -166,4 +166,72 @@ describe("resolveRetrievalScope", () => {
 
     expect(scope.allowFundFilterFallback).toBe(false);
   });
+
+  test("routes topic=microfinance to the indusind_demo collection", () => {
+    const scope = resolveRetrievalScope({
+      question: "What is the maximum microfinance loan amount?",
+      topic: "microfinance",
+    });
+
+    expect(scope.searchPdf).toBe(true);
+    expect(scope.searchHtml).toBe(true);
+    expect(scope.allowFundFilterFallback).toBe(false);
+    expect(scope.rankingProfile).toBeUndefined();
+    expect(scope.pdfFilters).toEqual({
+      knowledge_domain: "microfinance",
+      source_collection: "indusind_demo",
+    });
+    expect(scope.htmlFilters).toEqual({
+      knowledge_domain: "microfinance",
+      source_collection: "indusind_demo",
+    });
+  });
+
+  test("topic=microfinance ignores fund arguments and never enables fund fallback", () => {
+    const scope = resolveRetrievalScope({
+      question: "Tell me about platinum",
+      topic: "microfinance",
+      scheme_name: "Platinum Hybrid Long-Short Fund",
+    });
+
+    expect(scope.pdfFilters).toEqual({
+      knowledge_domain: "microfinance",
+      source_collection: "indusind_demo",
+    });
+    expect(scope.allowFundFilterFallback).toBe(false);
+  });
+
+  test("regression: sif behavior is unchanged by the microfinance topic addition", () => {
+    const explicitMirae = resolveRetrievalScope({
+      question: "Tell me about Mirae SIF",
+      topic: "sif",
+      amc_name: "Mirae Asset",
+    });
+    expect(explicitMirae.searchPdf).toBe(true);
+    expect(explicitMirae.searchHtml).toBe(true);
+    expect(explicitMirae.pdfFilters).toEqual({
+      knowledge_domain: "sif",
+      source_collection: "mirae_sif",
+    });
+    expect(explicitMirae.htmlFilters).toEqual({
+      knowledge_domain: "sif",
+      source_collection: "mirae_sif",
+    });
+
+    const genericSif = resolveRetrievalScope({ question: "What is SIF?" });
+    expect(genericSif.searchPdf).toBe(false);
+    expect(genericSif.searchHtml).toBe(true);
+    expect(genericSif.htmlFilters).toEqual({
+      knowledge_domain: "sif",
+      content_category: ["regulatory", "education"],
+    });
+
+    const unrelated = resolveRetrievalScope({
+      question: "How does SIP investing work?",
+    });
+    expect(unrelated.searchPdf).toBe(true);
+    expect(unrelated.searchHtml).toBe(true);
+    expect(unrelated.pdfFilters).toEqual({});
+    expect(unrelated.htmlFilters).toEqual({});
+  });
 });

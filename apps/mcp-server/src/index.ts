@@ -199,7 +199,7 @@ const TOOLS: Tool[] = [
         },
         topic: {
           type: "string",
-          enum: ["sif"],
+          enum: ["sif", "microfinance"],
           description: "Optional recognized knowledge topic. The MCP validates and maps it to internal retrieval scope.",
         },
         amc_name: {
