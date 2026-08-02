@@ -73,3 +73,24 @@ describe("resolveKnowledgeScope", () => {
     });
   });
 });
+describe("resolveKnowledgeScope — indusind-demo source", () => {
+  it("maps indusind-demo sources to the microfinance demo collection", () => {
+    expect(resolveKnowledgeScope({
+      source: "indusind-demo",
+      sourceUrl: "https://www.indusind.com/in/en/personal/inclusive-banking.html",
+      title: "IndusInd Bank Microfinance — Demo Fact Sheet",
+    })).toEqual({
+      knowledgeDomain: "microfinance",
+      sourceCollection: "indusind_demo",
+      amcSlug: "indusind-bfil",
+    });
+  });
+
+  it("does not affect mirae-sif or sebi mappings", () => {
+    expect(resolveKnowledgeScope({
+      source: "mirae-sif",
+      sourceUrl: "https://platinumsif.miraeassetmf.co.in/x",
+    }).sourceCollection).toBe("mirae_sif");
+  });
+});
+

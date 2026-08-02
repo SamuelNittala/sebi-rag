@@ -39,6 +39,15 @@ export function resolveKnowledgeScope(
     };
   }
 
+  // IndusInd/BFIL demo corpus — mirrors the mirae-sif source mapping.
+  if (descriptor.source.toLowerCase().includes("indusind-demo")) {
+    return {
+      knowledgeDomain: "microfinance",
+      sourceCollection: "indusind_demo",
+      amcSlug: "indusind-bfil",
+    };
+  }
+
   if (isSebiSifSource(descriptor)) {
     return {
       knowledgeDomain: "sif",
