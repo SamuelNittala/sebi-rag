@@ -11,3 +11,16 @@ export {
   type ChunkConfig,
   DEFAULT_CHUNK_CONFIG,
 } from "./semantic-chunker";
+
+export {
+  chunkAddendum,
+  type AddendumChunkInput,
+} from "./addendum-chunker";
+
+export {
+  chunkFaqItems,
+  type FaqChunk,
+  type FaqChunkInput,
+  type FaqChunkMetadata,
+  type FaqChunkResult,
+} from "./faq-chunker";

@@ -37,6 +37,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 data/pdfs/
 data/sebi-pdfs/
 data/scrape-state.json
+data/curated-faq/
 
 # Python
 __pycache__

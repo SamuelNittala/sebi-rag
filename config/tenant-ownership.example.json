@@ -1,0 +1,36 @@
+{
+  "manifestId": "legacy-ownership-review-2026-07",
+  "manifestVersion": 1,
+  "approvedBy": "reviewer@example.com",
+  "approvedAt": "2026-07-30T12:00:00.000Z",
+  "inventoryChecksum": "0000000000000000000000000000000000000000000000000000000000000000",
+  "entries": [
+    {
+      "sourceType": "pdf",
+      "documentId": "11111111-1111-4111-8111-111111111111",
+      "fileHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "visibilityScope": "TENANT",
+      "tenantId": "mirae-asset",
+      "expectedCounts": {
+        "documents": 1,
+        "ingestionRuns": 1,
+        "chunkCandidates": 120,
+        "chunks": 120
+      }
+    },
+    {
+      "sourceType": "html",
+      "documentId": "22222222-2222-4222-8222-222222222222",
+      "fileHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "visibilityScope": "GLOBAL",
+      "tenantId": null,
+      "expectedCounts": {
+        "htmlDocuments": 1,
+        "ingestionRuns": 1,
+        "chunkCandidates": 20,
+        "htmlChunks": 20
+      }
+    }
+  ],
+  "manifestChecksum": "8721cc4616649ada85a1907820f01e406b020df8688a8b2bf725841d644633ce"
+}

@@ -245,6 +245,32 @@ export async function getHtmlDocumentByUrl(
   return doc;
 }
 
+export async function updateHtmlDocumentSourceVersion(
+  db: Database,
+  id: string,
+  data: Pick<
+    NewHtmlDocument,
+    | "title"
+    | "sourceSlug"
+    | "filePath"
+    | "fileHash"
+    | "contentCategory"
+    | "source"
+    | "knowledgeDomain"
+    | "sourceCollection"
+    | "amcSlug"
+    | "scrapedAt"
+  >,
+): Promise<HtmlDocument | undefined> {
+  const [doc] = await db.update(htmlDocuments).set({
+    ...data,
+    status: "processing",
+    errorMessage: null,
+    updatedAt: new Date(),
+  }).where(eq(htmlDocuments.id, id)).returning();
+  return doc;
+}
+
 export async function updateHtmlDocumentStatus(
   db: Database,
   id: string,

@@ -20,6 +20,7 @@ import type {
   HtmlSearchFilters,
   HtmlSearchResult,
   HtmlChunkWithVector,
+  TenantAccessScope,
 } from "./schema.ts";
 import { tokenizeBm25Query } from "./bm25.ts";
 
@@ -30,6 +31,16 @@ function parseJsonObject<T>(value: T | string | null): T | null {
 
 function postgresTextArray(tokens: string[]): string {
   return `{${tokens.join(",")}}`;
+}
+
+function tenantAccessCondition(accessScope: TenantAccessScope) {
+  if (!accessScope?.tenantId) {
+    throw new Error("Tenant access scope is required");
+  }
+  return sql`AND (
+    visibility_scope = 'GLOBAL'
+    OR (visibility_scope = 'TENANT' AND tenant_id = ${accessScope.tenantId})
+  )`;
 }
 
 /** content_category filter supporting a single category or an allowed set. */
@@ -103,12 +114,27 @@ export class VectorClient {
         sectionHeader: chunk.payload.section_header,
         sebiSchemeId: chunk.payload.sebi_scheme_id,
         sebiUrl: chunk.payload.sebi_url,
+        documentKind: chunk.payload.document_kind ?? "scheme",
+        documentTitle: chunk.payload.document_title ?? null,
+        publisher: chunk.payload.publisher ?? null,
+        sourceUrl: chunk.payload.source_url ?? null,
+        sourceDate: chunk.payload.source_date ?? null,
+        authority: chunk.payload.authority ?? null,
+        topic: chunk.payload.topic ?? null,
+        questionNumber: chunk.payload.question_number ?? null,
+        normalizedQuestionKey: chunk.payload.normalized_question_key ?? null,
+        originalQuestion: chunk.payload.original_question ?? null,
+        continuationIndex: chunk.payload.continuation_index ?? null,
         knowledgeDomain: chunk.payload.knowledge_domain ?? "mutual_fund",
         sourceCollection: chunk.payload.source_collection ?? "default_corpus",
         amcSlug: chunk.payload.amc_slug ?? null,
         ingestionRunId: chunk.payload.ingestion_run_id ?? null,
         publicationStatus: chunk.payload.publication_status ?? "published",
         retrievalMetadata: chunk.payload.retrieval_metadata ?? null,
+        visibilityScope: chunk.payload.visibility_scope ?? "UNCLASSIFIED",
+        tenantId: chunk.payload.tenant_id ?? null,
+        ownershipManifestId: chunk.payload.ownership_manifest_id ?? null,
+        ownershipManifestVersion: chunk.payload.ownership_manifest_version ?? null,
       }));
 
       await db.insert(chunks).values(values).onConflictDoUpdate({
@@ -130,6 +156,17 @@ export class VectorClient {
           sectionHeader: sql`EXCLUDED.section_header`,
           sebiSchemeId: sql`EXCLUDED.sebi_scheme_id`,
           sebiUrl: sql`EXCLUDED.sebi_url`,
+          documentKind: sql`EXCLUDED.document_kind`,
+          documentTitle: sql`EXCLUDED.document_title`,
+          publisher: sql`EXCLUDED.publisher`,
+          sourceUrl: sql`EXCLUDED.source_url`,
+          sourceDate: sql`EXCLUDED.source_date`,
+          authority: sql`EXCLUDED.authority`,
+          topic: sql`EXCLUDED.topic`,
+          questionNumber: sql`EXCLUDED.question_number`,
+          normalizedQuestionKey: sql`EXCLUDED.normalized_question_key`,
+          originalQuestion: sql`EXCLUDED.original_question`,
+          continuationIndex: sql`EXCLUDED.continuation_index`,
           knowledgeDomain: sql`EXCLUDED.knowledge_domain`,
           sourceCollection: sql`EXCLUDED.source_collection`,
           amcSlug: sql`EXCLUDED.amc_slug`,
@@ -154,18 +191,20 @@ export class VectorClient {
   async searchSimilar(
     queryVector: number[],
     options: {
+      accessScope: TenantAccessScope;
       limit?: number;
       filters?: SearchFilters;
       scoreThreshold?: number;
-    } = {}
+    },
   ): Promise<SearchResult[]> {
-    const { limit = 10, filters, scoreThreshold } = options;
+    const { accessScope, limit = 10, filters, scoreThreshold } = options;
 
     // Build the vector string for pgvector
     const vectorStr = `[${queryVector.join(",")}]`;
 
     // Build WHERE conditions
     const conditions = this.buildConditions(filters);
+    const accessCondition = tenantAccessCondition(accessScope);
 
     // Add score threshold condition if specified
     const thresholdClause = scoreThreshold
@@ -193,6 +232,17 @@ export class VectorClient {
       section_header: string | null;
       sebi_scheme_id: string;
       sebi_url: string;
+      document_kind: ChunkPayload["document_kind"];
+      document_title: string | null;
+      publisher: string | null;
+      source_url: string | null;
+      source_date: string | null;
+      authority: string | null;
+      topic: string | null;
+      question_number: string | null;
+      normalized_question_key: string | null;
+      original_question: string | null;
+      continuation_index: number | null;
       knowledge_domain: string;
       source_collection: string;
       amc_slug: string | null;
@@ -219,12 +269,24 @@ export class VectorClient {
         section_header,
         sebi_scheme_id,
         sebi_url,
+        document_kind,
+        document_title,
+        publisher,
+        source_url,
+        source_date,
+        authority,
+        topic,
+        question_number,
+        normalized_question_key,
+        original_question,
+        continuation_index,
         knowledge_domain,
         source_collection,
         amc_slug,
         retrieval_metadata
       FROM chunks
-      WHERE publication_status = 'published' ${conditions} ${thresholdClause}
+      WHERE publication_status = 'published'
+        ${accessCondition} ${conditions} ${thresholdClause}
       ORDER BY embedding <=> ${vectorStr}::vector
       LIMIT ${limit}
     `)) as ResultRow[];
@@ -252,6 +314,17 @@ export class VectorClient {
         section_header: row.section_header,
         sebi_scheme_id: row.sebi_scheme_id,
         sebi_url: row.sebi_url,
+        document_kind: row.document_kind ?? "scheme",
+        document_title: row.document_title,
+        publisher: row.publisher,
+        source_url: row.source_url,
+        source_date: row.source_date,
+        authority: row.authority,
+        topic: row.topic,
+        question_number: row.question_number,
+        normalized_question_key: row.normalized_question_key,
+        original_question: row.original_question,
+        continuation_index: row.continuation_index,
         knowledge_domain: row.knowledge_domain as ChunkPayload["knowledge_domain"],
         source_collection: row.source_collection as ChunkPayload["source_collection"],
         amc_slug: row.amc_slug,
@@ -263,13 +336,15 @@ export class VectorClient {
   async searchLexical(
     query: string,
     options: {
+      accessScope: TenantAccessScope;
       limit?: number;
       filters?: SearchFilters;
-    } = {},
+    },
   ): Promise<SearchResult[]> {
     const tokens = tokenizeBm25Query(query);
     if (tokens.length === 0) return [];
-    const { limit = 40, filters } = options;
+    const { accessScope, limit = 40, filters } = options;
+    const accessCondition = tenantAccessCondition(accessScope);
     const conditions = this.buildConditions(filters);
     const tokenArray = postgresTextArray(tokens);
 
@@ -292,6 +367,17 @@ export class VectorClient {
       section_header: string | null;
       sebi_scheme_id: string;
       sebi_url: string;
+      document_kind: ChunkPayload["document_kind"];
+      document_title: string | null;
+      publisher: string | null;
+      source_url: string | null;
+      source_date: string | null;
+      authority: string | null;
+      topic: string | null;
+      question_number: string | null;
+      normalized_question_key: string | null;
+      original_question: string | null;
+      continuation_index: number | null;
       knowledge_domain: string;
       source_collection: string;
       amc_slug: string | null;
@@ -303,7 +389,7 @@ export class VectorClient {
         SELECT chunk_search_documents.search_tokens
         FROM chunks
         JOIN chunk_search_documents ON chunk_search_documents.chunk_id = chunks.id
-        WHERE publication_status = 'published' ${conditions}
+        WHERE publication_status = 'published' ${accessCondition} ${conditions}
       ),
       corpus_stats AS (
         SELECT
@@ -330,7 +416,7 @@ export class VectorClient {
             AS document_length
         FROM chunks
         JOIN chunk_search_documents ON chunk_search_documents.chunk_id = chunks.id
-        WHERE publication_status = 'published' ${conditions}
+        WHERE publication_status = 'published' ${accessCondition} ${conditions}
           AND chunk_search_documents.search_tokens && ${tokenArray}::text[]
       ),
       document_terms AS (
@@ -390,6 +476,17 @@ export class VectorClient {
         section_header,
         sebi_scheme_id,
         sebi_url,
+        document_kind,
+        document_title,
+        publisher,
+        source_url,
+        source_date,
+        authority,
+        topic,
+        question_number,
+        normalized_question_key,
+        original_question,
+        continuation_index,
         knowledge_domain,
         source_collection,
         amc_slug,
@@ -421,6 +518,17 @@ export class VectorClient {
         section_header: row.section_header,
         sebi_scheme_id: row.sebi_scheme_id,
         sebi_url: row.sebi_url,
+        document_kind: row.document_kind ?? "scheme",
+        document_title: row.document_title,
+        publisher: row.publisher,
+        source_url: row.source_url,
+        source_date: row.source_date,
+        authority: row.authority,
+        topic: row.topic,
+        question_number: row.question_number,
+        normalized_question_key: row.normalized_question_key,
+        original_question: row.original_question,
+        continuation_index: row.continuation_index,
         knowledge_domain: row.knowledge_domain as ChunkPayload["knowledge_domain"],
         source_collection: row.source_collection as ChunkPayload["source_collection"],
         amc_slug: row.amc_slug,
@@ -514,9 +622,14 @@ export class VectorClient {
    *
    * @returns Collection information including point counts and status
    */
-  async getCollectionInfo(): Promise<CollectionInfo> {
-    const countResult = await db.select({ count: count() }).from(chunks);
-    const totalCount = countResult[0]?.count ?? 0;
+  async getCollectionInfo(accessScope: TenantAccessScope): Promise<CollectionInfo> {
+    const accessCondition = tenantAccessCondition(accessScope);
+    const result = await db.execute(sql`
+      SELECT count(*)::integer AS count
+      FROM chunks
+      WHERE publication_status = 'published' ${accessCondition}
+    `) as Array<{ count: number }>;
+    const totalCount = result[0]?.count ?? 0;
 
     return {
       name: "chunks",
@@ -554,13 +667,18 @@ export class VectorClient {
    *
    * @returns Array of unique fund names
    */
-  async getUniqueFundNames(): Promise<string[]> {
-    const results = await db
-      .selectDistinct({ fundName: chunks.fundName })
-      .from(chunks)
-      .orderBy(chunks.fundName);
-
-    return results.map((r) => r.fundName);
+  async getUniqueFundNames(accessScope: TenantAccessScope): Promise<string[]> {
+    const accessCondition = tenantAccessCondition(accessScope);
+    const results = await db.execute(sql`
+      SELECT DISTINCT fund_name
+      FROM chunks
+      WHERE publication_status = 'published'
+        ${accessCondition}
+        AND fund_name IS NOT NULL
+        AND btrim(fund_name) <> ''
+      ORDER BY fund_name
+    `) as Array<{ fund_name: string }>;
+    return results.map((row) => row.fund_name);
   }
 
   // ─── HTML Chunks ─────────────────────────────────────────────────────────
@@ -590,6 +708,10 @@ export class VectorClient {
         ingestionRunId: chunk.payload.ingestion_run_id ?? null,
         publicationStatus: chunk.payload.publication_status ?? "published",
         retrievalMetadata: chunk.payload.retrieval_metadata ?? null,
+        visibilityScope: chunk.payload.visibility_scope ?? "UNCLASSIFIED",
+        tenantId: chunk.payload.tenant_id ?? null,
+        ownershipManifestId: chunk.payload.ownership_manifest_id ?? null,
+        ownershipManifestVersion: chunk.payload.ownership_manifest_version ?? null,
         sectionHeading: chunk.payload.section_heading,
         hasTable: chunk.payload.has_table,
       }));
@@ -628,12 +750,14 @@ export class VectorClient {
   async searchHtmlSimilar(
     queryVector: number[],
     options: {
+      accessScope: TenantAccessScope;
       limit?: number;
       filters?: HtmlSearchFilters;
       scoreThreshold?: number;
-    } = {}
+    },
   ): Promise<HtmlSearchResult[]> {
-    const { limit = 10, filters, scoreThreshold } = options;
+    const { accessScope, limit = 10, filters, scoreThreshold } = options;
+    const accessCondition = tenantAccessCondition(accessScope);
 
     const vectorStr = `[${queryVector.join(",")}]`;
 
@@ -696,7 +820,8 @@ export class VectorClient {
         amc_slug,
         retrieval_metadata
       FROM html_chunks
-      WHERE publication_status = 'published' ${conditionsSql} ${thresholdClause}
+      WHERE publication_status = 'published'
+        ${accessCondition} ${conditionsSql} ${thresholdClause}
       ORDER BY embedding <=> ${vectorStr}::vector
       LIMIT ${limit}
     `)) as ResultRow[];
@@ -725,13 +850,15 @@ export class VectorClient {
   async searchHtmlLexical(
     query: string,
     options: {
+      accessScope: TenantAccessScope;
       limit?: number;
       filters?: HtmlSearchFilters;
-    } = {},
+    },
   ): Promise<HtmlSearchResult[]> {
     const tokens = tokenizeBm25Query(query);
     if (tokens.length === 0) return [];
-    const { limit = 40, filters } = options;
+    const { accessScope, limit = 40, filters } = options;
+    const accessCondition = tenantAccessCondition(accessScope);
     const conditions = this.buildHtmlConditions(filters);
     const tokenArray = postgresTextArray(tokens);
 
@@ -759,7 +886,7 @@ export class VectorClient {
         FROM html_chunks
         JOIN html_chunk_search_documents
           ON html_chunk_search_documents.chunk_id = html_chunks.id
-        WHERE publication_status = 'published' ${conditions}
+        WHERE publication_status = 'published' ${accessCondition} ${conditions}
       ),
       corpus_stats AS (
         SELECT
@@ -787,7 +914,7 @@ export class VectorClient {
         FROM html_chunks
         JOIN html_chunk_search_documents
           ON html_chunk_search_documents.chunk_id = html_chunks.id
-        WHERE publication_status = 'published' ${conditions}
+        WHERE publication_status = 'published' ${accessCondition} ${conditions}
           AND html_chunk_search_documents.search_tokens && ${tokenArray}::text[]
       ),
       document_terms AS (
@@ -908,9 +1035,14 @@ export class VectorClient {
     return chunkCount;
   }
 
-  async getHtmlCollectionInfo(): Promise<CollectionInfo> {
-    const countResult = await db.select({ count: count() }).from(htmlChunks);
-    const totalCount = countResult[0]?.count ?? 0;
+  async getHtmlCollectionInfo(accessScope: TenantAccessScope): Promise<CollectionInfo> {
+    const accessCondition = tenantAccessCondition(accessScope);
+    const result = await db.execute(sql`
+      SELECT count(*)::integer AS count
+      FROM html_chunks
+      WHERE publication_status = 'published' ${accessCondition}
+    `) as Array<{ count: number }>;
+    const totalCount = result[0]?.count ?? 0;
 
     return {
       name: "html_chunks",
@@ -952,12 +1084,14 @@ export async function searchSimilar(
   _config: VectorClientConfig | undefined,
   queryVector: number[],
   options?: {
+    accessScope: TenantAccessScope;
     limit?: number;
     filters?: SearchFilters;
     scoreThreshold?: number;
   }
 ): Promise<SearchResult[]> {
   const client = new VectorClient();
+  if (!options) throw new Error("Tenant access scope is required");
   return client.searchSimilar(queryVector, options);
 }
 
@@ -976,10 +1110,11 @@ export async function deleteByDocumentId(
  * Get collection statistics.
  */
 export async function getCollectionInfo(
-  _config?: VectorClientConfig
+  _config: VectorClientConfig | undefined,
+  accessScope: TenantAccessScope,
 ): Promise<CollectionInfo> {
   const client = new VectorClient();
-  return client.getCollectionInfo();
+  return client.getCollectionInfo(accessScope);
 }
 
 export { VECTOR_DIMENSIONS };

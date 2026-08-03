@@ -2,7 +2,7 @@ export type RetrievalRankingProfile = "mirae_sif_overview" | "mirae_sif_fund_man
 
 export interface RetrievalRankingCandidate {
   score: number;
-  sourceType: "scheme_document" | "knowledge_base";
+  sourceType: "scheme_document" | "generic_document" | "knowledge_base";
   text: string;
   sectionHeader?: string | null;
   documentFilename?: string;

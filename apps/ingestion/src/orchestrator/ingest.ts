@@ -25,6 +25,7 @@ import { extractTables, type TableExtractionResult } from "../parsers/table-pars
 
 // Chunker
 import { semanticChunk, type ChunkInput, type Chunk, type ChunkResult } from "../chunkers/semantic-chunker.ts";
+import { chunkAddendum } from "../chunkers/addendum-chunker.ts";
 import { removeDisposableSifChunks } from "../chunkers/disposable-content.ts";
 
 // Metadata extractor
@@ -39,7 +40,11 @@ import {
 // Embedder
 import { createEmbedder, type Embedder, type EmbeddingInput } from "../embedding/embedder.ts";
 import { buildContextualEmbeddingText } from "../embedding/contextual-input.ts";
-import type { KnowledgeScope } from "@mf-rag/types";
+import {
+  assertClassifiedKnowledgeOwnership,
+  type ClassifiedKnowledgeOwnership,
+  type KnowledgeScope,
+} from "@mf-rag/types";
 
 // Database
 import {
@@ -72,16 +77,22 @@ export interface IngestConfig {
   embeddingBatchSize?: number;
   /** Optional trusted scope override for targeted ingestion jobs. */
   knowledgeScope?: KnowledgeScope;
+  /** Trusted manifest/operator ownership. Never derive this from document content. */
+  ownership?: ClassifiedKnowledgeOwnership;
   /** Require inspection and human approval before embedding (default: required). */
   reviewGate?: "required" | "disabled";
   /** Re-run parsing and inspection for an already known file without deleting its published vectors. */
   reviewExisting?: boolean;
+  /** Original authoritative URL for citations and knowledge-scope resolution. */
+  sourceUrl?: string;
 }
 
 /**
  * Default configuration values
  */
-export const DEFAULT_INGEST_CONFIG: Required<Omit<IngestConfig, "knowledgeScope">> = {
+export const DEFAULT_INGEST_CONFIG: Required<
+  Omit<IngestConfig, "knowledgeScope" | "ownership" | "sourceUrl">
+> = {
   ollamaUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
   embeddingBatchSize: 10,
   reviewGate: "required",
@@ -203,6 +214,11 @@ export async function ingestDocument(
   let documentId = "";
 
   try {
+    if (!fullConfig.ownership) {
+      throw new Error("Trusted ownership is required before ingestion.");
+    }
+    assertClassifiedKnowledgeOwnership(fullConfig.ownership);
+    const ownership = fullConfig.ownership;
     // --- STAGE 1: Parsing ---
     onProgress?.({ stage: "parsing", detail: "Computing file hash", percentage: 5 });
 
@@ -230,6 +246,7 @@ export async function ingestDocument(
       filepath: resolve(filepath),
       fileHash,
       status: "pending" as DocumentStatus,
+      ...ownership,
     });
     documentId = doc.id;
 
@@ -289,11 +306,50 @@ export async function ingestDocument(
       firstPageText: firstPagesText,
       fullText: parsedPdf.rawText,
     });
+    let chunkerVersion = "semantic-v1";
+    if (metadata.docType === "Addendum") {
+      const addendumChunks = metadata.fundName
+        && metadata.amendmentNumber
+        && metadata.effectiveDate
+        ? chunkAddendum({
+            pages: parsedPdf.pages,
+            fundName: metadata.fundName,
+            amendmentNumber: metadata.amendmentNumber,
+            effectiveDate: metadata.effectiveDate.toISOString().slice(0, 10),
+            amendedDocumentTypes: metadata.amendedDocumentTypes,
+          })
+        : null;
+      if (!addendumChunks) {
+        const error = "Addendum provisions could not be paired unambiguously";
+        await updateDocumentStatus(db, documentId, "failed", error);
+        return {
+          documentId,
+          filename,
+          status: "failed",
+          error,
+          duration: Date.now() - startTime,
+        };
+      }
+      chunkResult = addendumChunks;
+      chunkerVersion = "addendum-v1";
+    }
+    const sourceUrl = fullConfig.sourceUrl ?? resolve(filepath);
     const knowledgeScope = fullConfig.knowledgeScope ?? resolveKnowledgeScope({
       source: "pdf",
-      sourceUrl: resolve(filepath),
+      sourceUrl,
       title: `${metadata.fundName ?? ""} ${firstPagesText.slice(0, 1500)}`,
     });
+    const documentScope = classifyDocumentScope({
+      filename,
+      documentType: metadata.docType,
+      sourceCollection: knowledgeScope.sourceCollection,
+      fundName: metadata.fundName,
+    });
+    const sourceAuthority = metadata.docType === "Addendum"
+      ? "regulatory_filing"
+      : fullConfig.sourceUrl
+        ? "official_product_page"
+        : "unknown";
     if (knowledgeScope.sourceCollection === "mirae_sif") {
       chunkResult = removeDisposableSifChunks(chunkResult, filename);
     }
@@ -323,18 +379,14 @@ export async function ingestDocument(
     if (fullConfig.reviewGate === "required") {
       onProgress?.({ stage: "inspection", detail: "Inspecting every candidate chunk", percentage: 45 });
       const sebiMetadata = await lookupSebiMetadata(filepath, metadata.fundName ?? undefined);
-      const documentScope = classifyDocumentScope({
-        filename,
-        documentType: metadata.docType,
-        sourceCollection: knowledgeScope.sourceCollection,
-        fundName: metadata.fundName,
-      });
       const prepared = prepareChunkReview({
         document: { id: documentId, filename, pageCount: parsedPdf.pageCount },
         chunks: chunkResult.chunks,
         metadata: {
           documentScope,
           strategyId: strategyIdForScope(documentScope, metadata.fundName),
+          canonicalStrategyName: documentScope === "strategy" ? metadata.fundName : null,
+          sourceAuthority,
           sourceCollection: knowledgeScope.sourceCollection,
           fundName: metadata.fundName,
           documentType: metadata.docType,
@@ -342,20 +394,26 @@ export async function ingestDocument(
           schemeType: sebiMetadata.schemeType || metadata.schemeType,
           schemeCategory: sebiMetadata.schemeCategory || metadata.schemeCategory,
           documentDate: metadata.documentDate?.toISOString().split("T")[0] ?? null,
+          effectiveDate: metadata.effectiveDate?.toISOString().slice(0, 10) ?? null,
+          amendmentNumber: metadata.amendmentNumber,
+          amendedDocumentTypes: metadata.amendedDocumentTypes,
           sebiSchemeId: sebiMetadata.sebiSchemeId,
           sebiUrl: sebiMetadata.sebiUrl,
+          sourceUrl: fullConfig.sourceUrl ?? null,
           knowledgeDomain: knowledgeScope.knowledgeDomain,
           amcSlug: knowledgeScope.amcSlug,
         },
+        ownership,
       });
       const reviewRun = await stageInspectionReview(db, {
         sourceType: "pdf",
         sourceDocumentId: documentId,
         sourceName: filename,
-        sourceLocation: resolve(filepath),
+        sourceLocation: sourceUrl,
         fileHash,
         parserVersion: "unpdf-pdfplumber-v1",
-        chunkerVersion: "semantic-v1",
+        chunkerVersion,
+        ownership,
         report: prepared.report,
         candidates: prepared.candidates,
       });
@@ -457,6 +515,24 @@ export async function ingestDocument(
         knowledge_domain: knowledgeScope.knowledgeDomain,
         source_collection: knowledgeScope.sourceCollection,
         amc_slug: knowledgeScope.amcSlug,
+        retrieval_metadata: {
+          documentScope,
+          strategyId: strategyIdForScope(documentScope, metadata.fundName),
+          canonicalStrategyName: documentScope === "strategy" ? metadata.fundName : null,
+          sourceAuthority,
+          sourceCollection: knowledgeScope.sourceCollection,
+          fundName: metadata.fundName,
+          documentType: metadata.docType,
+          sourceUrl: fullConfig.sourceUrl ?? null,
+          documentDate: metadata.documentDate?.toISOString().slice(0, 10) ?? null,
+          effectiveDate: metadata.effectiveDate?.toISOString().slice(0, 10) ?? null,
+          amendmentNumber: metadata.amendmentNumber,
+          amendedDocumentTypes: metadata.amendedDocumentTypes,
+        },
+        visibility_scope: ownership.visibilityScope,
+        tenant_id: ownership.tenantId,
+        ownership_manifest_id: ownership.ownershipManifestId,
+        ownership_manifest_version: ownership.ownershipManifestVersion,
       };
 
       return {

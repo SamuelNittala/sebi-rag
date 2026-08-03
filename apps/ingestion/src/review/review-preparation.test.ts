@@ -68,6 +68,46 @@ describe("prepareChunkReview", () => {
     }
   });
 
+  test("classifies addendum fact chunks for retrieval ranking", () => {
+    const prepared = prepareChunkReview({
+      document: { id: "addendum-document", filename: "notice-addendum.pdf", pageCount: 2 },
+      chunks: [
+        {
+          text: "From 2026-07-01 the minimum SIP installment is Rs. 5,000.",
+          chunkIndex: 0,
+          pageNumbers: [1],
+          hasTable: false,
+          sectionHeader: "Systematic Investment Plan",
+          tokenCount: 14,
+        },
+        {
+          text: "From 2026-07-01 the exit-load window is 30 days.",
+          chunkIndex: 1,
+          pageNumbers: [2],
+          hasTable: false,
+          sectionHeader: "Exit Load",
+          tokenCount: 12,
+        },
+      ],
+      metadata: {
+        documentScope: "strategy",
+        documentType: "Addendum",
+        effectiveDate: "2026-07-01",
+      },
+    });
+
+    expect(prepared.candidates[0]?.metadata).toEqual(expect.objectContaining({
+      sectionType: "minimum_investment",
+      factType: "minimum_investment",
+      supersessionKey: "minimum_sip_installment",
+    }));
+    expect(prepared.candidates[1]?.metadata).toEqual(expect.objectContaining({
+      sectionType: "exit_load",
+      factType: "exit_load",
+      supersessionKey: "exit_load_window",
+    }));
+  });
+
   test("surfaces adjacent context in the known personnel-row failure", () => {
     const prepared = prepareChunkReview({
       document: { id: "sai-document", filename: "SAI-SIF_March-2026.pdf", pageCount: 138 },

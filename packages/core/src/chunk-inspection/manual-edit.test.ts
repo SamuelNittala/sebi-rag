@@ -78,4 +78,48 @@ describe("prepareManualChunkEdit", () => {
       text: " Original text ",
     })).toThrow("Edited chunk text is unchanged.");
   });
+
+  test("reinspects edited FAQ structure and surfaces newly introduced warnings", () => {
+    const result = prepareManualChunkEdit({
+      document: { id: "faq-doc", filename: "faq.pdf", pageCount: 3 },
+      ownership: { visibilityScope: "GLOBAL", tenantId: null },
+      candidates: [{
+        id: "faq-candidate",
+        chunkIndex: 0,
+        text: "Question:\nAnswer:",
+        pageNumbers: [1],
+        tokenCount: 2,
+        hasTable: false,
+        sectionHeader: "Tax",
+        metadata: {
+          documentScope: "regulatory",
+          documentKind: "FAQ",
+          documentTitle: "Investor FAQ",
+          publisher: "Authority",
+          sourceUrl: "https://example.test/faq.pdf",
+          sourceCollection: "general_mf_faq",
+          originalQuestion: "",
+          answer: "",
+          sourceCoverageComplete: true,
+        },
+        contentHash: "current-hash",
+      }],
+      candidateId: "faq-candidate",
+      expectedContentHash: "current-hash",
+      text: "Question: What is the current tax rate?\nAnswer: The current rate is 10%.",
+    });
+
+    expect(result.report.findings.map((finding) => finding.ruleCode)).not.toContain(
+      "FAQ_ANSWER_MISSING",
+    );
+    expect(result.report.findings).toContainEqual(expect.objectContaining({
+      ruleCode: "FAQ_TIME_SENSITIVE",
+      severity: "warning",
+    }));
+    expect(result.metadata).toMatchObject({
+      originalQuestion: "What is the current tax rate?",
+      answer: "The current rate is 10%.",
+      normalizedQuestionKey: "what is the current tax rate",
+    });
+  });
 });

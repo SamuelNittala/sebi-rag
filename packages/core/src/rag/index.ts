@@ -24,7 +24,11 @@ import type {
 import { OllamaClient } from "../llm/index.ts";
 import { ContextAssembler, type SearchResult } from "../context/index.ts";
 import { PromptBuilder } from "../prompt/index.ts";
-import { VectorClient, type SearchFilters } from "@mf-rag/vector";
+import {
+  VectorClient,
+  type SearchFilters,
+  type TenantAccessScope,
+} from "@mf-rag/vector";
 
 import {
   type RAGPipelineConfig,
@@ -107,6 +111,7 @@ export class RAGPipeline implements IRAGPipeline {
   private readonly embeddingConfig: EmbeddingConfig;
   private readonly retrievalConfig: RetrievalConfig;
   private readonly fundDetectionConfig: FundDetectionConfig;
+  private readonly accessScope: TenantAccessScope;
   private fundDetectorInitialized = false;
 
   /**
@@ -114,7 +119,11 @@ export class RAGPipeline implements IRAGPipeline {
    *
    * @param config - Partial configuration (merged with defaults)
    */
-  constructor(config: Partial<RAGPipelineConfig> & { vector?: object }) {
+  constructor(
+    config: Partial<Omit<RAGPipelineConfig, "accessScope">>
+      & Pick<RAGPipelineConfig, "accessScope">
+      & { vector?: object },
+  ) {
     // Merge with defaults
     const ollamaConfig = { ...DEFAULT_RAG_CONFIG.ollama, ...config.ollama };
     const embeddingConfig = {
@@ -141,6 +150,7 @@ export class RAGPipeline implements IRAGPipeline {
     this.embeddingConfig = embeddingConfig;
     this.retrievalConfig = retrievalConfig;
     this.fundDetectionConfig = fundDetectionConfig;
+    this.accessScope = config.accessScope;
   }
 
   /**
@@ -153,7 +163,7 @@ export class RAGPipeline implements IRAGPipeline {
     }
 
     try {
-      const fundNames = await this.vectorClient.getUniqueFundNames();
+      const fundNames = await this.vectorClient.getUniqueFundNames(this.accessScope);
       this.fundDetector.loadIndex(fundNames);
       this.fundDetectorInitialized = true;
     } catch (error) {
@@ -249,6 +259,7 @@ export class RAGPipeline implements IRAGPipeline {
     // 2. Search pgvector
     const searchFilters = this.mapQueryFilters(effectiveFilters);
     const vectorResults = await this.vectorClient.searchSimilar(queryVector, {
+      accessScope: this.accessScope,
       limit,
       filters: searchFilters,
       scoreThreshold: this.retrievalConfig.scoreThreshold,
@@ -416,6 +427,7 @@ export class RAGPipeline implements IRAGPipeline {
     // Search pgvector
     const searchFilters = this.mapQueryFilters(request.filters);
     const vectorResults = await this.vectorClient.searchSimilar(queryVector, {
+      accessScope: this.accessScope,
       limit,
       filters: searchFilters,
       scoreThreshold: this.retrievalConfig.scoreThreshold,

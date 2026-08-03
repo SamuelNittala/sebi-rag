@@ -26,3 +26,12 @@ export {
   type ProgressCallback,
   type DocType,
 } from "./ingest.ts";
+
+export {
+  prepareCuratedFaqSource,
+  prepareCuratedFaqReview,
+  stagePreparedCuratedFaqReview,
+  assertFaqReviewReady,
+  type PreparedCuratedFaq,
+  type PrepareCuratedFaqOptions,
+} from "./prepare-curated-faq.ts";

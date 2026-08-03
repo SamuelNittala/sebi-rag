@@ -5,6 +5,7 @@
  */
 
 import { VectorClient } from "@mf-rag/vector";
+import { createTenantAccessScope } from "@mf-rag/types";
 import { embedText } from "../apps/ingestion/src/embedding/embedder";
 
 const query = process.argv[2];
@@ -28,6 +29,7 @@ console.log("Searching vector database...\n");
 // Search pgvector
 const vector = new VectorClient();
 const results = await vector.searchSimilar(queryVector, {
+  accessScope: createTenantAccessScope(process.env.AMC_SCOPE ?? ""),
   limit: 10,
   scoreThreshold: 0.0,
 });

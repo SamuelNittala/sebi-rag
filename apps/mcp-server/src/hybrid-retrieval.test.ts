@@ -35,6 +35,35 @@ describe("hybrid retrieval intent", () => {
     });
   });
 
+  test("identifies colloquial early-exit questions as exit-load intent", () => {
+    expect(resolveRetrievalIntent("how much do I pay if I exit early")).toMatchObject({
+      factType: "exit_load",
+      supersessionKey: "exit_load_window",
+    });
+  });
+
+  test("identifies colloquial accredited-investor minimum questions", () => {
+    expect(
+      resolveRetrievalIntent(
+        "what is the minimum amount to invest for accredited investors in platinum sif?",
+      ),
+    ).toEqual({
+      factType: "minimum_investment",
+      strategyId: "platinum-hybrid-long-short-fund",
+      preferredDocumentScope: "strategy",
+      supersessionKey: "accredited_minimum_application",
+    });
+  });
+
+  test("limits supersession to the amended sub-fact", () => {
+    expect(resolveRetrievalIntent("What is the minimum SIP installment amount?"))
+      .toMatchObject({ supersessionKey: "minimum_sip_installment" });
+    expect(resolveRetrievalIntent("What SWP frequencies can I choose?").supersessionKey)
+      .toBeUndefined();
+    expect(resolveRetrievalIntent("When can I redeem in Platinum SIF?").supersessionKey)
+      .toBeUndefined();
+  });
+
   test("keeps multi-fact Platinum questions strategy-scoped without choosing one fact", () => {
     expect(
       resolveRetrievalIntent(
@@ -122,6 +151,210 @@ describe("reciprocal-rank fusion", () => {
 });
 
 describe("reviewed metadata ranking", () => {
+  test("filters the superseded plural accredited-investor minimum", () => {
+    const previousPlainText = candidate(
+      "previous-plain-text",
+      "For accredited investors, the minimum investment is Rs. 5,00,000.",
+      {
+        documentScope: "strategy",
+        strategyId: "platinum-hybrid-long-short-fund",
+        factType: "minimum_investment",
+        documentType: "ISID",
+      },
+    );
+    const previousTable = candidate(
+      "previous-table",
+      [
+        "| However, the | minimum applicati | on amount fo | r accredited |",
+        "| investors shall | be Rs. 5,00,000/- an | d in multiples o | f Rs. 1,000/- |",
+      ].join("\n"),
+      {
+        documentScope: "strategy",
+        strategyId: "platinum-hybrid-long-short-fund",
+        documentType: "ISID",
+      },
+    );
+    const previousDenseTable = candidate(
+      "previous-dense-table",
+      [
+        "| thereafter. | | accredite | d | | units requested |",
+        "| | | | | investors | , | the | investor |",
+        "| | | Minimum | amount | minimum for | | | redemption |",
+        "| | | accredited | investor ( | additional | amount Rs. | |",
+        "| | | Rs. 5,00,000 an | d in multiple | s of 1,000/- | thereafter. |",
+      ].join("\n"),
+      {
+        documentScope: "strategy",
+        strategyId: "platinum-hybrid-long-short-fund",
+        documentType: "KIM",
+      },
+    );
+    const addendum = candidate(
+      "addendum",
+      "For accredited investors, the minimum application amount is Rs. 1,00,000.",
+      {
+        documentScope: "strategy",
+        strategyId: "platinum-hybrid-long-short-fund",
+        factType: "minimum_investment",
+        documentType: "Addendum",
+        effectiveDate: "2026-07-01",
+        supersessionKey: "accredited_minimum_application",
+      },
+    );
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: previousPlainText, score: 0.95 },
+        { candidate: previousTable, score: 0.9 },
+        { candidate: previousDenseTable, score: 0.85 },
+        { candidate: addendum, score: 0.8 },
+      ],
+      lexical: [
+        { candidate: previousPlainText, score: 9.5 },
+        { candidate: previousTable, score: 9 },
+        { candidate: previousDenseTable, score: 8.5 },
+        { candidate: addendum, score: 8 },
+      ],
+      intent: resolveRetrievalIntent(
+        "what is the minimum amount to invest for accredited investors in platinum sif?",
+      ),
+      limit: 2,
+      asOfDate: "2026-07-23",
+    });
+
+    expect(result.map((item) => item.candidate.id)).toEqual(["addendum"]);
+  });
+
+  test("prefers an effective addendum over the provision it supersedes", () => {
+    const previous = candidate("previous", "Minimum SIP amount is Rs. 50,000.", {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      factType: "minimum_investment",
+      documentType: "ISID",
+    });
+    const addendum = candidate("addendum", "From 2026-07-01 the minimum SIP amount is Rs. 5,000.", {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      factType: "minimum_investment",
+      documentType: "Addendum",
+      effectiveDate: "2026-07-01",
+      amendmentNumber: "SIF/05/2026",
+      supersessionKey: "minimum_sip_installment",
+    });
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: previous, score: 0.9 },
+        { candidate: addendum, score: 0.8 },
+      ],
+      lexical: [
+        { candidate: previous, score: 9 },
+        { candidate: addendum, score: 8 },
+      ],
+      intent: resolveRetrievalIntent("What is the minimum SIP installment amount?"),
+      limit: 2,
+      asOfDate: "2026-07-23",
+    });
+
+    expect(result[0]?.candidate.id).toBe("addendum");
+    expect(result[0]?.trace.metadataSignals).toContain("temporal:effective_addendum");
+    expect(result.some((item) => item.candidate.id === "previous")).toBe(false);
+  });
+
+  test("filters superseded legacy chunks using their Platinum document identity", () => {
+    const previous = {
+      ...candidate("previous", [
+        "[TABLE]",
+        "| Type of Load | Load chargeable (as %age of NAV) |",
+        "| Exit | If redeemed within 90 days: 1% |",
+      ].join("\n"), {
+        documentScope: "strategy" as const,
+        factType: "exit_load",
+        documentType: "ISID",
+      }),
+      fundName: "I Platinum Hybrid Long Short Fund",
+    };
+    const addendum = candidate(
+      "addendum",
+      "Current exit load is 1% within 30 days; NIL afterward.",
+      {
+        documentScope: "strategy",
+        strategyId: "platinum-hybrid-long-short-fund",
+        factType: "exit_load",
+        documentType: "Addendum",
+        effectiveDate: "2026-07-01",
+        supersessionKey: "exit_load_window",
+      },
+    );
+
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: previous, score: 0.9 },
+        { candidate: addendum, score: 0.8 },
+      ],
+      lexical: [
+        { candidate: previous, score: 9 },
+        { candidate: addendum, score: 8 },
+      ],
+      intent: resolveRetrievalIntent("how much do I pay if I exit early"),
+      limit: 2,
+      asOfDate: "2026-07-23",
+    });
+
+    expect(result.map((item) => item.candidate.id)).toEqual(["addendum"]);
+  });
+
+  test("does not promote an addendum before its effective date", () => {
+    const previous = candidate("previous", "Minimum SIP amount is Rs. 50,000.", {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      factType: "minimum_investment",
+      documentType: "ISID",
+    });
+    const addendum = candidate("addendum", "From 2026-07-01 the minimum SIP amount is Rs. 5,000.", {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      factType: "minimum_investment",
+      documentType: "Addendum",
+      effectiveDate: "2026-07-01",
+      supersessionKey: "minimum_sip_installment",
+    });
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: previous, score: 0.9 },
+        { candidate: addendum, score: 0.8 },
+      ],
+      lexical: [
+        { candidate: previous, score: 9 },
+        { candidate: addendum, score: 8 },
+      ],
+      intent: resolveRetrievalIntent("What is the minimum SIP installment amount?"),
+      limit: 2,
+      asOfDate: "2026-06-30",
+    });
+
+    expect(result[0]?.candidate.id).toBe("previous");
+    expect(result[1]?.trace.metadataSignals).not.toContain("temporal:effective_addendum");
+  });
+
+  test("does not promote a minimum-SWP amendment for an unaffected frequency query", () => {
+    const addendum = candidate("addendum", "Current minimum SWP withdrawal is Rs. 5,000.", {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      factType: "redemption",
+      documentType: "Addendum",
+      effectiveDate: "2026-07-01",
+      supersessionKey: "minimum_swp_withdrawal",
+    });
+    const result = fuseHybridCandidates({
+      dense: [{ candidate: addendum, score: 0.9 }],
+      lexical: [{ candidate: addendum, score: 9 }],
+      intent: resolveRetrievalIntent("What SWP frequencies can I choose?"),
+      limit: 1,
+      asOfDate: "2026-07-23",
+    });
+
+    expect(result[0]?.trace.metadataSignals).not.toContain("temporal:effective_addendum");
+  });
+
   test("ranks Gaurik's strategy assignment above an SAI staff directory", () => {
     const gaurik = candidate("gaurik", "Mr. Gaurik Shah", {
       documentScope: "strategy",

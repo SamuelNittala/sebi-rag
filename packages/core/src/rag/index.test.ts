@@ -13,26 +13,30 @@ import type {
   SearchResponse,
   HealthResponse,
 } from "@mf-rag/types";
+import { createTenantAccessScope } from "@mf-rag/types";
 
 // Import the class to be implemented
 // This will fail until RAGPipeline is implemented
 import { RAGPipeline } from "./index.ts";
 
+const accessScope = createTenantAccessScope("tenant-test");
+
 describe("RAGPipeline", () => {
   let pipeline: InstanceType<typeof RAGPipeline>;
 
   beforeEach(() => {
-    pipeline = new RAGPipeline({});
+    pipeline = new RAGPipeline({ accessScope });
   });
 
   describe("constructor", () => {
     it("should create pipeline with default config", () => {
-      const defaultPipeline = new RAGPipeline({});
+      const defaultPipeline = new RAGPipeline({ accessScope });
       expect(defaultPipeline).toBeDefined();
     });
 
     it("should create pipeline with custom config", () => {
       const customPipeline = new RAGPipeline({
+        accessScope,
         ollama: {
           model: "custom-model",
           baseUrl: "http://localhost:11434",
@@ -269,7 +273,7 @@ describe("RAGPipeline ambiguous query handling", () => {
   let pipeline: InstanceType<typeof RAGPipeline>;
 
   beforeEach(() => {
-    pipeline = new RAGPipeline({});
+    pipeline = new RAGPipeline({ accessScope });
   });
 
   it("should return clarification for ambiguous queries", async () => {
@@ -343,7 +347,7 @@ describe("RAGPipeline edge cases", () => {
   let pipeline: InstanceType<typeof RAGPipeline>;
 
   beforeEach(() => {
-    pipeline = new RAGPipeline({});
+    pipeline = new RAGPipeline({ accessScope });
   });
 
   it("should handle very long queries by truncating", async () => {

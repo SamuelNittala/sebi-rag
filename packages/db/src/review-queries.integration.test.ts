@@ -9,6 +9,7 @@ import {
   getReviewRunDetail,
   publishReviewRun,
   stageInspectionReview,
+  updateReviewRunStatus,
 } from "./review-queries.ts";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -18,6 +19,12 @@ integrationDescribe("chunk review persistence", () => {
   const client = new SQL(testDatabaseUrl!);
   const db = drizzle({ client, schema });
   let documentId = "";
+  const ownership = {
+    visibilityScope: "GLOBAL" as const,
+    tenantId: null,
+    ownershipManifestId: "review-query-test",
+    ownershipManifestVersion: 1,
+  };
 
   beforeAll(async () => {
     await db.delete(schema.reviewEvents);
@@ -30,6 +37,7 @@ integrationDescribe("chunk review persistence", () => {
       filepath: "/tmp/SAI-SIF_March-2026.pdf",
       fileHash: "a".repeat(64),
       status: "processing",
+      ...ownership,
     }).returning();
     documentId = document!.id;
   });
@@ -49,6 +57,7 @@ integrationDescribe("chunk review persistence", () => {
       fileHash: "a".repeat(64),
       parserVersion: "pdf-v1",
       chunkerVersion: "semantic-v1",
+      ownership,
       report: {
         inspectorVersion: "1.0.0",
         candidateChunkCount: 2,
@@ -157,6 +166,7 @@ integrationDescribe("chunk review persistence", () => {
       knowledgeDomain: "sif",
       sourceCollection: "mirae_sif",
       amcSlug: "mirae-asset",
+      ...ownership,
     };
     await db.insert(schema.chunks).values([
       { ...common, id: crypto.randomUUID(), publicationStatus: "published" },
@@ -177,6 +187,13 @@ integrationDescribe("chunk review persistence", () => {
       },
     ]);
 
+    await updateReviewRunStatus(
+      db,
+      run!.id,
+      "approved",
+      "staged",
+      "publisher@example.com",
+    );
     await publishReviewRun(db, run!.id, "publisher@example.com");
 
     const stored = await db.select().from(schema.chunks);

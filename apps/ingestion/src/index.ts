@@ -5,6 +5,11 @@
  * Processes PDF documents through parsing, chunking, embedding, and storage.
  */
 
+import {
+  parseSourceUrlOption,
+  parseTrustedOwnershipOptions,
+} from "./cli-options.ts";
+
 // Re-export orchestrator for programmatic use
 export * from "./orchestrator/index.ts";
 
@@ -28,6 +33,11 @@ export {
   type Embedder,
 } from "./embedding/index.ts";
 
+export {
+  parseSourceUrlOption,
+  parseTrustedOwnershipOptions,
+} from "./cli-options.ts";
+
 // CLI entry point when run directly
 if (import.meta.main) {
   const { ingestDocument, ingestDirectory } = await import("./orchestrator/index.ts");
@@ -44,21 +54,43 @@ if (import.meta.main) {
     console.log("Options:");
     console.log("  --dir       Process all PDFs in directory");
     console.log("  --ollama    Ollama URL (default: http://localhost:11434)");
+    console.log("  --source-url  Original authoritative document URL");
     console.log("  --review-existing  Reinspect an existing document without deleting published vectors");
+    console.log("  --visibility-scope  Trusted ownership: GLOBAL or TENANT");
+    console.log("  --ownership-manifest-id  Trusted operator/manifest identifier");
+    console.log("  --ownership-manifest-version  Positive manifest version");
     process.exit(0);
   }
 
   // Parse arguments
   const isDir = args.includes("--dir");
   const ollamaIdx = args.indexOf("--ollama");
+  let sourceUrl: string | undefined;
+  let ownership: ReturnType<typeof parseTrustedOwnershipOptions>;
+  try {
+    sourceUrl = parseSourceUrlOption(args);
+    ownership = parseTrustedOwnershipOptions(args);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Invalid trusted ingestion options");
+    process.exit(1);
+  }
 
   const config = {
     ollamaUrl: ollamaIdx !== -1 ? args[ollamaIdx + 1] : undefined,
+    sourceUrl,
+    ownership,
     reviewExisting: args.includes("--review-existing"),
   };
 
   // Get path (first non-flag argument)
-  const path = args.find((arg) => !arg.startsWith("--") && arg !== config.ollamaUrl);
+  const optionValues = new Set([
+    config.ollamaUrl,
+    config.sourceUrl,
+    ownership.visibilityScope,
+    ownership.ownershipManifestId,
+    String(ownership.ownershipManifestVersion),
+  ].filter(Boolean));
+  const path = args.find((arg) => !arg.startsWith("--") && !optionValues.has(arg));
 
   if (!path) {
     console.error("Error: No path specified");

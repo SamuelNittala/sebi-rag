@@ -1,5 +1,6 @@
 import { Embedder } from "../packages/core/src/index.ts";
 import { VectorClient } from "../packages/vector/src/index.ts";
+import { createTenantAccessScope } from "../packages/types/src/index.ts";
 
 import { searchHybridDocuments } from "../apps/mcp-server/src/hybrid-search.ts";
 import { resolveRetrievalScope } from "../apps/mcp-server/src/retrieval-scope.ts";
@@ -86,6 +87,7 @@ const embedder = new Embedder({
   model: process.env.EMBEDDING_MODEL ?? "bge-m3",
 });
 const vectorClient = new VectorClient();
+const accessScope = createTenantAccessScope(process.env.AMC_SCOPE ?? "");
 const selectedCaseId = process.env.MIRAE_RETRIEVAL_CASE;
 const selectedCases = selectedCaseId
   ? cases.filter((item) => item.id === selectedCaseId)
@@ -101,20 +103,24 @@ for (const [index, regression] of selectedCases.entries()) {
   const debugCandidates = process.env.MIRAE_RETRIEVAL_DEBUG === "true"
     ? await Promise.all([
         vectorClient.searchSimilar(vectors[index]!, {
+          accessScope,
           limit: 10,
           filters: scope.pdfFilters,
           scoreThreshold: 0.5,
         }),
         vectorClient.searchLexical(regression.query, {
+          accessScope,
           limit: 10,
           filters: scope.pdfFilters,
         }),
         vectorClient.searchHtmlSimilar(vectors[index]!, {
+          accessScope,
           limit: 10,
           filters: scope.htmlFilters,
           scoreThreshold: 0.5,
         }),
         vectorClient.searchHtmlLexical(regression.query, {
+          accessScope,
           limit: 10,
           filters: scope.htmlFilters,
         }),
@@ -126,6 +132,7 @@ for (const [index, regression] of selectedCases.entries()) {
     regression.query,
     vectors[index]!,
     {
+      accessScope,
       limit: 10,
       scoreThreshold: 0.5,
       candidateLimit: Number(process.env.RETRIEVAL_CANDIDATE_LIMIT ?? 40),

@@ -3,11 +3,16 @@ import type {
   HtmlSearchResult,
   SearchFilters,
   SearchResult,
+  TenantAccessScope,
   VectorClient,
 } from "@mf-rag/vector";
 
 import { searchHybridDocuments } from "./hybrid-search.ts";
 import type { Reranker } from "./reranker.ts";
+
+const accessScope = Object.freeze({
+  tenantId: "tenant-a",
+}) as TenantAccessScope;
 
 function pdfResult(
   id = "chunk-1",
@@ -42,7 +47,11 @@ function pdfResult(
   };
 }
 
-function htmlResult(id: string, score: number): HtmlSearchResult {
+function htmlResult(
+  id: string,
+  score: number,
+  overrides: Partial<HtmlSearchResult> = {},
+): HtmlSearchResult {
   return {
     id,
     score,
@@ -66,6 +75,46 @@ function htmlResult(id: string, score: number): HtmlSearchResult {
 }
 
 describe("searchHybridDocuments fund-filter fallback", () => {
+  test("passes the immutable access scope to every retrieval branch and fallback", async () => {
+    const calls: Array<{ method: string; tenantId: string }> = [];
+    const recordScope = (method: string) =>
+      mock(async (_query: unknown, options: { accessScope: { tenantId: string } }) => {
+        calls.push({ method, tenantId: options.accessScope.tenantId });
+        return [];
+      });
+    const vectorClient = {
+      searchSimilar: recordScope("pdf-dense"),
+      searchLexical: recordScope("pdf-lexical"),
+      searchHtmlSimilar: recordScope("html-dense"),
+      searchHtmlLexical: recordScope("html-lexical"),
+    } as unknown as VectorClient;
+
+    await searchHybridDocuments(vectorClient, "unknown scheme", [0.1], {
+      accessScope,
+      limit: 10,
+      scoreThreshold: 0.5,
+      pdfFilters: {
+        fund_name: "Unknown Scheme",
+        source_collection: "mirae_sif",
+      },
+      htmlFilters: { source_collection: "mirae_sif" },
+      searchPdf: true,
+      searchHtml: true,
+      allowFundFilterFallback: true,
+    });
+
+    expect(calls).toEqual([
+      { method: "pdf-dense", tenantId: "tenant-a" },
+      { method: "html-dense", tenantId: "tenant-a" },
+      { method: "pdf-lexical", tenantId: "tenant-a" },
+      { method: "html-lexical", tenantId: "tenant-a" },
+      { method: "pdf-dense", tenantId: "tenant-a" },
+      { method: "html-dense", tenantId: "tenant-a" },
+      { method: "pdf-lexical", tenantId: "tenant-a" },
+      { method: "html-lexical", tenantId: "tenant-a" },
+    ]);
+  });
+
   test("retries without the fund filter inside the same collection", async () => {
     const dense = mock(async (_vector: number[], options: { filters?: SearchFilters }) =>
       options.filters?.fund_name ? [] : [pdfResult()]);
@@ -79,6 +128,7 @@ describe("searchHybridDocuments fund-filter fallback", () => {
     } as unknown as VectorClient;
 
     const response = await searchHybridDocuments(vectorClient, "tell me about platinum", [0.1], {
+      accessScope,
       limit: 10,
       scoreThreshold: 0.5,
       pdfFilters: {
@@ -111,6 +161,7 @@ describe("searchHybridDocuments fund-filter fallback", () => {
     } as unknown as VectorClient;
 
     const response = await searchHybridDocuments(vectorClient, "unknown scheme", [0.1], {
+      accessScope,
       limit: 10,
       scoreThreshold: 0.5,
       pdfFilters: { fund_name: "Unknown Scheme" },
@@ -125,6 +176,51 @@ describe("searchHybridDocuments fund-filter fallback", () => {
 });
 
 describe("searchHybridDocuments candidate fusion", () => {
+  test("maps generic PDF payloads to the additive FAQ result variant", async () => {
+    const faq = pdfResult("faq", 0.9, {
+      documentScope: "regulatory",
+      documentKind: "FAQ",
+      originalQuestion: "How do I complete KYC?",
+    });
+    Object.assign(faq.payload, {
+      document_kind: "FAQ",
+      document_title: "FAQs for Mutual Fund Investors",
+      publisher: "Securities and Exchange Board of India",
+      source_url: "https://sebi.example/faq.pdf",
+      source_date: "2024-09-25",
+      authority: "regulator",
+      topic: "KYC",
+      original_question: "How do I complete KYC?",
+      fund_name: null,
+      amc_name: null,
+      scheme_type: null,
+      scheme_category: null,
+      sebi_scheme_id: null,
+      sebi_url: null,
+    });
+    const vectorClient = {
+      searchSimilar: mock(async () => [faq]),
+      searchLexical: mock(async () => []),
+      searchHtmlSimilar: mock(async () => []),
+      searchHtmlLexical: mock(async () => []),
+    } as unknown as VectorClient;
+
+    const response = await searchHybridDocuments(vectorClient, "KYC", [0.1], {
+      accessScope,
+      limit: 10,
+      scoreThreshold: 0.5,
+      searchPdf: true,
+      searchHtml: false,
+    });
+
+    expect(response.results[0]).toEqual(expect.objectContaining({
+      source_type: "generic_document",
+      documentTitle: "FAQs for Mutual Fund Investors",
+      publisher: "Securities and Exchange Board of India",
+      question: "How do I complete KYC?",
+    }));
+  });
+
   test("keeps per-source candidates until reviewed metadata reranking", async () => {
     const minimumInvestment = pdfResult("minimum-investment", 6, {
       documentScope: "strategy",
@@ -174,6 +270,7 @@ describe("searchHybridDocuments candidate fusion", () => {
       "when can I do redemption in platinum sif?",
       [0.1],
       {
+        accessScope,
         limit: 10,
         candidateLimit: 40,
         scoreThreshold: 0.5,
@@ -187,5 +284,140 @@ describe("searchHybridDocuments candidate fusion", () => {
     expect(response.results[0]?.retrievalTrace?.metadataSignals).toContain(
       "classification:exact_heading"
     );
+  });
+
+  test("does not reintroduce a superseded provision during reranking", async () => {
+    const previous = pdfResult("previous", 0.9, {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      sectionType: "minimum_investment",
+      factType: "minimum_investment",
+      documentType: "ISID",
+    });
+    const addendum = pdfResult("addendum", 0.8, {
+      documentScope: "strategy",
+      strategyId: "platinum-hybrid-long-short-fund",
+      sectionType: "minimum_investment",
+      factType: "minimum_investment",
+      documentType: "Addendum",
+      effectiveDate: "2026-07-01",
+      supersessionKey: "minimum_sip_installment",
+    });
+    previous.payload.text = "The minimum SIP installment is Rs. 50,000.";
+    addendum.payload.text = "The current minimum SIP installment is Rs. 5,000.";
+    const vectorClient = {
+      searchSimilar: mock(async () => [previous, addendum]),
+      searchLexical: mock(async () => [previous, addendum]),
+      searchHtmlSimilar: mock(async () => []),
+      searchHtmlLexical: mock(async () => []),
+    } as unknown as VectorClient;
+    const reranker: Reranker = {
+      provider: "test",
+      model: "reverse",
+      rerank: mock(async () => [
+        { index: 0, score: 0.5 },
+      ]),
+    };
+
+    const response = await searchHybridDocuments(
+      vectorClient,
+      "What is the minimum SIP installment for Platinum SIF?",
+      [0.1],
+      {
+        accessScope,
+        limit: 2,
+        scoreThreshold: 0,
+        searchPdf: true,
+        searchHtml: false,
+        reranker,
+      },
+    );
+
+    expect(response.results[0]?.id).toBe("addendum");
+    expect(response.results.some((item) => item.id === "previous")).toBe(false);
+    expect(response.results[0]?.retrievalTrace?.metadataSignals)
+      .toContain("temporal:effective_addendum");
+  });
+
+  test("keeps distinct FAQ continuations, removes true duplicates, and bounds one question", async () => {
+    const continuations = Array.from({ length: 3 }, (_, index) => {
+      const result = pdfResult(`sip-${index}`, 1 - index * 0.01);
+      Object.assign(result.payload, {
+        document_kind: "FAQ",
+        document_title: "FAQs for Mutual Fund Investors",
+        publisher: "Securities and Exchange Board of India",
+        source_url: "https://sebi.example/faq.pdf",
+        source_date: "2024-09-25",
+        authority: "regulator",
+        topic: "SIP",
+        original_question: "How does a SIP work?",
+        normalized_question_key: "how does a sip work",
+        continuation_index: index,
+        fund_name: null,
+        amc_name: null,
+        scheme_type: null,
+        scheme_category: null,
+        sebi_scheme_id: null,
+        sebi_url: null,
+      });
+      return result;
+    });
+    const duplicateContinuation = pdfResult("sip-0-duplicate", 0.95);
+    Object.assign(duplicateContinuation.payload, {
+      ...continuations[0]!.payload,
+      continuation_index: undefined,
+    });
+    const distinct = ["nav", "kyc", "tax", "nomination"].map((topic, index) => {
+      const result = pdfResult(topic, 0.8 - index * 0.01);
+      Object.assign(result.payload, {
+        document_kind: "FAQ",
+        document_title: "NISM Mutual Fund FAQ",
+        publisher: "NISM",
+        source_url: "https://nism.example/faq.pdf",
+        source_date: "2024-01-01",
+        authority: "educator",
+        topic,
+        original_question: `How does ${topic} work?`,
+        normalized_question_key: `how does ${topic} work`,
+        continuation_index: 0,
+        fund_name: null,
+        amc_name: null,
+        scheme_type: null,
+        scheme_category: null,
+        sebi_scheme_id: null,
+        sebi_url: null,
+      });
+      return result;
+    });
+    const vectorClient = {
+      searchSimilar: mock(async () => [...continuations, duplicateContinuation, ...distinct]),
+      searchLexical: mock(async () => [...continuations, duplicateContinuation, ...distinct]),
+      searchHtmlSimilar: mock(async () => []),
+      searchHtmlLexical: mock(async () => []),
+    } as unknown as VectorClient;
+
+    const response = await searchHybridDocuments(vectorClient, "mutual fund process", [0.1], {
+      accessScope,
+      limit: 6,
+      scoreThreshold: 0,
+      pdfFilters: {
+        knowledge_domain: "mutual_fund",
+        source_collection: "general_mf_faq",
+      },
+      searchPdf: true,
+      searchHtml: false,
+    });
+
+    expect(response.results).toHaveLength(6);
+    expect(response.results.filter((result) => result.question === "How does a SIP work?"))
+      .toHaveLength(3);
+    expect(response.results.map((result) => result.id)).toEqual([
+      "sip-0",
+      "sip-1",
+      "sip-2",
+      "nav",
+      "kyc",
+      "tax",
+    ]);
   });
 });

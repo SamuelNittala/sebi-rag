@@ -35,6 +35,10 @@ export async function editReviewCandidate(
       pageCount,
       pageNumberBase: detail.run.sourceType === "html" ? 0 : 1,
     },
+    ownership: {
+      visibilityScope: detail.run.visibilityScope,
+      tenantId: detail.run.tenantId,
+    },
     candidates: detail.candidates,
     candidateId: input.candidateId,
     expectedContentHash: input.expectedContentHash,

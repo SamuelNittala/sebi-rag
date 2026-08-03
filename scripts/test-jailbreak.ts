@@ -6,6 +6,7 @@
  */
 
 import { RAGPipeline } from "@mf-rag/core";
+import { createTenantAccessScope } from "@mf-rag/types";
 import { Embedder } from "@mf-rag/core";
 import { VectorClient } from "@mf-rag/vector";
 
@@ -68,6 +69,7 @@ const JAILBREAK_PROMPTS = [
 
 // Initialize clients
 const pipeline = new RAGPipeline({
+  accessScope: createTenantAccessScope(process.env.AMC_SCOPE ?? ""),
   ollama: {
     baseUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
     model: process.env.LLM_MODEL ?? "qwen2.5:7b",
@@ -95,6 +97,7 @@ for (const test of JAILBREAK_PROMPTS) {
   try {
     const queryVector = await embedder.embed(test.query);
     const results = await vectorClient.searchSimilar(queryVector, {
+      accessScope: createTenantAccessScope(process.env.AMC_SCOPE ?? ""),
       limit: 3,
       scoreThreshold: 0.5,
     });

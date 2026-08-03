@@ -1,0 +1,244 @@
+name: mf-rag-dev
+
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-mf_rag}
+  TEST_DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres-test:5432/${POSTGRES_TEST_DB:-mf_rag_test}
+  REDIS_URL: redis://redis:6379
+  OLLAMA_BASE_URL: http://ollama:11434
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+  RERANK_PROVIDER: tei
+  RERANK_BASE_URL: http://reranker:80
+  RERANK_MODEL: ${RERANK_MODEL:-BAAI/bge-reranker-v2-m3}
+  MF_RAG_API_KEY: ${MF_RAG_API_KEY:?Set MF_RAG_API_KEY in the local .env file}
+  AMC_SCOPE: ${AMC_SCOPE:?Set AMC_SCOPE in the local .env file}
+
+x-app-service: &app-service
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  image: mf-rag-dev:local
+  working_dir: /app
+  environment: *app-environment
+  volumes:
+    - ..:/app
+    - bun_node_modules:/app/node_modules
+  networks:
+    - mf-rag-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-mf_rag}
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - mf-rag-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-mf_rag}"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  postgres-test:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_TEST_DB:-mf_rag_test}
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - mf-rag-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_TEST_DB:-mf_rag_test}"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    profiles: ["tools"]
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - mf-rag-dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_dev_data:/root/.ollama
+    networks:
+      - mf-rag-dev
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  ollama-model:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+    entrypoint: ["/bin/sh", "-ceu"]
+    command: ["ollama pull \"$${EMBEDDING_MODEL}\""]
+    networks:
+      - mf-rag-dev
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  reranker:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+    command: ["--model-id", "${RERANK_MODEL:-BAAI/bge-reranker-v2-m3}"]
+    volumes:
+      - reranker_dev_data:/data
+    networks:
+      - mf-rag-dev
+
+  reranker-ready:
+    <<: *app-service
+    command:
+      - bun
+      - -e
+      - |
+        for (let attempt = 1; attempt <= 120; attempt++) {
+          try {
+            const response = await fetch("http://reranker:80/health", {
+              signal: AbortSignal.timeout(5_000),
+            });
+            if (response.ok) process.exit(0);
+          } catch {}
+          await Bun.sleep(1000);
+        }
+        console.error("Reranker did not become healthy within 120 seconds");
+        process.exit(1);
+    depends_on:
+      reranker:
+        condition: service_started
+    restart: "no"
+
+  migrate:
+    <<: *app-service
+    command: ["bun", "run", "db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  test-migrate:
+    <<: *app-service
+    command: ["bun", "run", "db:migrate"]
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres-test:5432/${POSTGRES_TEST_DB:-mf_rag_test}
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    profiles: ["tools"]
+    restart: "no"
+
+  dev-auth:
+    image: pgvector/pgvector:pg16
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-mf_rag}
+      MF_RAG_API_KEY: ${MF_RAG_API_KEY:?Set MF_RAG_API_KEY in the local .env file}
+      AMC_SCOPE: ${AMC_SCOPE:?Set AMC_SCOPE in the local .env file}
+    entrypoint: ["/bin/sh", "-ceu"]
+    command:
+      - |
+        psql --set=ON_ERROR_STOP=1 <<'SQL'
+        \getenv credential MF_RAG_API_KEY
+        \getenv tenant AMC_SCOPE
+        INSERT INTO api_keys (key_fingerprint, tier, name, is_active)
+        VALUES (encode(digest(:'credential', 'sha256'), 'hex'), 'free', 'Docker development', true)
+        ON CONFLICT (key_fingerprint) DO UPDATE SET is_active = true
+        RETURNING id \gset
+        INSERT INTO api_key_tenant_scopes (api_key_id, tenant_id)
+        VALUES (:'id', :'tenant')
+        ON CONFLICT (api_key_id, tenant_id) DO NOTHING;
+        SQL
+    networks:
+      - mf-rag-dev
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  mcp-server:
+    <<: *app-service
+    command: ["bun", "run", "apps/mcp-server/src/index.ts"]
+    environment:
+      <<: *app-environment
+      MCP_TRANSPORT: http
+      PORT: 3001
+      ENABLE_RATE_LIMITING: ${ENABLE_RATE_LIMITING:-false}
+    ports:
+      - "127.0.0.1:${MCP_PORT:-3001}:3001"
+    depends_on:
+      dev-auth:
+        condition: service_completed_successfully
+      ollama-model:
+        condition: service_completed_successfully
+      reranker-ready:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3001/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  review-api:
+    <<: *app-service
+    command: ["bun", "run", "apps/api/src/index.ts"]
+    environment:
+      <<: *app-environment
+      PORT: 3000
+      KNOWLEDGE_MCP_URL: http://mcp-server:3001/mcp
+      REVIEW_USERNAME: ${REVIEW_USERNAME:?Set REVIEW_USERNAME in the local .env file}
+      REVIEW_PASSWORD: ${REVIEW_PASSWORD:?Set REVIEW_PASSWORD in the local .env file}
+    ports:
+      - "127.0.0.1:${REVIEW_PORT:-3000}:3000"
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  runner:
+    <<: *app-service
+    depends_on:
+      test-migrate:
+        condition: service_completed_successfully
+    profiles: ["tools"]
+    entrypoint: ["bun"]
+    command: ["--help"]
+
+networks:
+  mf-rag-dev:
+    name: mf-rag-dev
+
+volumes:
+  postgres_dev_data:
+  postgres_test_data:
+  redis_dev_data:
+  ollama_dev_data:
+  reranker_dev_data:
+  bun_node_modules:

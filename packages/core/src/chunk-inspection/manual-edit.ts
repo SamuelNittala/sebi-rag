@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 
+import { isCuratedFaqMetadata } from "@mf-rag/types";
+
+import { extractFaqAnswer } from "./faq.ts";
 import { ChunkInspector } from "./index.ts";
 import type {
   EditableInspectionCandidate,
@@ -16,6 +19,14 @@ function estimateTokenCount(text: string): number {
   return Math.round(words * 1.3);
 }
 
+function normalizedFaqQuestion(question: string): string {
+  return question
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function editedCandidates(
   candidates: EditableInspectionCandidate[],
   candidateId: string,
@@ -23,9 +34,25 @@ function editedCandidates(
   tokenCount: number,
   hash: string,
 ): EditableInspectionCandidate[] {
-  return candidates.map((candidate) => candidate.id === candidateId
-    ? { ...candidate, text, tokenCount, contentHash: hash }
-    : candidate);
+  return candidates.map((candidate) => {
+    if (candidate.id !== candidateId) return candidate;
+    const faq = isCuratedFaqMetadata(candidate.metadata);
+    if (!faq) return { ...candidate, text, tokenCount, contentHash: hash };
+    const question = text.match(/(?:^|\n)Question:\s*(.+?)(?=\n|$)/i)?.[1]?.trim();
+    const answer = extractFaqAnswer(text);
+    return {
+      ...candidate,
+      text,
+      tokenCount,
+      contentHash: hash,
+      metadata: {
+        ...candidate.metadata,
+        originalQuestion: question ?? "",
+        answer,
+        normalizedQuestionKey: question ? normalizedFaqQuestion(question) : "",
+      },
+    };
+  });
 }
 
 export function prepareManualChunkEdit(
@@ -49,13 +76,18 @@ export function prepareManualChunkEdit(
     tokenCount,
     afterContentHash,
   );
-  const report = new ChunkInspector().inspect({ document: input.document, candidates });
+  const report = new ChunkInspector().inspect({
+    document: input.document,
+    candidates,
+    ownership: input.ownership,
+  });
   return {
     candidateId: candidate.id,
     text,
     tokenCount,
     beforeContentHash: candidate.contentHash,
     afterContentHash,
+    metadata: candidates.find((item) => item.id === candidate.id)!.metadata,
     report,
   };
 }

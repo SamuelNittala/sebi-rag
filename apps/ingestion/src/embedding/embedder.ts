@@ -19,6 +19,8 @@ export interface EmbeddingConfig {
   batchSize: number;
   /** Expected embedding dimensions (default: 1024) */
   dimensions: number;
+  /** Maximum time to wait for an Ollama embedding response in milliseconds. */
+  timeoutMs: number;
 }
 
 /** Input for batch embedding. */
@@ -58,6 +60,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   baseUrl: "http://localhost:11434",
   batchSize: 10,
   dimensions: 1024,
+  timeoutMs: 30_000,
 };
 
 /** Ollama embed API response. */
@@ -118,6 +121,7 @@ async function callOllamaEmbed(
 
   const response = await fetch(url, {
     method: "POST",
+    signal: AbortSignal.timeout(config.timeoutMs),
     headers: {
       "Content-Type": "application/json",
     },
@@ -148,14 +152,13 @@ async function callOllamaEmbed(
             // Average the two embeddings
             return [averageEmbeddings(emb1, emb2)];
           } catch (splitError) {
-            // If splitting still fails, create a zero vector as last resort
-            console.warn(`⚠️  Split failed, using fallback zero vector`);
-            return [new Array(config.dimensions).fill(0)];
+            console.warn("⚠️  Split embedding failed; refusing to publish an invalid vector");
+            throw splitError;
           }
         } else {
-          // Text too short to split meaningfully, use fallback zero vector
-          console.warn(`⚠️  Text too short to split (${texts[0].length} chars), using fallback zero vector`);
-          return [new Array(config.dimensions).fill(0)];
+          throw new Error(
+            `Ollama returned NaN for an input too short to split safely (${texts[0].length} chars).`,
+          );
         }
       }
 

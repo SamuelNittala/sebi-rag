@@ -1,6 +1,7 @@
 import type {
   CandidateChunkMetadata,
   ChunkFlagSeverity,
+  VisibilityScope,
 } from "@mf-rag/types";
 
 export interface InspectionCandidate {
@@ -34,6 +35,10 @@ export interface InspectionDocument {
 export interface InspectionInput {
   document: InspectionDocument;
   candidates: InspectionCandidate[];
+  ownership?: {
+    visibilityScope: VisibilityScope;
+    tenantId: string | null;
+  };
 }
 
 export interface InspectionReport {
@@ -63,6 +68,7 @@ export interface EditableInspectionCandidate extends InspectionCandidate {
 
 export interface PrepareManualChunkEditInput {
   document: InspectionDocument;
+  ownership?: InspectionInput["ownership"];
   candidates: EditableInspectionCandidate[];
   candidateId: string;
   expectedContentHash: string;
@@ -75,5 +81,6 @@ export interface PreparedManualChunkEdit {
   tokenCount: number;
   beforeContentHash: string;
   afterContentHash: string;
+  metadata: CandidateChunkMetadata;
   report: InspectionReport;
 }

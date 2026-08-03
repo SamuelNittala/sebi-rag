@@ -1,4 +1,5 @@
 import type {
+  TenantAccessScope,
   HtmlSearchFilters,
   HtmlSearchResult,
   SearchFilters,
@@ -17,7 +18,7 @@ import type { Reranker } from "./reranker.ts";
 
 export interface MergedResult extends HybridRetrievalCandidate {
   score: number;
-  source_type: "scheme_document" | "knowledge_base";
+  source_type: "scheme_document" | "generic_document" | "knowledge_base";
   text: string;
   sectionHeader: string | null;
   retrievalTrace?: RetrievalTrace;
@@ -29,9 +30,21 @@ export interface MergedResult extends HybridRetrievalCandidate {
   documentTitle?: string;
   contentCategory?: string;
   sourceUrl?: string;
+  publisher?: string;
+  sourceDate?: string;
+  authority?: string;
+  topic?: string;
+  question?: string;
+  questionNumber?: string;
+  normalizedQuestionKey?: string;
+  continuationIndex?: number;
+  documentId?: string;
+  knowledgeDomain?: string;
+  sourceCollection?: string;
 }
 
 export interface HybridSearchOptions {
+  accessScope: TenantAccessScope;
   limit: number;
   scoreThreshold: number;
   candidateLimit?: number;
@@ -47,19 +60,37 @@ export interface HybridSearchOptions {
 }
 
 function pdfCandidate(result: SearchResult): MergedResult {
+  const generic = result.payload.document_kind === "FAQ"
+    || result.payload.document_kind === "generic_pdf";
+  const sourceType = generic ? "generic_document" : "scheme_document";
   return {
     id: result.id,
-    sourceType: "scheme_document",
+    sourceType,
     metadata: result.payload.retrieval_metadata ?? null,
     score: result.score,
-    source_type: "scheme_document",
+    source_type: sourceType,
     text: result.payload.text,
     sectionHeader: result.payload.section_header,
-    fundName: result.payload.fund_name,
+    fundName: result.payload.fund_name ?? undefined,
     docType: result.payload.doc_type,
     pageNumbers: result.payload.page_numbers,
     documentFilename: result.payload.document_filename,
-    sebiUrl: result.payload.sebi_url,
+    sebiUrl: result.payload.sebi_url ?? undefined,
+    documentTitle: result.payload.document_title ?? undefined,
+    sourceUrl: result.payload.source_url
+      ?? result.payload.retrieval_metadata?.sourceUrl
+      ?? undefined,
+    publisher: result.payload.publisher ?? undefined,
+    sourceDate: result.payload.source_date ?? undefined,
+    authority: result.payload.authority ?? undefined,
+    topic: result.payload.topic ?? undefined,
+    question: result.payload.original_question ?? undefined,
+    questionNumber: result.payload.question_number ?? undefined,
+    normalizedQuestionKey: result.payload.normalized_question_key ?? undefined,
+    continuationIndex: result.payload.continuation_index ?? undefined,
+    documentId: result.payload.document_id,
+    knowledgeDomain: result.payload.knowledge_domain,
+    sourceCollection: result.payload.source_collection,
   };
 }
 
@@ -75,6 +106,8 @@ function htmlCandidate(result: HtmlSearchResult): MergedResult {
     documentTitle: result.payload.document_title,
     contentCategory: result.payload.content_category,
     sourceUrl: result.payload.source_url,
+    knowledgeDomain: result.payload.knowledge_domain,
+    sourceCollection: result.payload.source_collection,
   };
 }
 
@@ -85,6 +118,7 @@ function globallyRank(candidates: MergedResult[]) {
 }
 
 interface CandidateSearchInput {
+  accessScope: TenantAccessScope;
   candidateLimit: number;
   scoreThreshold: number;
   pdfFilters?: SearchFilters;
@@ -107,7 +141,8 @@ async function retrieveCandidates(
     : undefined;
   const [pdfDense, htmlDense, pdfLexical, htmlLexical] = await Promise.all([
     input.searchPdf
-      ? vectorClient.searchSimilar(queryVector, {
+        ? vectorClient.searchSimilar(queryVector, {
+          accessScope: input.accessScope,
           limit: input.candidateLimit,
           filters: pdfFilters,
           scoreThreshold: input.scoreThreshold,
@@ -115,6 +150,7 @@ async function retrieveCandidates(
       : Promise.resolve([]),
     input.searchHtml
       ? vectorClient.searchHtmlSimilar(queryVector, {
+          accessScope: input.accessScope,
           limit: input.candidateLimit,
           filters: htmlFilters,
           scoreThreshold: input.scoreThreshold,
@@ -122,12 +158,14 @@ async function retrieveCandidates(
       : Promise.resolve([]),
     input.searchPdf
       ? vectorClient.searchLexical(query, {
+          accessScope: input.accessScope,
           limit: input.candidateLimit,
           filters: pdfFilters,
         })
       : Promise.resolve([]),
     input.searchHtml
       ? vectorClient.searchHtmlLexical(query, {
+          accessScope: input.accessScope,
           limit: input.candidateLimit,
           filters: htmlFilters,
         })
@@ -161,6 +199,48 @@ function fallbackReason(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown reranker failure";
 }
 
+function normalizedQuestion(candidate: MergedResult): string | null {
+  if (candidate.source_type !== "generic_document") return null;
+  const value = candidate.normalizedQuestionKey ?? candidate.question;
+  const normalized = value
+    ?.toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized || null;
+}
+
+function diversifyFaqResults(
+  candidates: Array<FusedRetrievalCandidate<MergedResult>>,
+  limit: number,
+): Array<FusedRetrievalCandidate<MergedResult>> {
+  const perQuestionLimit = Math.max(1, Math.floor(limit / 2));
+  const questionCounts = new Map<string, number>();
+  const sourceQuestionKeys = new Set<string>();
+  const results: Array<FusedRetrievalCandidate<MergedResult>> = [];
+
+  for (const item of candidates) {
+    if (results.length >= limit) break;
+    const questionKey = normalizedQuestion(item.candidate);
+    if (!questionKey) {
+      results.push(item);
+      continue;
+    }
+    const sourceKey = item.candidate.sourceUrl
+      ?? item.candidate.documentId
+      ?? item.candidate.documentFilename
+      ?? item.candidate.id;
+    const sourceQuestionKey = `${sourceKey}:${questionKey}:${item.candidate.continuationIndex ?? 0}`;
+    if (sourceQuestionKeys.has(sourceQuestionKey)) continue;
+    if ((questionCounts.get(questionKey) ?? 0) >= perQuestionLimit) continue;
+    sourceQuestionKeys.add(sourceQuestionKey);
+    questionCounts.set(questionKey, (questionCounts.get(questionKey) ?? 0) + 1);
+    results.push(item);
+  }
+
+  return results;
+}
+
 async function applyReranker(
   reranker: Reranker,
   query: string,
@@ -170,27 +250,29 @@ async function applyReranker(
   const reranked = await reranker.rerank(
     query,
     candidates.map(({ candidate }) => rerankDocument(candidate)),
-    limit,
+    candidates.length,
   );
-  const expectedResults = Math.min(limit, candidates.length);
+  const expectedResults = candidates.length;
   if (reranked.length < expectedResults) {
     throw new Error(
       `Reranker returned ${reranked.length} of ${expectedResults} expected results`,
     );
   }
-  return reranked.slice(0, limit).map((result, index) => {
+  return reranked.map((result, index) => {
     const fused = candidates[result.index];
     if (!fused) throw new Error(`Reranker returned invalid result index ${result.index}`);
+    const finalScore = result.score + fused.trace.metadataAdjustment;
     return {
       candidate: fused.candidate,
       trace: {
         ...fused.trace,
         rerankRank: index + 1,
         rerankScore: result.score,
-        finalScore: result.score,
+        finalScore,
       },
     };
-  });
+  }).sort((left, right) => right.trace.finalScore - left.trace.finalScore)
+    .slice(0, limit);
 }
 
 export async function searchHybridDocuments(
@@ -200,6 +282,7 @@ export async function searchHybridDocuments(
   options: HybridSearchOptions,
 ) {
   const {
+    accessScope,
     limit,
     scoreThreshold,
     candidateLimit: configuredCandidateLimit = 40,
@@ -218,6 +301,7 @@ export async function searchHybridDocuments(
     retrievalCandidateLimit(limit, rankingProfile),
   );
   let candidates = await retrieveCandidates(vectorClient, query, queryVector, {
+    accessScope,
     candidateLimit,
     scoreThreshold,
     pdfFilters,
@@ -233,6 +317,7 @@ export async function searchHybridDocuments(
     && candidates.lexical.length === 0;
   if (canRetry && pdfFilters) {
     candidates = await retrieveCandidates(vectorClient, query, queryVector, {
+      accessScope,
       candidateLimit,
       scoreThreshold,
       pdfFilters: withoutFundFilter(pdfFilters),
@@ -243,9 +328,10 @@ export async function searchHybridDocuments(
     fundFilterFallbackApplied = true;
   }
   const intent = resolveRetrievalIntent(query);
-  const fusionLimit = reranker
-    ? Math.max(limit, Math.min(candidateLimit, rerankCandidateLimit))
-    : limit;
+  const fusionLimit = Math.max(
+    limit,
+    Math.min(candidateLimit, rerankCandidateLimit),
+  );
   const fused = fuseHybridCandidates({
     dense: candidates.dense,
     lexical: candidates.lexical,
@@ -253,7 +339,7 @@ export async function searchHybridDocuments(
     limit: fusionLimit,
     rrfK,
   });
-  let ranked = fused.slice(0, limit);
+  let ranked = fused;
   let reranking = {
     applied: false,
     provider: reranker?.provider ?? null,
@@ -263,13 +349,13 @@ export async function searchHybridDocuments(
   };
   if (reranker && fused.length > 0) {
     try {
-      ranked = await applyReranker(reranker, query, fused, limit);
+      ranked = await applyReranker(reranker, query, fused, fusionLimit);
       reranking = { ...reranking, applied: true };
     } catch (error) {
       reranking = { ...reranking, fallbackReason: fallbackReason(error) };
     }
   }
-  const results = ranked.map(({ candidate, trace }) => ({
+  const results = diversifyFaqResults(ranked, limit).map(({ candidate, trace }) => ({
     ...candidate,
     score: trace.finalScore,
     retrievalTrace: trace,

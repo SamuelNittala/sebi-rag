@@ -5,6 +5,7 @@ export interface ReviewApprovalState {
   candidateChunkCount: number;
   inspectedChunkCount: number;
   openBlockingCount: number;
+  openWarningCount?: number;
 }
 export interface ReviewApprovalDecision {
   allowed: boolean;
@@ -22,6 +23,9 @@ export class ReviewApprovalPolicy {
     }
     if (state.openBlockingCount > 0) {
       reasons.push("Blocking inspection findings remain open.");
+    }
+    if ((state.openWarningCount ?? 0) > 0) {
+      reasons.push("Inspection warnings remain unacknowledged.");
     }
     return { allowed: reasons.length === 0, reasons };
   }

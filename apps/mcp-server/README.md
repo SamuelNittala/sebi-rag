@@ -33,65 +33,22 @@ See [docs/direct-vs-rag-comparison.md](../../docs/direct-vs-rag-comparison.md) f
 
 ## Setup
 
-### Prerequisites
+Local development, migrations, tests, and verification use Docker Compose only.
+Do not run this server directly on the host or configure Claude Desktop or Claude
+Code to spawn it from a local checkout. Follow the
+[Docker-only local runbook](../../docs/runbooks/docker-local-development.md).
 
-1. **PostgreSQL with pgvector:**
-   ```bash
-   docker compose -f docker/docker-compose.yml up -d
-   ```
+### Transport configuration
 
-2. **Ollama with bge-m3 embedding model:**
-   ```bash
-   ollama pull bge-m3
-   ollama list  # Should show bge-m3
-   ```
+The Compose workflow runs the HTTP transport. Every HTTP consumer must follow
+the protected bearer and static `X-AMC-Scope` contract in the
+[investor-agent MCP transport contract](../../docs/contracts/investor-agent-mcp-transport.md).
 
-   Note: No LLM model (like qwen2.5:7b) is required.
-
-3. **Optional local BGE reranker (enabled by production Compose):**
-   ```bash
-   docker run -d --name mf-rag-reranker -p 8081:80 -v hf_cache:/data \
-     ghcr.io/huggingface/text-embeddings-inference:cpu-1.9 \
-     --model-id BAAI/bge-reranker-v2-m3
-   ```
-
-### Claude Desktop Configuration
-
-Edit `~/.config/claude/claude_desktop_config.json` (Linux) or `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
-
-```json
-{
-  "mcpServers": {
-    "mf-rag": {
-      "command": "bun",
-      "args": ["run", "/path/to/mf-pdf-rag/apps/mcp-server/src/index.ts"],
-      "env": {
-        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/mf_rag",
-        "OLLAMA_BASE_URL": "http://localhost:11434",
-        "RERANK_PROVIDER": "tei",
-        "RERANK_BASE_URL": "http://localhost:8081"
-      }
-    }
-  }
-}
-```
-
-Then restart Claude Desktop.
-
-### Claude Code Configuration
-
-Add to your project's `.mcp.json`:
-
-```json
-{
-  "servers": {
-    "mf-rag": {
-      "command": "bun",
-      "args": ["run", "apps/mcp-server/src/index.ts"]
-    }
-  }
-}
-```
+Stdio is only for a trusted server-side deployment, not a local development
+shortcut. Its protected environment must provide both `MF_RAG_API_KEY` and
+`AMC_SCOPE`; startup fails closed if either is absent or unauthorized. Never
+place these values in client-visible configuration, source control, or model
+input.
 
 ## Example Conversations
 
@@ -109,42 +66,21 @@ Claude will use the `query_mutual_funds` tool to retrieve relevant document chun
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | (required) | PostgreSQL connection string |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `DATABASE_URL` | Compose-managed | PostgreSQL connection string inside the local network |
+| `OLLAMA_BASE_URL` | Compose-managed | Ollama service URL inside the local network |
 | `EMBEDDING_MODEL` | `bge-m3` | Embedding model name |
 | `RERANK_PROVIDER` | auto | `tei`, `bge`, `none`, or auto-enable when `RERANK_BASE_URL` is set |
-| `RERANK_BASE_URL` | `http://localhost:8081` | Hugging Face TEI reranker endpoint |
+| `RERANK_BASE_URL` | Compose-managed | Hugging Face TEI reranker endpoint |
 | `RERANK_MODEL` | `BAAI/bge-reranker-v2-m3` | Model identifier included in traces |
 | `RERANK_CANDIDATE_LIMIT` | `20` | Maximum fused chunks sent to the reranker |
 | `ENABLE_RATE_LIMITING` | `false` | Enable API key rate limiting |
-| `MF_RAG_API_KEY` | - | API key for rate limiting |
-
-## Rate Limiting (Optional)
-
-For cloud deployments, enable rate limiting:
-
-```json
-{
-  "env": {
-    "ENABLE_RATE_LIMITING": "true",
-    "MF_RAG_API_KEY": "mf_free_xxxxx"
-  }
-}
-```
-
-Limits:
-- Free tier: 10 queries/minute, 100/day, 1000/month
-- Pro tier: 100 queries/minute, 10000/day, unlimited/month
+| `MF_RAG_API_KEY` | required | Protected server-side bearer credential for HTTP and stdio authorization |
+| `AMC_SCOPE` | required | Protected canonical tenant scope for HTTP and stdio authorization |
 
 ## Testing
 
-```bash
-# Run server directly (communicates via stdio)
-bun run apps/mcp-server/src/index.ts
-
-# Test embedding + search
-bun scripts/compare-direct-vs-rag.ts "What is the expense ratio?"
-```
+Use the test and evaluation commands in the
+[Docker-only local runbook](../../docs/runbooks/docker-local-development.md).
 
 ## Cloud Deployment
 

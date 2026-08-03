@@ -25,4 +25,8 @@ export interface HtmlChunkPayload {
   ingestion_run_id?: string | null;
   publication_status?: "staged" | "published" | "retired";
   retrieval_metadata?: CandidateChunkMetadata | null;
+  visibility_scope?: "GLOBAL" | "TENANT" | "UNCLASSIFIED";
+  tenant_id?: string | null;
+  ownership_manifest_id?: string | null;
+  ownership_manifest_version?: number | null;
 }

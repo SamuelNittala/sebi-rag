@@ -1,5 +1,29 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { createTenantId } from "@mf-rag/types";
+
+export interface McpRetrievalCredentials {
+  readonly apiKey: string;
+  readonly tenantId: string;
+}
+
+export function buildMcpRequestInit(
+  credentials: McpRetrievalCredentials,
+): RequestInit {
+  if (!credentials.apiKey) {
+    throw new Error("MCP review credential is required");
+  }
+  if (!credentials.tenantId) {
+    throw new Error("MCP review scope is required");
+  }
+  const tenantId = createTenantId(credentials.tenantId);
+  return {
+    headers: {
+      Authorization: `Bearer ${credentials.apiKey}`,
+      "X-AMC-Scope": tenantId,
+    },
+  };
+}
 
 export interface RetrievalTraceView {
   denseRank: number | null;
@@ -28,7 +52,7 @@ export interface RetrievalChunkView {
   rank: number;
   score: number;
   chunkId: string | null;
-  sourceType: "scheme_document" | "knowledge_base";
+  sourceType: "scheme_document" | "generic_document" | "knowledge_base";
   text: string;
   sectionHeader: string | null;
   retrievalTrace?: RetrievalTraceView;
@@ -41,6 +65,12 @@ export interface RetrievalChunkView {
   documentTitle?: string;
   contentCategory?: string;
   sourceUrl?: string;
+  publisher?: string;
+  sourceDate?: string;
+  authority?: string;
+  topic?: string;
+  question?: string;
+  questionNumber?: string;
 }
 
 export interface RetrievalSearchResult {
@@ -105,11 +135,18 @@ function parseTrace(value: unknown): RetrievalTraceView | undefined {
   };
 }
 
+function parseSourceType(
+  value: unknown,
+): RetrievalChunkView["sourceType"] {
+  if (value === "knowledge_base" || value === "generic_document") {
+    return value;
+  }
+  return "scheme_document";
+}
+
 function parseChunk(value: unknown, index: number): RetrievalChunkView {
   const chunk = record(value);
-  const sourceType = chunk.source_type === "knowledge_base"
-    ? "knowledge_base"
-    : "scheme_document";
+  const sourceType = parseSourceType(chunk.source_type);
   const retrievalMetadata = typeof chunk.retrievalMetadata === "object"
     && chunk.retrievalMetadata !== null
     ? record(chunk.retrievalMetadata)
@@ -140,6 +177,14 @@ function parseChunk(value: unknown, index: number): RetrievalChunkView {
       contentCategory: optionalString(chunk.contentCategory),
     }),
     ...(optionalString(chunk.sourceUrl) && { sourceUrl: optionalString(chunk.sourceUrl) }),
+    ...(optionalString(chunk.publisher) && { publisher: optionalString(chunk.publisher) }),
+    ...(optionalString(chunk.sourceDate) && { sourceDate: optionalString(chunk.sourceDate) }),
+    ...(optionalString(chunk.authority) && { authority: optionalString(chunk.authority) }),
+    ...(optionalString(chunk.topic) && { topic: optionalString(chunk.topic) }),
+    ...(optionalString(chunk.question) && { question: optionalString(chunk.question) }),
+    ...(optionalString(chunk.questionNumber) && {
+      questionNumber: optionalString(chunk.questionNumber),
+    }),
   };
 }
 
@@ -187,10 +232,19 @@ export function parseRetrievalToolResult(toolResult: unknown): RetrievalSearchRe
 }
 
 export class McpRetrievalSearch implements RetrievalSearch {
-  constructor(private readonly endpoint: URL) {}
+  private readonly requestInit: RequestInit;
+
+  constructor(
+    private readonly endpoint: URL,
+    credentials: McpRetrievalCredentials,
+  ) {
+    this.requestInit = buildMcpRequestInit(credentials);
+  }
 
   async search(query: string): Promise<RetrievalSearchResult> {
-    const transport = new StreamableHTTPClientTransport(this.endpoint);
+    const transport = new StreamableHTTPClientTransport(this.endpoint, {
+      requestInit: this.requestInit,
+    });
     const client = new Client(
       { name: "mf-rag-review-retrieval-debugger", version: "1.0.0" },
       { capabilities: {} },

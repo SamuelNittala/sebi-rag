@@ -112,6 +112,52 @@ describe("review UI rendering", () => {
     expect(html).toContain("&lt;strong&gt;There are no other existing strategies.&lt;/strong&gt;");
   });
 
+  test("renders generic FAQ identity without scheme placeholders", () => {
+    const html = renderRetrievalSearch({
+      query: "How do I complete KYC?",
+      result: {
+        queryTimeMs: 12,
+        denseCandidates: 1,
+        lexicalCandidates: 1,
+        fusion: "rrf",
+        rrfK: 60,
+        reranking: {
+          applied: false,
+          provider: null,
+          model: null,
+          candidates: 0,
+          fallbackReason: null,
+        },
+        intent: {
+          factType: null,
+          strategyId: null,
+          preferredDocumentScope: null,
+        },
+        chunks: [{
+          rank: 1,
+          score: 0.9,
+          chunkId: "faq-1",
+          sourceType: "generic_document",
+          text: "Follow the applicable KYC process.",
+          sectionHeader: "KYC",
+          retrievalMetadata: null,
+          documentTitle: "FAQs for Mutual Fund Investors",
+          publisher: "Securities and Exchange Board of India",
+          sourceDate: "2024-09-25",
+          sourceUrl: "https://sebi.example/faq.pdf",
+          pageNumbers: [4, 5],
+          question: "How do I complete KYC?",
+          topic: "KYC",
+        }],
+      },
+    });
+
+    expect(html).toContain("FAQs for Mutual Fund Investors");
+    expect(html).toContain("Securities and Exchange Board of India");
+    expect(html).toContain("How do I complete KYC?");
+    expect(html).toContain("pages 4, 5");
+  });
+
   test("renders document status and flag counts on the dashboard", () => {
     const html = renderReviewDashboard([{
       id: "run-1",
@@ -326,6 +372,10 @@ describe("review UI rendering", () => {
         chunkerVersion: "metadata-preserve-v1",
         inspectorVersion: "metadata-v1",
         reviewPurpose: "metadata",
+        visibilityScope: "TENANT",
+        tenantId: "mirae-asset",
+        ownershipManifestId: "review-ui-manifest",
+        ownershipManifestVersion: 3,
       },
       candidates: [{
         id: "metadata-candidate",
@@ -348,6 +398,10 @@ describe("review UI rendering", () => {
           evidence: ["Investment Objective"],
         },
         contentHash: "hash-metadata",
+        visibilityScope: "TENANT",
+        tenantId: "mirae-asset",
+        ownershipManifestId: "review-ui-manifest",
+        ownershipManifestVersion: 3,
       }],
       flags: [],
     });
@@ -357,6 +411,9 @@ describe("review UI rendering", () => {
     expect(html).toContain('name="sectionType"');
     expect(html).toContain('value="investment_objective" selected');
     expect(html).toContain('name="factType"');
+    expect(html).toContain("Ownership: TENANT · Tenant mirae-asset · Manifest review-ui-manifest v3");
+    expect(html).not.toContain('name="visibilityScope"');
+    expect(html).not.toContain('name="tenantId"');
     expect(html).not.toContain('name="text"');
   });
 });

@@ -1,0 +1,208 @@
+{
+  "thresholds": {
+    "minimumPassRate": 1,
+    "maxRank": 3,
+    "maxDuplicateShare": 0.5,
+    "staleAfterDays": 730
+  },
+  "tenants": ["tenant-a", "tenant-b"],
+  "cases": [
+    {
+      "id": "sip",
+      "query": "How does a SIP work?",
+      "expectedTerms": ["sip", "invest"]
+    },
+    {
+      "id": "nav",
+      "query": "When is mutual fund NAV calculated?",
+      "expectedTerms": ["nav", "business day"]
+    },
+    {
+      "id": "kyc",
+      "query": "What KYC is required for mutual funds?",
+      "expectedTerms": ["kyc", "investor"]
+    },
+    {
+      "id": "tax",
+      "query": "How are mutual fund gains taxed?",
+      "expectedTerms": ["tax", "gains"]
+    },
+    {
+      "id": "nomination",
+      "query": "Why should I register a nominee?",
+      "expectedTerms": ["nominee", "transmission"]
+    },
+    {
+      "id": "process",
+      "query": "How do I redeem mutual fund units?",
+      "expectedTerms": ["redeem", "units"]
+    }
+  ],
+  "replayResults": {
+    "sip": [
+      {
+        "id": "sebi-sip",
+        "text": "A SIP lets an investor invest a fixed amount at regular intervals.",
+        "sourceType": "generic_document",
+        "knowledgeDomain": "mutual_fund",
+        "sourceCollection": "general_mf_faq",
+        "documentTitle": "FAQs for Mutual Fund Investors",
+        "publisher": "SEBI",
+        "sourceUrl": "https://www.sebi.gov.in/sebi_data/faqfiles/sep-2024/1727242783639.pdf",
+        "sourceDate": "2024-09-25",
+        "authority": "regulator",
+        "pageNumbers": [4],
+        "question": "How does a SIP work?",
+        "topic": "SIP",
+        "normalizedQuestionKey": "how does a sip work",
+        "lexicalRank": 1
+      }
+    ],
+    "nav": [
+      {
+        "id": "sebi-nav",
+        "text": "NAV is calculated for every business day using the valuation policy.",
+        "sourceType": "generic_document",
+        "knowledgeDomain": "mutual_fund",
+        "sourceCollection": "general_mf_faq",
+        "documentTitle": "FAQs for Mutual Fund Investors",
+        "publisher": "SEBI",
+        "sourceUrl": "https://www.sebi.gov.in/sebi_data/faqfiles/sep-2024/1727242783639.pdf",
+        "sourceDate": "2024-09-25",
+        "authority": "regulator",
+        "pageNumbers": [7],
+        "question": "When is NAV calculated?",
+        "topic": "NAV",
+        "normalizedQuestionKey": "when is nav calculated",
+        "lexicalRank": 1
+      },
+      {
+        "id": "nism-nav",
+        "text": "The applicable NAV depends on the transaction and cut-off rules for the business day.",
+        "sourceType": "generic_document",
+        "knowledgeDomain": "mutual_fund",
+        "sourceCollection": "general_mf_faq",
+        "documentTitle": "FAQs on Mutual Funds",
+        "publisher": "NISM",
+        "sourceUrl": "https://www.nism.ac.in/wp-content/uploads/2021/02/FAQsOnMfs-3-1.pdf",
+        "sourceDate": "2021-03-01",
+        "authority": "sebi_established_institute",
+        "pageNumbers": [9],
+        "question": "When is NAV calculated?",
+        "topic": "NAV",
+        "normalizedQuestionKey": "when is nav calculated",
+        "lexicalRank": 2
+      },
+      {
+        "id": "sebi-nav-process",
+        "text": "Mutual funds publish NAV and valuation information through their official channels.",
+        "sourceType": "generic_document",
+        "knowledgeDomain": "mutual_fund",
+        "sourceCollection": "general_mf_faq",
+        "documentTitle": "FAQs for Mutual Fund Investors",
+        "publisher": "SEBI",
+        "sourceUrl": "https://www.sebi.gov.in/sebi_data/faqfiles/sep-2024/1727242783639.pdf",
+        "sourceDate": "2024-09-25",
+        "authority": "regulator",
+        "pageNumbers": [8],
+        "question": "Where can an investor find NAV?",
+        "topic": "NAV",
+        "normalizedQuestionKey": "where can an investor find nav",
+        "lexicalRank": 3
+      },
+      {
+        "id": "nism-nav-cutoff",
+        "text": "Cut-off timing is one input to identifying the applicable NAV.",
+        "sourceType": "generic_document",
+        "knowledgeDomain": "mutual_fund",
+        "sourceCollection": "general_mf_faq",
+        "documentTitle": "FAQs on Mutual Funds",
+        "publisher": "NISM",
+        "sourceUrl": "https://www.nism.ac.in/wp-content/uploads/2021/02/FAQsOnMfs-3-1.pdf",
+        "sourceDate": "2021-03-01",
+        "authority": "sebi_established_institute",
+        "pageNumbers": [10],
+        "question": "What is cut-off timing?",
+        "topic": "NAV",
+        "normalizedQuestionKey": "what is cut off timing",
+        "lexicalRank": 4
+      }
+    ],
+    "kyc": [
+      {
+        "id": "sebi-kyc",
+        "text": "Every investor must complete KYC before investing in a mutual fund.",
+        "sourceType": "generic_document",
+        "knowledgeDomain": "mutual_fund",
+        "sourceCollection": "general_mf_faq",
+        "documentTitle": "FAQs for Mutual Fund Investors",
+        "publisher": "SEBI",
+        "sourceUrl": "https://www.sebi.gov.in/sebi_data/faqfiles/sep-2024/1727242783639.pdf",
+        "sourceDate": "2024-09-25",
+        "authority": "regulator",
+        "pageNumbers": [11],
+        "question": "What KYC is required?",
+        "topic": "KYC",
+        "normalizedQuestionKey": "what kyc is required",
+        "lexicalRank": 1
+      }
+    ],
+    "tax": [
+      {
+        "id": "nism-tax",
+        "text": "Tax treatment of mutual fund gains depends on the applicable law and holding period.",
+        "sourceType": "generic_document",
+        "knowledgeDomain": "mutual_fund",
+        "sourceCollection": "general_mf_faq",
+        "documentTitle": "FAQs on Mutual Funds",
+        "publisher": "NISM",
+        "sourceUrl": "https://www.nism.ac.in/wp-content/uploads/2021/02/FAQsOnMfs-3-1.pdf",
+        "sourceDate": "2021-03-01",
+        "authority": "sebi_established_institute",
+        "pageNumbers": [16],
+        "question": "How are mutual fund gains taxed?",
+        "topic": "Tax",
+        "normalizedQuestionKey": "how are mutual fund gains taxed",
+        "lexicalRank": 1
+      }
+    ],
+    "nomination": [
+      {
+        "id": "sebi-nomination",
+        "text": "Registering a nominee can make transmission easier after an investor's death.",
+        "sourceType": "generic_document",
+        "knowledgeDomain": "mutual_fund",
+        "sourceCollection": "general_mf_faq",
+        "documentTitle": "FAQs for Mutual Fund Investors",
+        "publisher": "SEBI",
+        "sourceUrl": "https://www.sebi.gov.in/sebi_data/faqfiles/sep-2024/1727242783639.pdf",
+        "sourceDate": "2024-09-25",
+        "authority": "regulator",
+        "pageNumbers": [19],
+        "question": "Why should I register a nominee?",
+        "topic": "Nomination",
+        "normalizedQuestionKey": "why should i register a nominee",
+        "lexicalRank": 1
+      }
+    ],
+    "process": [
+      {
+        "id": "nism-redemption",
+        "text": "An investor can redeem mutual fund units by submitting a valid redemption request.",
+        "sourceType": "generic_document",
+        "knowledgeDomain": "mutual_fund",
+        "sourceCollection": "general_mf_faq",
+        "documentTitle": "FAQs on Mutual Funds",
+        "publisher": "NISM",
+        "sourceUrl": "https://www.nism.ac.in/wp-content/uploads/2021/02/FAQsOnMfs-3-1.pdf",
+        "sourceDate": "2021-03-01",
+        "authority": "sebi_established_institute",
+        "pageNumbers": [22],
+        "question": "How do I redeem mutual fund units?",
+        "topic": "Transactions",
+        "normalizedQuestionKey": "how do i redeem mutual fund units",
+        "lexicalRank": 1
+      }
+    ]
+  }
+}

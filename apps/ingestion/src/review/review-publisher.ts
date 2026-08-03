@@ -4,9 +4,11 @@ import {
   and,
   chunks,
   db,
+  documents,
   eq,
   getReviewRunDetail,
   htmlChunks,
+  htmlDocuments,
   ingestionRuns,
   markReviewRunFailed,
   publishReviewRun,
@@ -16,7 +18,13 @@ import {
   type Database,
   type IngestionRun,
 } from "@mf-rag/db";
-import type { CandidateChunkMetadata, ContentCategory } from "@mf-rag/types";
+import {
+  assertClassifiedKnowledgeOwnership,
+  type CandidateChunkMetadata,
+  type ClassifiedKnowledgeOwnership,
+  type ContentCategory,
+  type KnowledgeOwnership,
+} from "@mf-rag/types";
 
 import { buildContextualEmbeddingText } from "../embedding/contextual-input.ts";
 import {
@@ -34,11 +42,79 @@ export interface ReviewPublicationProgress {
 
 export interface PublishApprovedReviewOptions {
   actor: string;
+  /** Exact tenant grant held by the publishing operator. GLOBAL runs need no tenant grant. */
+  authorizedTenantId?: string | null;
   database?: Database;
   embedder?: Embedder;
   ollamaUrl?: string;
   embeddingBatchSize?: number;
   onProgress?: (progress: ReviewPublicationProgress) => void;
+}
+
+interface OwnershipRecord {
+  visibilityScope: KnowledgeOwnership["visibilityScope"];
+  tenantId: string | null;
+  ownershipManifestId: string | null;
+  ownershipManifestVersion: number | null;
+}
+
+function classifiedOwnership(record: OwnershipRecord): ClassifiedKnowledgeOwnership {
+  const ownership = {
+    visibilityScope: record.visibilityScope,
+    tenantId: record.tenantId,
+    ownershipManifestId: record.ownershipManifestId,
+    ownershipManifestVersion: record.ownershipManifestVersion,
+  } as KnowledgeOwnership;
+  assertClassifiedKnowledgeOwnership(ownership);
+  return ownership;
+}
+
+function sameOwnership(
+  record: OwnershipRecord,
+  ownership: ClassifiedKnowledgeOwnership,
+): boolean {
+  return record.visibilityScope === ownership.visibilityScope
+    && record.tenantId === ownership.tenantId
+    && record.ownershipManifestId === ownership.ownershipManifestId
+    && record.ownershipManifestVersion === ownership.ownershipManifestVersion;
+}
+
+async function assertPublicationOwnership(
+  database: Database,
+  detail: NonNullable<Awaited<ReturnType<typeof getReviewRunDetail>>>,
+  authorizedTenantId: string | null | undefined,
+): Promise<ClassifiedKnowledgeOwnership> {
+  const ownership = classifiedOwnership(detail.run);
+  if (ownership.visibilityScope === "TENANT"
+    && authorizedTenantId !== ownership.tenantId) {
+    throw new Error("Publisher is not authorized for the review run tenant ownership.");
+  }
+  const [source] = detail.run.sourceType === "pdf"
+    ? await database.select({
+        fileHash: documents.fileHash,
+        visibilityScope: documents.visibilityScope,
+        tenantId: documents.tenantId,
+        ownershipManifestId: documents.ownershipManifestId,
+        ownershipManifestVersion: documents.ownershipManifestVersion,
+      }).from(documents).where(eq(documents.id, detail.run.sourceDocumentId))
+    : await database.select({
+        fileHash: htmlDocuments.fileHash,
+        visibilityScope: htmlDocuments.visibilityScope,
+        tenantId: htmlDocuments.tenantId,
+        ownershipManifestId: htmlDocuments.ownershipManifestId,
+        ownershipManifestVersion: htmlDocuments.ownershipManifestVersion,
+      }).from(htmlDocuments).where(eq(htmlDocuments.id, detail.run.sourceDocumentId));
+  if (!source) throw new Error("Typed publication source document not found.");
+  if (!sameOwnership(source, ownership)) {
+    throw new Error("Source document ownership does not match the approved review run.");
+  }
+  if (detail.run.reviewPurpose === "content" && source.fileHash !== detail.run.fileHash) {
+    throw new Error("Source document changed after review staging.");
+  }
+  if (detail.candidates.some((candidate) => !sameOwnership(candidate, ownership))) {
+    throw new Error("Candidate ownership does not match the approved review run.");
+  }
+  return ownership;
 }
 
 function stableUuid(value: string): string {
@@ -65,6 +141,17 @@ function requiredMetadataString(metadata: CandidateChunkMetadata, key: string): 
   const value = metadataString(metadata, key);
   if (!value) throw new Error(`Approved chunk metadata is missing ${key}.`);
   return value;
+}
+
+function embeddingContentType(
+  hasTable: boolean,
+  sourceType: "pdf" | "html",
+  metadata: CandidateChunkMetadata,
+): string {
+  if (hasTable) return "table row";
+  if (sourceType === "html") return "article";
+  if (metadata.documentKind === "FAQ") return "FAQ answer";
+  return "document text";
 }
 
 async function publishApprovedMetadataReview(
@@ -172,6 +259,11 @@ export async function publishApprovedReviewRun(
   if (detail.candidates.length !== detail.run.candidateChunkCount) {
     throw new Error("Approved candidate count changed before embedding.");
   }
+  const ownership = await assertPublicationOwnership(
+    database,
+    detail,
+    options.authorizedTenantId,
+  );
 
   if (detail.run.reviewPurpose === "metadata") {
     return publishApprovedMetadataReview(
@@ -204,14 +296,21 @@ export async function publishApprovedReviewRun(
       chunkIndex: candidate.chunkIndex,
       text: buildContextualEmbeddingText(candidate.text, {
         fund: metadataString(candidate.metadata, "fundName") || null,
-        document: metadataString(candidate.metadata, "documentType", detail.run.sourceName),
+        document: metadataString(
+          candidate.metadata,
+          "documentTitle",
+          metadataString(candidate.metadata, "documentType", detail.run.sourceName),
+        ),
+        publisher: metadataString(candidate.metadata, "publisher") || null,
+        topic: metadataString(candidate.metadata, "topic") || null,
+        question: metadataString(candidate.metadata, "originalQuestion") || null,
         section: candidate.sectionHeader,
         pages: candidate.pageNumbers,
-        contentType: candidate.hasTable
-          ? "table row"
-          : detail.run.sourceType === "html"
-            ? "article"
-            : "document text",
+        contentType: embeddingContentType(
+          candidate.hasTable,
+          detail.run.sourceType,
+          candidate.metadata,
+        ),
       }),
     }));
     const embeddings = await embedder.embedBatch(embeddingInputs, (progress) => {
@@ -240,21 +339,36 @@ export async function publishApprovedReviewRun(
           documentId: detail.run.sourceDocumentId,
           documentFilename: detail.run.sourceName,
           pageNumbers: candidate.pageNumbers,
-          fundName: metadataString(metadata, "fundName"),
-          amcName: metadataString(metadata, "amcName"),
-          schemeType: metadataString(metadata, "schemeType"),
-          schemeCategory: metadataString(metadata, "schemeCategory"),
+          fundName: metadataString(metadata, "fundName") || null,
+          amcName: metadataString(metadata, "amcName") || null,
+          schemeType: metadataString(metadata, "schemeType") || null,
+          schemeCategory: metadataString(metadata, "schemeCategory") || null,
           docType: requiredMetadataString(metadata, "documentType"),
-          documentDate: metadataString(metadata, "documentDate"),
+          documentDate: metadataString(metadata, "documentDate") || null,
           hasTable: candidate.hasTable,
           sectionHeader: candidate.sectionHeader,
-          sebiSchemeId: metadataString(metadata, "sebiSchemeId"),
-          sebiUrl: metadataString(metadata, "sebiUrl"),
+          sebiSchemeId: metadataString(metadata, "sebiSchemeId") || null,
+          sebiUrl: metadataString(metadata, "sebiUrl") || null,
+          documentKind: metadataString(metadata, "documentKind", "scheme"),
+          documentTitle: metadataString(metadata, "documentTitle") || null,
+          publisher: metadataString(metadata, "publisher") || null,
+          sourceUrl: metadataString(metadata, "sourceUrl") || null,
+          sourceDate: metadataString(metadata, "sourceDate") || null,
+          authority: metadataString(metadata, "authority") || null,
+          topic: metadataString(metadata, "topic") || null,
+          questionNumber: metadataString(metadata, "questionNumber") || null,
+          normalizedQuestionKey: metadataString(metadata, "normalizedQuestionKey") || null,
+          originalQuestion: metadataString(metadata, "originalQuestion") || null,
+          continuationIndex: typeof metadata.continuationIndex === "number"
+            ? metadata.continuationIndex
+            : null,
           knowledgeDomain: requiredMetadataString(metadata, "knowledgeDomain"),
           sourceCollection: requiredMetadataString(metadata, "sourceCollection"),
           amcSlug: metadataString(metadata, "amcSlug") || null,
           ingestionRunId: runId,
           publicationStatus: "staged",
+          retrievalMetadata: metadata,
+          ...ownership,
         };
       }));
       await normalizePublishedPageNumbers(database, runId);
@@ -280,6 +394,8 @@ export async function publishApprovedReviewRun(
           amcSlug: metadataString(metadata, "amcSlug") || null,
           ingestionRunId: runId,
           publicationStatus: "staged",
+          retrievalMetadata: metadata,
+          ...ownership,
         };
       }));
     }

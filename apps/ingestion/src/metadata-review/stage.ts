@@ -1,5 +1,9 @@
 import { prepareMiraeSifMetadataReview } from "@mf-rag/core/metadata-review";
 import {
+  assertClassifiedKnowledgeOwnership,
+  type ClassifiedKnowledgeOwnership,
+} from "@mf-rag/types";
+import {
   and,
   chunks,
   db,
@@ -31,6 +35,10 @@ async function loadPublishedMiraeSifChunks(database: Database): Promise<Publishe
       pageNumbers: chunks.pageNumbers,
       hasTable: chunks.hasTable,
       sectionHeader: chunks.sectionHeader,
+      visibilityScope: chunks.visibilityScope,
+      tenantId: chunks.tenantId,
+      ownershipManifestId: chunks.ownershipManifestId,
+      ownershipManifestVersion: chunks.ownershipManifestVersion,
     }).from(chunks).innerJoin(documents, eq(chunks.documentId, documents.id)).where(and(
       eq(chunks.publicationStatus, "published"),
       eq(chunks.sourceCollection, "mirae_sif"),
@@ -44,6 +52,10 @@ async function loadPublishedMiraeSifChunks(database: Database): Promise<Publishe
       text: htmlChunks.text,
       hasTable: htmlChunks.hasTable,
       sectionHeader: htmlChunks.sectionHeading,
+      visibilityScope: htmlChunks.visibilityScope,
+      tenantId: htmlChunks.tenantId,
+      ownershipManifestId: htmlChunks.ownershipManifestId,
+      ownershipManifestVersion: htmlChunks.ownershipManifestVersion,
     }).from(htmlChunks).innerJoin(htmlDocuments, eq(htmlChunks.documentId, htmlDocuments.id)).where(and(
       eq(htmlChunks.publicationStatus, "published"),
       or(
@@ -67,6 +79,20 @@ export async function stageMiraeSifMetadataReviews(
     const first = documentRows[0];
     if (!first) continue;
     const snapshotHash = publishedSourceSnapshotHash(documentRows);
+    const ownership = {
+      visibilityScope: first.visibilityScope,
+      tenantId: first.tenantId,
+      ownershipManifestId: first.ownershipManifestId,
+      ownershipManifestVersion: first.ownershipManifestVersion,
+    } as ClassifiedKnowledgeOwnership;
+    assertClassifiedKnowledgeOwnership(ownership);
+    if (documentRows.some((row) =>
+      row.visibilityScope !== ownership.visibilityScope
+      || row.tenantId !== ownership.tenantId
+      || row.ownershipManifestId !== ownership.ownershipManifestId
+      || row.ownershipManifestVersion !== ownership.ownershipManifestVersion)) {
+      throw new Error("Published source chunk ownership is inconsistent.");
+    }
     // Rejected/failed runs must not block a restage — a rejection is often
     // followed by a classifier fix and a fresh pass over the same snapshot.
     const [existing] = await database.select({ id: ingestionRuns.id }).from(ingestionRuns).where(and(
@@ -102,6 +128,7 @@ export async function stageMiraeSifMetadataReviews(
       fileHash: snapshotHash,
       parserVersion: "metadata-source-v1",
       chunkerVersion: "metadata-preserve-v1",
+      ownership,
       report: {
         inspectorVersion: "mirae-sif-metadata-v1",
         candidateChunkCount: prepared.candidates.length,

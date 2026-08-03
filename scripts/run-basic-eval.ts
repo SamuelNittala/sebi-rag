@@ -24,6 +24,7 @@
  *   --mcp-url <url>       Retrieve via a remote MCP server (streamable HTTP)
  *                         instead of in-process DB access. No local DB needed.
  *   --mcp-api-key <key>   Sent as "Authorization: Bearer <key>" on MCP requests.
+ *   --amc-scope <tenant>   Sent as "X-AMC-Scope" on every MCP request.
  *   --topic <topic>       Pass topic (e.g. "sif") to the MCP tool. Omit to test
  *                         the server's own scope resolution.
  *
@@ -97,6 +98,7 @@ interface CliArgs {
   label?: string;
   mcpUrl?: string;
   mcpApiKey?: string;
+  amcScope?: string;
   topic?: string;
 }
 
@@ -130,13 +132,19 @@ function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i]!;
-    if (token === "--mcp-url" || token === "--mcp-api-key" || token === "--topic") {
+    if (
+      token === "--mcp-url"
+      || token === "--mcp-api-key"
+      || token === "--amc-scope"
+      || token === "--topic"
+    ) {
       const value = argv[++i];
       if (!value || value.startsWith("--")) {
         throw new Error(`Flag ${token} requires a value`);
       }
       if (token === "--mcp-url") args.mcpUrl = value;
       else if (token === "--mcp-api-key") args.mcpApiKey = value;
+      else if (token === "--amc-scope") args.amcScope = value;
       else args.topic = value;
     } else if (token.startsWith("--")) {
       throw new Error(`Unknown flag: ${token}`);
@@ -146,8 +154,8 @@ function parseArgs(argv: string[]): CliArgs {
       throw new Error(`Unexpected argument: ${token}`);
     }
   }
-  if ((args.mcpApiKey || args.topic) && !args.mcpUrl) {
-    throw new Error("--mcp-api-key/--topic require --mcp-url");
+  if ((args.mcpApiKey || args.amcScope || args.topic) && !args.mcpUrl) {
+    throw new Error("--mcp-api-key/--amc-scope/--topic require --mcp-url");
   }
   return args;
 }
@@ -162,12 +170,14 @@ async function createInProcessRetriever(): Promise<Retriever> {
   const { VectorClient } = await import("../packages/vector/src/index.ts");
   const { searchHybridDocuments } = await import("../apps/mcp-server/src/hybrid-search.ts");
   const { resolveRetrievalScope } = await import("../apps/mcp-server/src/retrieval-scope.ts");
+  const { createTenantAccessScope } = await import("../packages/types/src/index.ts");
 
   const embedder = new Embedder({
     baseUrl: config.embedding.baseUrl,
     model: config.embedding.model,
   });
   const vectorClient = new VectorClient();
+  const accessScope = createTenantAccessScope(process.env.AMC_SCOPE ?? "");
 
   return {
     mode: "in-process",
@@ -179,6 +189,7 @@ async function createInProcessRetriever(): Promise<Retriever> {
         testCase.query,
         queryVector,
         {
+          accessScope,
           limit: config.search.defaultLimit,
           scoreThreshold: config.search.scoreThreshold,
           candidateLimit: config.search.candidateLimit,
@@ -222,7 +233,8 @@ async function createInProcessRetriever(): Promise<Retriever> {
  */
 async function createMcpRetriever(
   mcpUrl: string,
-  apiKey?: string,
+  apiKey: string,
+  amcScope: string,
   topic?: string,
 ): Promise<Retriever> {
   const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
@@ -233,12 +245,14 @@ async function createMcpRetriever(
   const url = new URL(mcpUrl);
   if (url.pathname === "/" || url.pathname === "") url.pathname = "/mcp";
 
-  const transport = new StreamableHTTPClientTransport(
-    url,
-    apiKey
-      ? { requestInit: { headers: { Authorization: `Bearer ${apiKey}` } } }
-      : undefined,
-  );
+  const transport = new StreamableHTTPClientTransport(url, {
+    requestInit: {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "X-AMC-Scope": amcScope,
+      },
+    },
+  });
   const client = new Client({ name: "run-basic-eval", version: "0.1.0" });
   await client.connect(transport);
 
@@ -479,6 +493,14 @@ function mdEscape(text: string): string {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+  args.mcpApiKey ??= process.env.MF_RAG_API_KEY;
+  args.amcScope ??= process.env.AMC_SCOPE;
+  if (args.mcpUrl && (!args.mcpApiKey || !args.amcScope)) {
+    throw new Error(
+      "Remote MCP evaluation requires MF_RAG_API_KEY and AMC_SCOPE "
+      + "(or --mcp-api-key and --amc-scope).",
+    );
+  }
 
   const goldenSetPath = new URL("../tests/retrieval/sif-golden-set.json", import.meta.url).pathname;
   const goldenSet = (await Bun.file(goldenSetPath).json()) as {
@@ -487,7 +509,12 @@ async function main(): Promise<void> {
   };
 
   const retriever = args.mcpUrl
-    ? await createMcpRetriever(args.mcpUrl, args.mcpApiKey, args.topic)
+    ? await createMcpRetriever(
+        args.mcpUrl,
+        args.mcpApiKey!,
+        args.amcScope!,
+        args.topic,
+      )
     : await createInProcessRetriever();
 
   console.log(`Running basic eval: ${goldenSet.cases.length} cases (golden set ${goldenSet.version})`);

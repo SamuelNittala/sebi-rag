@@ -7,7 +7,12 @@
  */
 
 import { db } from "@mf-rag/db/client";
-import { apiKeys, usageRecords } from "@mf-rag/db/schema";
+import { createHash } from "node:crypto";
+import {
+  apiKeys,
+  apiKeyTenantScopes,
+  usageRecords,
+} from "@mf-rag/db/schema";
 import { eq, and, gte, count, sql } from "drizzle-orm";
 import type { ApiKey, UsageRecord } from "@mf-rag/db/schema";
 
@@ -51,6 +56,11 @@ export interface RateLimitResult {
   reason?: string;
 }
 
+export interface RateLimitSubject {
+  readonly id: string;
+  readonly tier: string;
+}
+
 /** Error thrown when rate limit is exceeded. */
 export class RateLimitError extends Error {
   constructor(
@@ -77,8 +87,48 @@ export class ApiKeyError extends Error {
  * Rate limiter class for managing API usage.
  */
 export class RateLimiter {
-  private apiKeyCache: Map<string, { key: ApiKey; cachedAt: number }> = new Map();
-  private readonly cacheMaxAge = 60000; // 1 minute cache
+  /**
+   * Authenticate a credential and authorize one exact tenant grant.
+   * The lookup is intentionally uncached so deactivation and grant removal
+   * take effect on the next request.
+   */
+  async authorize(credential: string, tenantId: string): Promise<
+    | { decision: "authorized"; keyId: string; keyTier: string }
+    | {
+        decision:
+          | "invalid_credential"
+          | "inactive_credential"
+          | "unauthorized_scope";
+      }
+  > {
+    const fingerprint = this.fingerprint(credential);
+    const [record] = await db
+      .select({
+        apiKey: apiKeys,
+        grantedTenantId: apiKeyTenantScopes.tenantId,
+      })
+      .from(apiKeys)
+      .leftJoin(
+        apiKeyTenantScopes,
+        and(
+          eq(apiKeyTenantScopes.apiKeyId, apiKeys.id),
+          eq(apiKeyTenantScopes.tenantId, tenantId),
+        ),
+      )
+      .where(eq(apiKeys.keyFingerprint, fingerprint))
+      .limit(1);
+
+    if (!record) return { decision: "invalid_credential" };
+    if (!record.apiKey.isActive) return { decision: "inactive_credential" };
+    if (record.grantedTenantId !== tenantId) {
+      return { decision: "unauthorized_scope" };
+    }
+    return {
+      decision: "authorized",
+      keyId: record.apiKey.id,
+      keyTier: record.apiKey.tier,
+    };
+  }
 
   /**
    * Validate an API key.
@@ -95,23 +145,11 @@ export class RateLimiter {
       );
     }
 
-    // Check cache first
-    const cached = this.apiKeyCache.get(key);
-    if (cached && Date.now() - cached.cachedAt < this.cacheMaxAge) {
-      if (!cached.key.isActive) {
-        throw new ApiKeyError(
-          "API key is inactive. Contact support for assistance.",
-          "inactive"
-        );
-      }
-      return cached.key;
-    }
-
-    // Lookup in database
+    const fingerprint = this.fingerprint(key);
     const [apiKey] = await db
       .select()
       .from(apiKeys)
-      .where(eq(apiKeys.key, key))
+      .where(eq(apiKeys.keyFingerprint, fingerprint))
       .limit(1);
 
     if (!apiKey) {
@@ -120,9 +158,6 @@ export class RateLimiter {
         "invalid"
       );
     }
-
-    // Cache the key
-    this.apiKeyCache.set(key, { key: apiKey, cachedAt: Date.now() });
 
     if (!apiKey.isActive) {
       throw new ApiKeyError(
@@ -140,7 +175,7 @@ export class RateLimiter {
    * @param apiKey - Validated API key record
    * @returns RateLimitResult with current limits and remaining quota
    */
-  async checkLimits(apiKey: ApiKey): Promise<RateLimitResult> {
+  async checkLimits(apiKey: RateLimitSubject): Promise<RateLimitResult> {
     const limits = RATE_LIMITS[apiKey.tier] ?? RATE_LIMITS.free;
     const now = new Date();
 
@@ -195,7 +230,7 @@ export class RateLimiter {
    * @param apiKey - Validated API key record
    * @throws RateLimitError if any limit is exceeded
    */
-  async enforceLimit(apiKey: ApiKey): Promise<RateLimitResult> {
+  async enforceLimit(apiKey: RateLimitSubject): Promise<RateLimitResult> {
     const result = await this.checkLimits(apiKey);
 
     if (!result.allowed) {
@@ -219,6 +254,12 @@ export class RateLimiter {
       queryHash?: string;
       responseTimeMs?: number;
       chunksRetrieved?: number;
+      correlationId?: string;
+      tenantId?: string;
+      operation?: string;
+      decision?: string;
+      reasonCode?: string;
+      resultCount?: number;
     }
   ): Promise<void> {
     await db.insert(usageRecords).values({
@@ -227,6 +268,12 @@ export class RateLimiter {
       queryHash: options?.queryHash,
       responseTimeMs: options?.responseTimeMs,
       chunksRetrieved: options?.chunksRetrieved,
+      correlationId: options?.correlationId,
+      tenantId: options?.tenantId,
+      operation: options?.operation,
+      decision: options?.decision,
+      reasonCode: options?.reasonCode,
+      resultCount: options?.resultCount,
     });
   }
 
@@ -293,7 +340,7 @@ export class RateLimiter {
     const key = `mf_${tier}_${randomPart}`;
 
     await db.insert(apiKeys).values({
-      key,
+      keyFingerprint: this.fingerprint(key),
       tier,
       name: options?.name,
       email: options?.email,
@@ -311,10 +358,11 @@ export class RateLimiter {
     await db
       .update(apiKeys)
       .set({ isActive: false })
-      .where(eq(apiKeys.key, key));
+      .where(eq(apiKeys.keyFingerprint, this.fingerprint(key)));
+  }
 
-    // Invalidate cache
-    this.apiKeyCache.delete(key);
+  private fingerprint(key: string): string {
+    return createHash("sha256").update(key).digest("hex");
   }
 }
 

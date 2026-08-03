@@ -1,0 +1,207 @@
+# Docker-only local development
+
+Docker Compose is the only supported local execution path. Do not run Bun,
+Ollama, the MCP server, migrations, tests, ingestion, publication, or
+evaluations directly on the host. This workflow does not use SSH or a remote
+database.
+
+## Configure
+
+```bash
+cp .env.example .env
+```
+
+Replace `MF_RAG_API_KEY`, `AMC_SCOPE`, and the review credentials in `.env`.
+The Compose configuration fails before startup when any required value is
+missing. The local credential is stored in PostgreSQL only as a SHA-256
+fingerprint and is granted only the configured scope.
+
+Use this command prefix for every task:
+
+```bash
+docker compose --env-file .env -f docker/docker-compose.dev.yml
+```
+
+## Database-only tasks
+
+These commands do not start or download Ollama or the reranker.
+
+```bash
+# Rebuild the runner image.
+docker compose --env-file .env -f docker/docker-compose.dev.yml build runner
+
+# Start a clean database and apply every migration.
+docker compose --env-file .env -f docker/docker-compose.dev.yml down --volumes
+docker compose --env-file .env -f docker/docker-compose.dev.yml up -d --wait postgres
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm migrate
+
+# Run type checking, all tests, or the tenant-isolation suite in the runner.
+# The runner retains the development DATABASE_URL for operational commands.
+# Integration tests select the separately migrated TEST_DATABASE_URL, so they
+# cannot delete or truncate the development corpus in `postgres`.
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner x tsc --noEmit
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner test
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm \
+  --entrypoint sh runner -ceu '
+    bun test apps/mcp-server/src/request-context.test.ts
+    bun test packages/core/src/rate-limiter/auth.integration.test.ts
+    bun test packages/vector/src/tenant-scope.integration.test.ts
+  '
+```
+
+## Production ownership cutover gate
+
+This is a release procedure, not a local-development command. Run it only from
+Docker containers using the immutable release image and deployment-managed
+`DATABASE_URL`; do not paste production connection strings or credentials into
+shell history. Scoped readers must remain disabled until every command below
+has succeeded.
+
+1. Run the release migration job. Confirm that migration `0011_tenant_ownership_expand`
+   completed before continuing; later additive migrations may complete in the
+   same job.
+
+```bash
+docker run --rm \
+  --env-file /run/secrets/mf-rag-release.env \
+  mf-rag-release:<immutable-image> \
+  bun run db:migrate
+```
+
+2. Mount the human-approved ownership manifest read-only and dry-run it before
+   applying it. The apply command classifies only `UNCLASSIFIED` rows under its
+   maintenance lock and is idempotent for the same approved manifest.
+
+```bash
+docker run --rm \
+  --env-file /run/secrets/mf-rag-release.env \
+  -v /run/approvals/tenant-ownership-manifest.json:/run/approved-manifest.json:ro \
+  mf-rag-release:<immutable-image> \
+  bun scripts/audit-tenant-ownership.ts --manifest /run/approved-manifest.json
+
+docker run --rm \
+  --env-file /run/secrets/mf-rag-release.env \
+  -v /run/approvals/tenant-ownership-manifest.json:/run/approved-manifest.json:ro \
+  mf-rag-release:<immutable-image> \
+  bun scripts/audit-tenant-ownership.ts --manifest /run/approved-manifest.json --apply
+```
+
+3. Run the production-only index and verification script from a PostgreSQL
+   client container. It uses `CREATE INDEX CONCURRENTLY IF NOT EXISTS`, checks
+   all four index names through `pg_indexes`, and aborts unless both published
+   `UNCLASSIFIED` chunk counts and BM25 rows joined to them are zero. Do not use
+   `psql -1` or any transaction wrapper for this command.
+
+```bash
+docker run --rm \
+  --env-file /run/secrets/mf-rag-release.env \
+  -v /opt/mf-rag/release/scripts/production-tenant-cutover.sql:/cutover.sql:ro \
+  postgres:16 \
+  sh -ceu 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /cutover.sql'
+```
+
+The final query output must report zero for
+`published_unclassified_chunks` and
+`bm25_rows_joined_to_published_unclassified_chunks`; otherwise stop the
+release and do not enable scoped retrieval. The SQL is intentionally outside
+Drizzle's transactional migrations so index creation does not block writers.
+
+## Full local stack
+
+The first startup downloads `bge-m3` and the configured reranker model into
+named Docker volumes. Later starts reuse those volumes.
+
+```bash
+docker compose --env-file .env -f docker/docker-compose.dev.yml up -d --build --wait
+docker compose --env-file .env -f docker/docker-compose.dev.yml ps
+docker compose --env-file .env -f docker/docker-compose.dev.yml logs mcp-server review-api
+```
+
+Open <http://127.0.0.1:3000/review>. The review API calls MCP over the Compose
+network with the server-side credential and exact `AMC_SCOPE`; neither value is
+accepted from a review query.
+
+## Named workflow tasks
+
+All paths are container paths under the repository mounted at `/app`.
+Downloaded PDFs, scraper state, and generated previews belong under `data/`,
+whose runtime directories are ignored by Git.
+
+```bash
+# Source download
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner \
+  run apps/scraper/src/index.ts download
+
+# Parse and stage a source for review
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner \
+  run apps/ingestion/src/index.ts data/pdfs/<source>.pdf \
+  --visibility-scope GLOBAL \
+  --ownership-manifest-id <trusted-manifest-id> \
+  --ownership-manifest-version <positive-version>
+
+# For tenant-owned material, use TENANT; ownership is bound to the runner's
+# protected AMC_SCOPE and no tenant CLI argument is accepted.
+
+# Publish an already approved review run
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner \
+  run review:publish <review-run-id> --actor <reviewer-name>
+
+# Retrieval evaluation through authenticated MCP
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner \
+  --entrypoint sh -lc 'bun run eval:basic docker-local \
+  --mcp-url http://mcp-server:3001/mcp \
+  --mcp-api-key "$MF_RAG_API_KEY" --amc-scope "$AMC_SCOPE"'
+
+# Deterministic evaluator-contract smoke test (no corpus or embeddings needed)
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner \
+  run retrieval:evaluate-general-mf-faq --mode=replay
+
+# Actual published-corpus gate (both approved FAQ sources and Ollama required)
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner \
+  run retrieval:evaluate-general-mf-faq
+```
+
+The evaluation expands both values inside the runner, so the bearer does not
+enter shell history. Never use a real production credential locally.
+Application security logs are structured records containing correlation ID,
+internal key ID, authorized tenant, operation, decision, reason, and result
+count. They must not contain bearer values, authorization headers, connection
+strings, or raw questions.
+
+Replay mode proves the evaluator contract; it is not retrieval-quality
+evidence. Live mode is the corpus gate. The checked-in thresholds require 100%
+top-three relevance for SIP, NAV, KYC, tax, nomination, and process; complete
+generic citations; SIF exclusion; lexical participation; identical global FAQ
+IDs for tenant A and B; and no repeated normalized question above half the
+result set. The report records missing authority, stale sources, and
+cross-authority conflicts.
+
+The report keeps investor-agent parity marked unmet until the
+[external MCP contract](../contracts/investor-agent-mcp-transport.md) checklist
+is complete.
+
+## Fail-closed checks
+
+```bash
+# Must fail configuration with a clear missing-secret error.
+env -u MF_RAG_API_KEY docker compose --env-file /dev/null \
+  -f docker/docker-compose.dev.yml config
+
+# A request without both headers must fail before MCP dispatch.
+docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm runner \
+  -e "const r=await fetch('http://mcp-server:3001/mcp'); console.log(r.status); process.exit(r.status===400?0:1)"
+```
+
+Do not activate this boundary in production until every MCP client, including
+investor-agent and the in-repo review client, sends a protected bearer
+credential and a static canonical `AMC_SCOPE`. There is no absent-scope
+compatibility mode and no permitted rollback to an unscoped reader.
+
+## Stop or reset
+
+```bash
+docker compose --env-file .env -f docker/docker-compose.dev.yml down
+docker compose --env-file .env -f docker/docker-compose.dev.yml down --volumes
+```
+
+The second command deletes only this Compose project's local named volumes.
