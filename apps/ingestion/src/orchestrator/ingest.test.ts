@@ -340,7 +340,9 @@ describe("Configuration defaults", () => {
   test("uses default Ollama URL when not specified", async () => {
     const { DEFAULT_INGEST_CONFIG } = await import("./ingest.ts");
 
-    expect(DEFAULT_INGEST_CONFIG.ollamaUrl).toBe("http://localhost:11434");
+    expect(DEFAULT_INGEST_CONFIG.ollamaUrl).toBe(
+      process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
+    );
   });
 
   test("uses default batch size when not specified", async () => {

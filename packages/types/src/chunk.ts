@@ -32,6 +32,7 @@ export interface Chunk {
 }
 
 import type { CandidateChunkMetadata } from "./chunk-review.ts";
+import type { KnowledgeDomain, SourceCollection } from "./knowledge-scope.ts";
 
 export interface ChunkPayload {
   text: string;
@@ -63,8 +64,8 @@ export interface ChunkPayload {
   normalized_question_key?: string | null;
   original_question?: string | null;
   continuation_index?: number | null;
-  knowledge_domain?: "mutual_fund" | "sif";
-  source_collection?: "default_corpus" | "mirae_sif" | "sebi_regulatory" | "general_mf_faq";
+  knowledge_domain?: KnowledgeDomain;
+  source_collection?: SourceCollection;
   amc_slug?: string | null;
   ingestion_run_id?: string | null;
   publication_status?: "staged" | "published" | "retired";

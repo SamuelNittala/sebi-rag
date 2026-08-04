@@ -17,6 +17,8 @@ export * from "./orchestrator/index.ts";
 export * from "./parsers/index.ts";
 export * from "./chunkers/index.ts";
 export * from "./metadata/index.ts";
+export * from "./stages/parse-pdf-stage.ts";
+export * from "./stages/chunk-inspect-stage.ts";
 
 // Re-export embedding module with renamed ProgressCallback to avoid conflict
 export {

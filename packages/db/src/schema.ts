@@ -475,13 +475,27 @@ export const ingestionRuns = pgTable(
     /** Required by the scheduled pipeline; nullable for legacy/manual review runs. */
     documentVersionId: uuid("document_version_id")
       .references((): AnyPgColumn => documentVersions.id, { onDelete: "set null" }),
+    pipelineRunId: uuid("pipeline_run_id")
+      .references((): AnyPgColumn => pipelineRuns.id, { onDelete: "set null" }),
+    configRevisionId: uuid("config_revision_id")
+      .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
     ...ownershipColumns(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
     index("ingestion_runs_source_document_idx").on(table.sourceType, table.sourceDocumentId),
+    uniqueIndex("ingestion_runs_version_implementation_uidx")
+      .on(
+        table.documentVersionId,
+        table.configRevisionId,
+        table.parserVersion,
+        table.chunkerVersion,
+        table.inspectorVersion,
+      )
+      .where(sql`${table.documentVersionId} IS NOT NULL`),
     index("ingestion_runs_status_idx").on(table.status),
+    index("ingestion_runs_pipeline_run_idx").on(table.pipelineRunId),
     index("ingestion_runs_created_at_idx").on(table.createdAt),
     check("ingestion_runs_ownership_invariant_ck", ownershipInvariant),
   ],
@@ -907,6 +921,9 @@ export const documentVersions = pgTable(
     rawArtifactId: uuid("raw_artifact_id")
       .notNull()
       .references(() => artifacts.id, { onDelete: "restrict" }),
+    /** Immutable desired-state lineage for scheduled acquisition; legacy imports remain null. */
+    configRevisionId: uuid("config_revision_id")
+      .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
     etag: varchar("etag", { length: 1000 }),
     lastModified: varchar("last_modified", { length: 1000 }),
     observedAt: timestamp("observed_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
@@ -918,6 +935,7 @@ export const documentVersions = pgTable(
     uniqueIndex("document_versions_document_sequence_uidx").on(table.sourceDocumentId, table.sequence),
     uniqueIndex("document_versions_id_source_scope_uidx").on(table.id, table.sourceId, table.accessScopeId),
     index("document_versions_scope_source_idx").on(table.accessScopeId, table.sourceId),
+    index("document_versions_config_revision_idx").on(table.configRevisionId),
     check("document_versions_sequence_ck", sql`${table.sequence} > 0`),
     check("document_versions_sha256_ck", sql`${table.contentSha256} ~ '^[0-9a-f]{64}$'`),
     foreignKey({
@@ -1008,6 +1026,9 @@ export const pipelineRuns = pgTable(
       .notNull()
       .references(() => sources.id, { onDelete: "restrict" }),
     implementationVersion: varchar("implementation_version", { length: 255 }).notNull(),
+    /** Immutable registry snapshot used to derive ownership/classification for this run. */
+    configRevisionId: uuid("config_revision_id")
+      .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
     initialStage: varchar("initial_stage", { length: 50 }).notNull().$type<DocumentPipelineStage>(),
     initialStageImplementationVersion: varchar("initial_stage_implementation_version", { length: 255 }).notNull(),
     initialInputChecksum: varchar("initial_input_checksum", { length: 64 }).notNull(),
@@ -1024,6 +1045,7 @@ export const pipelineRuns = pgTable(
     uniqueIndex("pipeline_runs_id_version_source_scope_uidx")
       .on(table.id, table.documentVersionId, table.sourceId, table.accessScopeId),
     index("pipeline_runs_scope_status_idx").on(table.accessScopeId, table.status),
+    index("pipeline_runs_config_revision_idx").on(table.configRevisionId),
     check("pipeline_runs_status_ck", sql`${table.status} IN ('active', 'succeeded', 'failed', 'cancelled')`),
     check("pipeline_runs_initial_input_checksum_ck", sql`${table.initialInputChecksum} ~ '^[0-9a-f]{64}$'`),
     check("pipeline_runs_initial_max_attempts_ck", sql`${table.initialMaxAttempts} > 0`),

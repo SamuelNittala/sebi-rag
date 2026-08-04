@@ -11,3 +11,5 @@ export * from "./connectors/source-connector.ts";
 export * from "./connectors/website-pdf-connector.ts";
 export * from "./stages/discover-source.ts";
 export * from "./stages/fetch-document.ts";
+export * from "./stages/parse-document.ts";
+export * from "./stages/chunk-inspect-document.ts";

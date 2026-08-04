@@ -14,16 +14,22 @@ import {
 
 import type { Database } from "./client.ts";
 import {
+  accessScopes,
   chunkCandidates,
   chunkCandidateEdits,
   chunkFlags,
   chunkSearchDocuments,
   chunks,
+  documentVersions,
   documents,
   htmlChunks,
   htmlChunkSearchDocuments,
   htmlDocuments,
   ingestionRuns,
+  pipelineRuns,
+  sourceDocuments,
+  sourceRegistryRevisions,
+  sources,
   reviewEvents,
   type IngestionRun,
   type NewChunkCandidate,
@@ -53,6 +59,10 @@ export interface StageInspectionReviewInput {
   sourceType: ReviewSourceType;
   reviewPurpose?: ReviewPurpose;
   sourceDocumentId: string;
+  /** Scheduled pipeline lineage. Legacy/manual review staging leaves both fields unset. */
+  documentVersionId?: string;
+  configRevisionId?: string;
+  pipelineRunId?: string;
   sourceName: string;
   sourceLocation?: string | null;
   fileHash: string;
@@ -362,14 +372,63 @@ function classifiedOwnershipFromRecord(record: OwnershipRecord): ClassifiedKnowl
 
 async function lockReviewSource(
   tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
-  sourceType: ReviewSourceType,
-  sourceDocumentId: string,
+  input: Pick<StageInspectionReviewInput,
+    "sourceType" | "sourceDocumentId" | "documentVersionId" | "configRevisionId" | "pipelineRunId" | "ownership"
+  >,
 ): Promise<(OwnershipRecord & { fileHash: string }) | undefined> {
-  if (sourceType === "pdf") {
+  const scheduledFields = [input.documentVersionId, input.configRevisionId, input.pipelineRunId];
+  if (scheduledFields.some(Boolean)) {
+    if (input.sourceType !== "pdf" || scheduledFields.some((value) => !value)) {
+      throw new Error("Scheduled PDF review requires pipeline-run, document-version, and configuration-revision lineage.");
+    }
+    await tx.execute(sql`
+      SELECT ${documentVersions.id}
+      FROM ${documentVersions}
+      WHERE ${documentVersions.id} = ${input.documentVersionId}
+      FOR UPDATE
+    `);
+    const [row] = await tx.select({
+      version: documentVersions,
+      document: sourceDocuments,
+      source: sources,
+      scope: accessScopes,
+      pipelineRun: pipelineRuns,
+      revision: sourceRegistryRevisions,
+    }).from(documentVersions)
+      .innerJoin(sourceDocuments, eq(sourceDocuments.id, documentVersions.sourceDocumentId))
+      .innerJoin(sources, eq(sources.id, documentVersions.sourceId))
+      .innerJoin(accessScopes, eq(accessScopes.id, documentVersions.accessScopeId))
+      .innerJoin(pipelineRuns, eq(pipelineRuns.id, input.pipelineRunId!))
+      .innerJoin(sourceRegistryRevisions, eq(sourceRegistryRevisions.id, pipelineRuns.configRevisionId))
+      .where(and(
+        eq(documentVersions.id, input.documentVersionId!),
+        eq(sourceDocuments.id, input.sourceDocumentId),
+        eq(pipelineRuns.documentVersionId, documentVersions.id),
+        eq(pipelineRuns.sourceId, documentVersions.sourceId),
+        eq(pipelineRuns.accessScopeId, documentVersions.accessScopeId),
+        eq(pipelineRuns.configRevisionId, input.configRevisionId!),
+      )).limit(1);
+    if (!row) return undefined;
+    const desiredScope = row.revision.desiredState.accessScopes.find((scope) =>
+      String(scope.accessScopeKey) === row.scope.accessScopeKey);
+    const desiredSource = desiredScope?.sources.find((source) =>
+      String(source.sourceKey) === row.source.sourceKey);
+    if (!desiredScope || !desiredSource) {
+      throw new Error("Scheduled review ownership is absent from the immutable registry revision.");
+    }
+    return {
+      fileHash: row.version.contentSha256,
+      visibilityScope: "TENANT",
+      tenantId: String(desiredScope.externalCode),
+      ownershipManifestId: `source-registry:${row.revision.id}`,
+      ownershipManifestVersion: 1,
+    };
+  }
+  if (input.sourceType === "pdf") {
     await tx.execute(sql`
       SELECT ${documents.id}
       FROM ${documents}
-      WHERE ${documents.id} = ${sourceDocumentId}
+      WHERE ${documents.id} = ${input.sourceDocumentId}
       FOR UPDATE
     `);
     const [source] = await tx.select({
@@ -378,13 +437,13 @@ async function lockReviewSource(
       tenantId: documents.tenantId,
       ownershipManifestId: documents.ownershipManifestId,
       ownershipManifestVersion: documents.ownershipManifestVersion,
-    }).from(documents).where(eq(documents.id, sourceDocumentId));
+    }).from(documents).where(eq(documents.id, input.sourceDocumentId));
     return source;
   }
   await tx.execute(sql`
     SELECT ${htmlDocuments.id}
     FROM ${htmlDocuments}
-    WHERE ${htmlDocuments.id} = ${sourceDocumentId}
+    WHERE ${htmlDocuments.id} = ${input.sourceDocumentId}
     FOR UPDATE
   `);
   const [source] = await tx.select({
@@ -393,7 +452,7 @@ async function lockReviewSource(
     tenantId: htmlDocuments.tenantId,
     ownershipManifestId: htmlDocuments.ownershipManifestId,
     ownershipManifestVersion: htmlDocuments.ownershipManifestVersion,
-  }).from(htmlDocuments).where(eq(htmlDocuments.id, sourceDocumentId));
+  }).from(htmlDocuments).where(eq(htmlDocuments.id, input.sourceDocumentId));
   return source;
 }
 
@@ -420,7 +479,7 @@ export async function stageInspectionReview(
   }
 
   return db.transaction(async (tx) => {
-    const source = await lockReviewSource(tx, input.sourceType, input.sourceDocumentId);
+    const source = await lockReviewSource(tx, input);
     if (!source) throw new Error("Typed review source document not found.");
     const sourceOwnership = classifiedOwnershipFromRecord(source);
     if (!ownershipMatches(sourceOwnership, input.ownership)) {
@@ -428,6 +487,43 @@ export async function stageInspectionReview(
     }
     if ((input.reviewPurpose ?? "content") === "content" && source.fileHash !== input.fileHash) {
       throw new Error("Source document changed before review staging.");
+    }
+
+    if (input.documentVersionId) {
+      const [compatible] = await tx.select().from(ingestionRuns).where(and(
+        eq(ingestionRuns.documentVersionId, input.documentVersionId),
+        eq(ingestionRuns.configRevisionId, input.configRevisionId!),
+        eq(ingestionRuns.parserVersion, input.parserVersion),
+        eq(ingestionRuns.chunkerVersion, input.chunkerVersion),
+        eq(ingestionRuns.inspectorVersion, input.report.inspectorVersion),
+      )).limit(1);
+      if (compatible) {
+        const persistedCandidates = await tx.select({
+          chunkIndex: chunkCandidates.chunkIndex,
+          contentHash: chunkCandidates.contentHash,
+        }).from(chunkCandidates)
+          .where(eq(chunkCandidates.ingestionRunId, compatible.id))
+          .orderBy(asc(chunkCandidates.chunkIndex));
+        const proposedCandidates = [...input.candidates]
+          .sort((left, right) => left.chunkIndex - right.chunkIndex);
+        const candidateContentMatches = persistedCandidates.length === input.candidates.length
+          && persistedCandidates.every((candidate, index) => {
+            const proposed = proposedCandidates[index];
+            return proposed?.chunkIndex === candidate.chunkIndex
+              && proposed.contentHash === candidate.contentHash;
+          });
+        if (compatible.sourceDocumentId !== input.sourceDocumentId
+          || compatible.fileHash !== input.fileHash
+          || compatible.candidateChunkCount !== input.candidates.length
+          || compatible.inspectedChunkCount !== input.report.inspectedChunkCount
+          || compatible.criticalCount !== input.report.criticalCount
+          || compatible.blockingCount !== input.report.blockingCount
+          || !candidateContentMatches
+          || !ownershipMatches(compatible, input.ownership)) {
+          throw new Error("Compatible scheduled review lineage conflicts with the staged candidate contract.");
+        }
+        return compatible;
+      }
     }
 
     const crossRunWarnings = await crossRunFaqWarnings(
@@ -460,6 +556,9 @@ export async function stageInspectionReview(
       criticalCount: input.report.criticalCount,
       warningCount: input.report.warningCount + crossRunWarnings.length,
       blockingCount: input.report.blockingCount,
+      documentVersionId: input.documentVersionId ?? null,
+      pipelineRunId: input.pipelineRunId ?? null,
+      configRevisionId: input.configRevisionId ?? null,
       ...input.ownership,
     }).returning();
     if (!run) throw new Error("Failed to create ingestion review run.");
@@ -799,7 +898,14 @@ export async function approveReviewRun(
     } catch {
       reasons.push("Review run ownership is missing or unclassified.");
     }
-    const source = await lockReviewSource(tx, run.sourceType, run.sourceDocumentId);
+    const source = runOwnership ? await lockReviewSource(tx, {
+      sourceType: run.sourceType,
+      sourceDocumentId: run.sourceDocumentId,
+      documentVersionId: run.documentVersionId ?? undefined,
+      pipelineRunId: run.pipelineRunId ?? undefined,
+      configRevisionId: run.configRevisionId ?? undefined,
+      ownership: runOwnership,
+    }) : undefined;
     if (!source) {
       reasons.push("Typed review source document not found.");
     } else if (runOwnership && !ownershipMatches(source, runOwnership)) {
@@ -929,7 +1035,14 @@ export async function publishReviewRun(
       throw new Error("Only a fully staged review run can be published.");
     }
     const ownership = classifiedOwnershipFromRecord(run);
-    const source = await lockReviewSource(tx, run.sourceType, run.sourceDocumentId);
+    const source = await lockReviewSource(tx, {
+      sourceType: run.sourceType,
+      sourceDocumentId: run.sourceDocumentId,
+      documentVersionId: run.documentVersionId ?? undefined,
+      pipelineRunId: run.pipelineRunId ?? undefined,
+      configRevisionId: run.configRevisionId ?? undefined,
+      ownership,
+    });
     if (!source) throw new Error("Typed publication source document not found.");
     if (!ownershipMatches(source, ownership)) {
       throw new Error("Source document ownership does not match the staged review run.");

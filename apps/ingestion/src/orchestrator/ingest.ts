@@ -24,18 +24,14 @@ import { parsePDF, type ParsedPDF } from "../parsers/pdf-parser.ts";
 import { extractTables, type TableExtractionResult } from "../parsers/table-parser.ts";
 
 // Chunker
-import { semanticChunk, type ChunkInput, type Chunk, type ChunkResult } from "../chunkers/semantic-chunker.ts";
-import { chunkAddendum } from "../chunkers/addendum-chunker.ts";
-import { removeDisposableSifChunks } from "../chunkers/disposable-content.ts";
-
-// Metadata extractor
-import { extractMetadata, type ExtractedMetadata, type DocType } from "../metadata/extractor.ts";
+import type { Chunk } from "../chunkers/semantic-chunker.ts";
+import type { DocType } from "../metadata/extractor.ts";
 import { resolveKnowledgeScope } from "../metadata/knowledge-scope.ts";
-import { prepareChunkReview } from "../review/review-preparation.ts";
 import {
-  classifyDocumentScope,
   strategyIdForScope,
 } from "../review/review-metadata.ts";
+import { normalizeParseArtifact } from "../stages/parse-pdf-stage.ts";
+import { extractPdfMetadata, preparePdfChunkInspection } from "../stages/chunk-inspect-stage.ts";
 
 // Embedder
 import { createEmbedder, type Embedder, type EmbeddingInput } from "../embedding/embedder.ts";
@@ -266,104 +262,45 @@ export async function ingestDocument(
     // --- STAGE 2: Chunking ---
     onProgress?.({ stage: "chunking", detail: "Creating semantic chunks", percentage: 30 });
 
-    // Prepare chunk input
-    const chunkInput: ChunkInput = {
-      pages: parsedPdf.pages.map((p) => ({
-        pageNumber: p.pageNumber,
-        text: p.text,
-      })),
-      tables: tableResult.tables.map((t) => ({
-        pageNumber: t.page,
-        markdown: t.markdown,
-      })),
-    };
-
-    let chunkResult: ChunkResult = semanticChunk(chunkInput);
-
-    if (chunkResult.chunks.length === 0) {
-      await updateDocumentStatus(db, documentId, "failed", "No content extracted from PDF");
-      return {
-        documentId,
-        filename,
-        status: "failed",
-        error: "No content extracted from PDF",
-        duration: Date.now() - startTime,
-      };
-    }
-
-    // --- STAGE 3: Metadata ---
+    // --- STAGE 3: Metadata, chunking, and universal inspection preparation ---
     onProgress?.({ stage: "metadata", detail: "Extracting document metadata", percentage: 40 });
-
-    // Get first few pages text for metadata extraction
     const firstPagesText = parsedPdf.pages
       .slice(0, 3)
       .map((p) => p.text)
       .join("\n\n");
-
-    const metadata: ExtractedMetadata = extractMetadata({
-      filename,
-      filepath: resolve(filepath),
-      firstPageText: firstPagesText,
-      fullText: parsedPdf.rawText,
-    });
-    let chunkerVersion = "semantic-v1";
-    if (metadata.docType === "Addendum") {
-      const addendumChunks = metadata.fundName
-        && metadata.amendmentNumber
-        && metadata.effectiveDate
-        ? chunkAddendum({
-            pages: parsedPdf.pages,
-            fundName: metadata.fundName,
-            amendmentNumber: metadata.amendmentNumber,
-            effectiveDate: metadata.effectiveDate.toISOString().slice(0, 10),
-            amendedDocumentTypes: metadata.amendedDocumentTypes,
-          })
-        : null;
-      if (!addendumChunks) {
-        const error = "Addendum provisions could not be paired unambiguously";
-        await updateDocumentStatus(db, documentId, "failed", error);
-        return {
-          documentId,
-          filename,
-          status: "failed",
-          error,
-          duration: Date.now() - startTime,
-        };
-      }
-      chunkResult = addendumChunks;
-      chunkerVersion = "addendum-v1";
-    }
     const sourceUrl = fullConfig.sourceUrl ?? resolve(filepath);
+    const normalizedParse = normalizeParseArtifact({
+      documentVersionId: `legacy:${fileHash}`,
+      filename,
+      canonicalUrl: sourceUrl,
+      rawArtifact: { sha256: fileHash, byteSize: file.size },
+      parsedPdf,
+      tableResult,
+      parserVersion: "unpdf-v1",
+      tableExtractorVersion: "pdfplumber-v1",
+    });
+    const extractedMetadata = extractPdfMetadata(normalizedParse, resolve(filepath));
     const knowledgeScope = fullConfig.knowledgeScope ?? resolveKnowledgeScope({
       source: "pdf",
       sourceUrl,
-      title: `${metadata.fundName ?? ""} ${firstPagesText.slice(0, 1500)}`,
+      title: `${extractedMetadata.fundName ?? ""} ${firstPagesText.slice(0, 1500)}`,
     });
-    const documentScope = classifyDocumentScope({
-      filename,
-      documentType: metadata.docType,
-      sourceCollection: knowledgeScope.sourceCollection,
-      fundName: metadata.fundName,
+    const sebiMetadata = await lookupSebiMetadata(
+      filepath,
+      extractedMetadata.fundName ?? undefined,
+    );
+    const inspection = preparePdfChunkInspection({
+      parsed: normalizedParse,
+      sourceDocumentId: documentId,
+      ownership,
+      knowledgeScope,
+      citationMetadata: sebiMetadata,
+      metadataFilepath: resolve(filepath),
+      metadata: extractedMetadata,
+      sourceUrl: fullConfig.sourceUrl ?? null,
     });
-    const sourceAuthority = metadata.docType === "Addendum"
-      ? "regulatory_filing"
-      : fullConfig.sourceUrl
-        ? "official_product_page"
-        : "unknown";
-    if (knowledgeScope.sourceCollection === "mirae_sif") {
-      chunkResult = removeDisposableSifChunks(chunkResult, filename);
-    }
-
-    if (chunkResult.chunks.length === 0) {
-      await updateDocumentStatus(db, documentId, "failed", "No relevant content extracted from PDF");
-      return {
-        documentId,
-        filename,
-        status: "failed",
-        error: "No relevant content extracted from PDF",
-        duration: Date.now() - startTime,
-      };
-    }
+    const { metadata, chunkResult, chunkerVersion, prepared, sourceAuthority } = inspection;
+    const documentScope = prepared.candidates[0]?.metadata.documentScope ?? "unknown";
 
     // Update document with extracted info
     await db
@@ -378,33 +315,6 @@ export async function ingestDocument(
 
     if (fullConfig.reviewGate === "required") {
       onProgress?.({ stage: "inspection", detail: "Inspecting every candidate chunk", percentage: 45 });
-      const sebiMetadata = await lookupSebiMetadata(filepath, metadata.fundName ?? undefined);
-      const prepared = prepareChunkReview({
-        document: { id: documentId, filename, pageCount: parsedPdf.pageCount },
-        chunks: chunkResult.chunks,
-        metadata: {
-          documentScope,
-          strategyId: strategyIdForScope(documentScope, metadata.fundName),
-          canonicalStrategyName: documentScope === "strategy" ? metadata.fundName : null,
-          sourceAuthority,
-          sourceCollection: knowledgeScope.sourceCollection,
-          fundName: metadata.fundName,
-          documentType: metadata.docType,
-          amcName: sebiMetadata.amcName || metadata.amcName,
-          schemeType: sebiMetadata.schemeType || metadata.schemeType,
-          schemeCategory: sebiMetadata.schemeCategory || metadata.schemeCategory,
-          documentDate: metadata.documentDate?.toISOString().split("T")[0] ?? null,
-          effectiveDate: metadata.effectiveDate?.toISOString().slice(0, 10) ?? null,
-          amendmentNumber: metadata.amendmentNumber,
-          amendedDocumentTypes: metadata.amendedDocumentTypes,
-          sebiSchemeId: sebiMetadata.sebiSchemeId,
-          sebiUrl: sebiMetadata.sebiUrl,
-          sourceUrl: fullConfig.sourceUrl ?? null,
-          knowledgeDomain: knowledgeScope.knowledgeDomain,
-          amcSlug: knowledgeScope.amcSlug,
-        },
-        ownership,
-      });
       const reviewRun = await stageInspectionReview(db, {
         sourceType: "pdf",
         sourceDocumentId: documentId,
@@ -465,8 +375,6 @@ export async function ingestDocument(
     onProgress?.({ stage: "storing", detail: "Looking up SEBI metadata", percentage: 82 });
 
     // Look up SEBI metadata for citations (before creating chunks)
-    const sebiMetadata = await lookupSebiMetadata(filepath, metadata.fundName ?? undefined);
-
     onProgress?.({ stage: "storing", detail: "Saving to vector database", percentage: 85 });
 
     // Initialize vector client (pgvector)

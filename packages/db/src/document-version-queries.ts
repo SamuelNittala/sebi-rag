@@ -212,8 +212,8 @@ export async function findOrCreateSourceDocumentForDiscovery(
   const logicalDocumentKey = createLogicalDocumentKey(input.logicalDocumentKey);
   const canonicalUrl = canonicalHttpUrl(input.canonicalUrl);
   return db.transaction(async (tx) => {
-    const fencedSourceId = await assertDiscoveryWriteFence(tx, input.fence);
-    if (fencedSourceId !== input.sourceId) throw new Error("Discovery write fence belongs to another source.");
+    const fence = await assertDiscoveryWriteFence(tx, input.fence);
+    if (fence.sourceId !== input.sourceId) throw new Error("Discovery write fence belongs to another source.");
     const [source] = await tx.select().from(sources).where(eq(sources.id, input.sourceId)).limit(1);
     if (!source || source.accessScopeId !== input.accessScopeId) {
       throw new Error("Source document ownership does not match the source access scope.");
@@ -251,8 +251,8 @@ export async function recordSourceDocumentAlias(
 ): Promise<void> {
   const aliasUrl = canonicalHttpUrl(input.aliasUrl);
   await db.transaction(async (tx) => {
-    const fencedSourceId = await assertDiscoveryWriteFence(tx, input.fence);
-    if (fencedSourceId !== input.sourceId) throw new Error("Discovery write fence belongs to another source.");
+    const fence = await assertDiscoveryWriteFence(tx, input.fence);
+    if (fence.sourceId !== input.sourceId) throw new Error("Discovery write fence belongs to another source.");
     const [document] = await tx.select().from(sourceDocuments).where(and(
       eq(sourceDocuments.id, input.sourceDocumentId),
       eq(sourceDocuments.accessScopeId, input.accessScopeId),
@@ -361,11 +361,11 @@ export async function recordFetchedDocumentVersionAndEnsurePipeline(
   validatePipelineIdentity(input.pipelineIdentity, input.artifact.sha256);
   const observedAt = input.observedAt ?? new Date();
   return db.transaction(async (tx) => {
-    const fencedSourceId = await assertDiscoveryWriteFence(tx, input.fence);
+    const fence = await assertDiscoveryWriteFence(tx, input.fence);
     const [document] = await tx.select().from(sourceDocuments)
       .where(eq(sourceDocuments.id, input.sourceDocumentId)).limit(1).for("update");
     if (!document) throw new Error("Source document does not exist.");
-    if (document.sourceId !== fencedSourceId) throw new Error("Discovery write fence belongs to another source.");
+    if (document.sourceId !== fence.sourceId) throw new Error("Discovery write fence belongs to another source.");
     let [version] = await tx.select().from(documentVersions).where(and(
       eq(documentVersions.sourceDocumentId, document.id),
       eq(documentVersions.contentSha256, input.artifact.sha256),
@@ -390,6 +390,7 @@ export async function recordFetchedDocumentVersionAndEnsurePipeline(
         sourceDocumentId: document.id, accessScopeId: document.accessScopeId,
         sourceId: document.sourceId, sequence: (latest?.sequence ?? 0) + 1,
         contentSha256: input.artifact.sha256, rawArtifactId: storedArtifact.id,
+        configRevisionId: fence.configRevisionId,
         etag: input.etag ?? null, lastModified: input.lastModified ?? null,
         observedAt, readyAt: observedAt,
       }).returning();
@@ -403,7 +404,14 @@ export async function recordFetchedDocumentVersionAndEnsurePipeline(
       if (!advanced) throw new Error("Document version fence changed while creating a version.");
       created = true;
     }
-    await ensureParsePipeline(tx, version, input.pipelineIdentity, input.artifact.sha256, observedAt);
+    await ensureParsePipeline(
+      tx,
+      version,
+      input.pipelineIdentity,
+      input.artifact.sha256,
+      fence.configRevisionId,
+      observedAt,
+    );
     return { version, created };
   });
 }
@@ -415,13 +423,20 @@ export async function ensureDocumentVersionPipelineForDiscovery(
 ): Promise<void> {
   validatePipelineIdentity(input.pipelineIdentity, input.inputChecksum);
   await db.transaction(async (tx) => {
-    const fencedSourceId = await assertDiscoveryWriteFence(tx, input.fence);
+    const fence = await assertDiscoveryWriteFence(tx, input.fence);
     const [version] = await tx.select().from(documentVersions)
       .where(and(eq(documentVersions.id, input.documentVersionId), eq(documentVersions.contentSha256, input.inputChecksum)))
       .limit(1);
     if (!version) throw new Error("Current document version does not match the unchanged fetch checksum.");
-    if (version.sourceId !== fencedSourceId) throw new Error("Discovery write fence belongs to another source.");
-    await ensureParsePipeline(tx, version, input.pipelineIdentity, input.inputChecksum, new Date());
+    if (version.sourceId !== fence.sourceId) throw new Error("Discovery write fence belongs to another source.");
+    await ensureParsePipeline(
+      tx,
+      version,
+      input.pipelineIdentity,
+      input.inputChecksum,
+      fence.configRevisionId,
+      new Date(),
+    );
   });
 }
 
@@ -666,15 +681,22 @@ function groupedLegacyIssues(
 
 type DatabaseTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-async function assertDiscoveryWriteFence(tx: DatabaseTransaction, fence: DiscoveryWriteFence): Promise<string> {
-  const [run] = await tx.select({ id: discoveryRuns.id, sourceId: discoveryRuns.sourceId }).from(discoveryRuns).where(and(
+async function assertDiscoveryWriteFence(tx: DatabaseTransaction, fence: DiscoveryWriteFence): Promise<{
+  readonly sourceId: string;
+  readonly configRevisionId: string;
+}> {
+  const [run] = await tx.select({
+    id: discoveryRuns.id,
+    sourceId: discoveryRuns.sourceId,
+    configRevisionId: discoveryRuns.configRevisionId,
+  }).from(discoveryRuns).where(and(
     eq(discoveryRuns.id, fence.discoveryRunId),
     eq(discoveryRuns.status, "running"),
     eq(discoveryRuns.leaseOwner, fence.owner),
     eq(discoveryRuns.leaseEpoch, fence.leaseEpoch),
   )).limit(1).for("update");
   if (!run) throw new Error("Discovery write fence is stale.");
-  return run.sourceId;
+  return { sourceId: run.sourceId, configRevisionId: run.configRevisionId };
 }
 
 async function ensureParsePipeline(
@@ -682,11 +704,13 @@ async function ensureParsePipeline(
   version: typeof documentVersions.$inferSelect,
   identity: PipelineIdentityInput,
   inputChecksum: string,
+  configRevisionId: string,
   now: Date,
 ): Promise<void> {
   const [insertedRun] = await tx.insert(pipelineRuns).values({
     documentVersionId: version.id, accessScopeId: version.accessScopeId, sourceId: version.sourceId,
     implementationVersion: identity.pipelineImplementationVersion,
+    configRevisionId,
     initialStage: "PARSE", initialStageImplementationVersion: identity.parseImplementationVersion,
     initialInputChecksum: inputChecksum, initialMaxAttempts: identity.maxAttempts, status: "active",
   }).onConflictDoNothing({
@@ -699,7 +723,8 @@ async function ensureParsePipeline(
   if (!run || run.initialStage !== "PARSE"
     || run.initialStageImplementationVersion !== identity.parseImplementationVersion
     || run.initialInputChecksum !== inputChecksum
-    || run.initialMaxAttempts !== identity.maxAttempts) {
+    || run.initialMaxAttempts !== identity.maxAttempts
+    || run.configRevisionId !== configRevisionId) {
     throw new Error("Existing pipeline run initial PARSE contract does not match fetched version input.");
   }
   const [existing] = await tx.select().from(stageAttempts).where(and(
