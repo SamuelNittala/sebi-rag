@@ -914,6 +914,10 @@ export const sourceDocuments = pgTable(
     canonicalUrl: varchar("canonical_url", { length: 2000 }).notNull(),
     currentVersionId: uuid("current_version_id")
       .references((): AnyPgColumn => documentVersions.id, { onDelete: "restrict" }),
+    /** Set only by a complete successful discovery presence batch. */
+    missingSince: timestamp("missing_since", { mode: "date", withTimezone: true }),
+    missingEvidenceCount: integer("missing_evidence_count").default(0).notNull(),
+    lastPresentAt: timestamp("last_present_at", { mode: "date", withTimezone: true }),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
@@ -922,6 +926,8 @@ export const sourceDocuments = pgTable(
     uniqueIndex("source_documents_scope_url_uidx").on(table.accessScopeId, table.canonicalUrl),
     uniqueIndex("source_documents_id_source_scope_uidx").on(table.id, table.sourceId, table.accessScopeId),
     index("source_documents_current_version_idx").on(table.currentVersionId),
+    index("source_documents_missing_idx").on(table.sourceId, table.missingSince),
+    check("source_documents_missing_evidence_ck", sql`${table.missingEvidenceCount} >= 0`),
     foreignKey({
       name: "source_documents_source_scope_fk",
       columns: [table.sourceId, table.accessScopeId],
@@ -1265,6 +1271,17 @@ export const documentPublicationChunks = pgTable(
     index("document_publication_chunks_generation_idx").on(table.generationId),
     check("document_publication_chunks_ownership_ck", ownershipInvariant),
   ],
+);
+
+export const documentPublicationChunkSearchDocuments = pgTable(
+  "document_publication_chunk_search_documents",
+  {
+    chunkId: uuid("chunk_id")
+      .primaryKey()
+      .references(() => documentPublicationChunks.id, { onDelete: "cascade" }),
+    searchTokens: text("search_tokens").array().notNull(),
+  },
+  (table) => [index("document_publication_chunk_search_tokens_idx").using("gin", table.searchTokens)],
 );
 
 /**

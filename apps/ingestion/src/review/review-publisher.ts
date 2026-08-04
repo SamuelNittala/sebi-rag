@@ -57,6 +57,8 @@ export interface PublishApprovedReviewOptions {
   ollamaUrl?: string;
   embeddingBatchSize?: number;
   onProgress?: (progress: ReviewPublicationProgress) => void;
+  /** Cooperative cancellation fence for durable scheduled workers. */
+  signal?: AbortSignal;
 }
 
 async function assertPublicationOwnership(
@@ -263,6 +265,7 @@ export async function publishApprovedReviewRun(
   runId: string,
   options: PublishApprovedReviewOptions,
 ): Promise<IngestionRun> {
+  options.signal?.throwIfAborted();
   const database = options.database ?? db;
   const detail = await getReviewRunDetail(database, runId);
   if (!detail) throw new Error("Review run not found.");
@@ -301,6 +304,7 @@ export async function publishApprovedReviewRun(
   await updateReviewRunStatus(database, runId, startingStatus, "embedding", options.actor);
 
   try {
+    options.signal?.throwIfAborted();
     // A failed attempt may have left an incomplete staged version. It was never
     // searchable, so it is safe to replace before retrying the same reviewed run.
     if (!detail.run.documentVersionId) {
@@ -339,12 +343,14 @@ export async function publishApprovedReviewRun(
         total: progress.total,
       });
     });
+    options.signal?.throwIfAborted();
     const embeddingByIndex = new Map(
       embeddings.map((embedding) => [embedding.chunkIndex, embedding.embedding]),
     );
     options.onProgress?.({ stage: "staging", completed: 0, total });
 
     if (detail.run.documentVersionId) {
+      options.signal?.throwIfAborted();
       const generation = await stageScheduledPublicationGeneration(database, {
         ingestionRunId: runId,
         chunks: detail.candidates.map((candidate) => {
@@ -365,6 +371,7 @@ export async function publishApprovedReviewRun(
       options.onProgress?.({ stage: "staging", completed: total, total });
       await updateReviewRunStatus(database, runId, "embedding", "staged", options.actor);
       options.onProgress?.({ stage: "publishing", completed: 0, total });
+      options.signal?.throwIfAborted();
       const cutover = await cutoverScheduledPublicationGeneration(database, runId, options.actor);
       if (cutover.status !== "published") {
         throw new Error(cutover.status === "frozen"

@@ -181,6 +181,12 @@ integrationDescribe("document version registry", () => {
     expect(await db.select().from(schema.documentObservations)).toHaveLength(1);
     expect((await db.select().from(schema.discoveryRuns).where(eq(schema.discoveryRuns.id, running!.id)))[0]?.status)
       .toBe("succeeded");
+    expect((await db.select().from(schema.sourceDocuments).where(eq(schema.sourceDocuments.id, first.id)))[0])
+      .toMatchObject({ missingSince: null, missingEvidenceCount: 0 });
+    const [missingAfterCompleteBatch] = await db.select().from(schema.sourceDocuments)
+      .where(eq(schema.sourceDocuments.id, second.id));
+    expect(missingAfterCompleteBatch?.missingSince).toBeInstanceOf(Date);
+    expect(missingAfterCompleteBatch?.missingEvidenceCount).toBe(1);
 
     const [failed] = await db.insert(schema.discoveryRuns).values({
       sourceId: source.id, configRevisionId: source.configRevisionId,
@@ -192,6 +198,11 @@ integrationDescribe("document version registry", () => {
       observations: [{ sourceDocumentId: second.id, observedUrl: second.canonicalUrl }],
     })).rejects.toThrow(/stale/i);
     expect(await db.select().from(schema.documentObservations)).toHaveLength(1);
+    const [missingAfterFailedBatch] = await db.select().from(schema.sourceDocuments)
+      .where(eq(schema.sourceDocuments.id, second.id));
+    expect(missingAfterFailedBatch?.missingEvidenceCount).toBe(1);
+    expect(missingAfterFailedBatch?.missingSince?.toISOString())
+      .toBe(missingAfterCompleteBatch?.missingSince?.toISOString());
   });
 
   test("stale discovery owners cannot write identity, versions, PARSE work, aliases, or observations", async () => {

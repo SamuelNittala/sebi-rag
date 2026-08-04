@@ -15,9 +15,18 @@ sources:
     connector: website_pdf
     enabled: false
     discovery:
-      strategy: explicit_urls
-      urls: []
-      # Each future entry is { key, url }; key remains stable across URL redirects.
+      # Stable public factsheet landing root; individual dated PDF URLs are not pinned.
+      strategy: constrained_crawl
+      startUrls:
+        - https://www.miraeassetmf.co.in/downloads/factsheet
+      allowedPathPrefixes:
+        - /downloads/factsheet
+      maxDepth: 2
+      maxPages: 100
+      maxDocuments: 250
+      identity:
+        strategy: normalized_path
+        queryParameters: []
     schedule:
       enabled: false
       cron: "0 3 * * *"

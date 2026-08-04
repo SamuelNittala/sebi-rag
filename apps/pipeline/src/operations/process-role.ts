@@ -1,4 +1,6 @@
 import { client, db, type Database } from "@mf-rag/db";
+import { posix } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import type { ArtifactStore } from "../artifacts/artifact-store.ts";
 import { createDatabaseDiscoverySchedulerStore } from "../runtime/database-runtime-adapter.ts";
@@ -88,10 +90,9 @@ async function createRuntime(
     };
   }
   if (!artifactStore) throw new Error("Worker artifact store was not initialized.");
-  const moduleUrl = requiredEnvironmentValue(env.PIPELINE_WORKER_MODULE, "PIPELINE_WORKER_MODULE");
-  if (!moduleUrl.startsWith("file:///app/apps/")) {
-    throw new Error("PIPELINE_WORKER_MODULE must be an immutable-image file URL below /app/apps/.");
-  }
+  const moduleUrl = validateWorkerModuleUrl(
+    requiredEnvironmentValue(env.PIPELINE_WORKER_MODULE, "PIPELINE_WORKER_MODULE"),
+  );
   const module = await import(moduleUrl) as Partial<OperationalWorkerModule>;
   if (typeof module.createWorkerRuntime !== "function") {
     throw new Error("PIPELINE_WORKER_MODULE must export createWorkerRuntime.");
@@ -101,6 +102,25 @@ async function createRuntime(
     throw new Error("Pipeline worker module returned an invalid runtime.");
   }
   return { kind: "worker", worker };
+}
+
+export function validateWorkerModuleUrl(value: string): string {
+  let url: URL;
+  try { url = new URL(value); } catch {
+    throw new Error("PIPELINE_WORKER_MODULE must be a valid immutable-image file URL.");
+  }
+  if (url.protocol !== "file:" || url.hostname || url.username || url.password || url.search || url.hash) {
+    throw new Error("PIPELINE_WORKER_MODULE must be a local file URL without authority, query, or fragment.");
+  }
+  let decoded: string;
+  try { decoded = decodeURIComponent(url.pathname); } catch {
+    throw new Error("PIPELINE_WORKER_MODULE contains invalid path encoding.");
+  }
+  const normalized = posix.normalize(decoded);
+  if (decoded !== normalized || !normalized.startsWith("/app/apps/") || !/\.[cm]?[jt]s$/.test(normalized)) {
+    throw new Error("PIPELINE_WORKER_MODULE must resolve to a source module below /app/apps/ without traversal.");
+  }
+  return pathToFileURL(normalized).href;
 }
 
 function processRole(value: string | undefined): PipelineProcessRole {

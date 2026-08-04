@@ -507,6 +507,28 @@ export async function recordSuccessfulDocumentObservations(
       });
     }
     const completedAt = new Date();
+    const presentDocumentIds = ids;
+    if (presentDocumentIds.length > 0) {
+      await tx.update(sourceDocuments).set({
+        missingSince: null,
+        missingEvidenceCount: 0,
+        lastPresentAt: completedAt,
+        updatedAt: completedAt,
+      }).where(and(
+        eq(sourceDocuments.sourceId, run.sourceId),
+        sql`${sourceDocuments.id} IN (${sql.join(presentDocumentIds.map((id) => sql`${id}::uuid`), sql`, `)})`,
+      ));
+    }
+    await tx.update(sourceDocuments).set({
+      missingSince: sql`COALESCE(${sourceDocuments.missingSince}, ${completedAt})`,
+      missingEvidenceCount: sql`${sourceDocuments.missingEvidenceCount} + 1`,
+      updatedAt: completedAt,
+    }).where(and(
+      eq(sourceDocuments.sourceId, run.sourceId),
+      presentDocumentIds.length > 0
+        ? sql`${sourceDocuments.id} NOT IN (${sql.join(presentDocumentIds.map((id) => sql`${id}::uuid`), sql`, `)})`
+        : sql`true`,
+    ));
     const [completed] = await tx.update(discoveryRuns).set({
       status: "succeeded",
       terminalDisposition: "SUCCEEDED",

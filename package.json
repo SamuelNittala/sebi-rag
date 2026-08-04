@@ -28,6 +28,7 @@
     "source:sync": "bun run scripts/sync-source-registry.ts",
     "pipeline:operator": "bun run apps/pipeline/src/operations/operator-cli.ts",
     "retrieval:evaluate-mirae-sif": "bun run scripts/evaluate-mirae-sif-retrieval.ts",
+    "retrieval:evaluate-access-scope-isolation": "bun run scripts/evaluate-access-scope-isolation.ts",
     "retrieval:evaluate-general-mf-faq": "bun run scripts/evaluate-general-mf-faq-retrieval.ts",
     "eval:basic": "bun run scripts/run-basic-eval.ts",
     "reingest:mirae-sif": "bun run scripts/reingest-mirae-sif.ts"

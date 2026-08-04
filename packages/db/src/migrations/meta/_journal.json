@@ -141,6 +141,20 @@
       "when": 1786132800000,
       "tag": "0019_risk_review_publication",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786219200000,
+      "tag": "0020_source_document_missing_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786305600000,
+      "tag": "0021_scheduled_retrieval_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -15,9 +15,19 @@ sources:
     connector: website_pdf
     enabled: false
     discovery:
-      strategy: explicit_urls
-      urls: []
-      # Each future entry is { key, url }; key remains stable across URL redirects.
+      # Reviewed landing root only. Keep disabled until cross-host PDF delivery is
+      # explicitly approved and added to allowedHosts.
+      strategy: constrained_crawl
+      startUrls:
+        - https://platinumsif.miraeassetmf.co.in/
+      allowedPathPrefixes:
+        - /
+      maxDepth: 2
+      maxPages: 100
+      maxDocuments: 250
+      identity:
+        strategy: normalized_path
+        queryParameters: []
     schedule:
       enabled: false
       cron: "0 2 * * *"

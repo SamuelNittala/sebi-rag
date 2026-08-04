@@ -43,6 +43,68 @@ function tenantAccessCondition(accessScope: TenantAccessScope) {
   )`;
 }
 
+/**
+ * One read model for the legacy corpus and the scheduled generation corpus.
+ * Scheduled publications deliberately keep their control-plane document identity
+ * and therefore never require a synthetic row in the legacy `documents` table.
+ */
+const publishedPdfCorpusCte = sql`
+  published_pdf_chunks AS NOT MATERIALIZED (
+    SELECT
+      c.id, c.embedding, c.text, c.chunk_index, c.total_chunks,
+      c.document_id, c.document_filename, c.page_numbers,
+      c.fund_name, c.amc_name, c.scheme_type, c.scheme_category,
+      c.doc_type, c.document_date, c.has_table, c.section_header,
+      c.sebi_scheme_id, c.sebi_url, c.document_kind, c.document_title,
+      c.publisher, c.source_url, c.source_date, c.authority, c.topic,
+      c.question_number, c.normalized_question_key, c.original_question,
+      c.continuation_index, c.knowledge_domain, c.source_collection,
+      c.amc_slug, c.retrieval_metadata, c.visibility_scope, c.tenant_id,
+      csd.search_tokens
+    FROM chunks c
+    JOIN chunk_search_documents csd ON csd.chunk_id = c.id
+    WHERE c.publication_status = 'published'
+
+    UNION ALL
+
+    SELECT
+      pc.id, pc.embedding, pc.text, pc.chunk_index, pc.total_chunks,
+      pg.source_document_id AS document_id,
+      sd.logical_document_key AS document_filename,
+      pc.page_numbers,
+      pc.retrieval_metadata ->> 'fundName' AS fund_name,
+      pc.retrieval_metadata ->> 'amcName' AS amc_name,
+      pc.retrieval_metadata ->> 'schemeType' AS scheme_type,
+      pc.retrieval_metadata ->> 'schemeCategory' AS scheme_category,
+      COALESCE(pc.retrieval_metadata ->> 'documentType', 'generic_pdf') AS doc_type,
+      pc.retrieval_metadata ->> 'documentDate' AS document_date,
+      pc.has_table, pc.section_header,
+      pc.retrieval_metadata ->> 'sebiSchemeId' AS sebi_scheme_id,
+      pc.retrieval_metadata ->> 'sebiUrl' AS sebi_url,
+      COALESCE(pc.retrieval_metadata ->> 'documentKind', 'generic_pdf') AS document_kind,
+      pc.retrieval_metadata ->> 'documentTitle' AS document_title,
+      pc.retrieval_metadata ->> 'publisher' AS publisher,
+      COALESCE(pc.retrieval_metadata ->> 'sourceUrl', sd.canonical_url) AS source_url,
+      pc.retrieval_metadata ->> 'sourceDate' AS source_date,
+      pc.retrieval_metadata ->> 'authority' AS authority,
+      pc.retrieval_metadata ->> 'topic' AS topic,
+      pc.retrieval_metadata ->> 'questionNumber' AS question_number,
+      pc.retrieval_metadata ->> 'normalizedQuestionKey' AS normalized_question_key,
+      pc.retrieval_metadata ->> 'originalQuestion' AS original_question,
+      CASE WHEN pc.retrieval_metadata ? 'continuationIndex'
+        THEN (pc.retrieval_metadata ->> 'continuationIndex')::integer ELSE NULL END AS continuation_index,
+      scope.knowledge_domain, scope.source_collection, scope.amc_slug,
+      pc.retrieval_metadata, pc.visibility_scope, pc.tenant_id,
+      pcs.search_tokens
+    FROM document_publication_chunks pc
+    JOIN document_publication_chunk_search_documents pcs ON pcs.chunk_id = pc.id
+    JOIN document_publication_generations pg ON pg.id = pc.generation_id
+    JOIN source_documents sd ON sd.id = pg.source_document_id
+    JOIN access_scopes scope ON scope.id = pg.access_scope_id
+    WHERE pg.status = 'published'
+  )
+`;
+
 /** content_category filter supporting a single category or an allowed set. */
 function htmlCategoryCondition(category: string | string[]) {
   const values = Array.isArray(category) ? category : [category];
@@ -250,6 +312,7 @@ export class VectorClient {
     };
 
     const results = (await db.execute(sql`
+      WITH ${publishedPdfCorpusCte}
       SELECT
         id,
         1 - (embedding <=> ${vectorStr}::vector) as score,
@@ -284,9 +347,8 @@ export class VectorClient {
         source_collection,
         amc_slug,
         retrieval_metadata
-      FROM chunks
-      WHERE publication_status = 'published'
-        ${accessCondition} ${conditions} ${thresholdClause}
+      FROM published_pdf_chunks
+      WHERE true ${accessCondition} ${conditions} ${thresholdClause}
       ORDER BY embedding <=> ${vectorStr}::vector
       LIMIT ${limit}
     `)) as ResultRow[];
@@ -385,11 +447,11 @@ export class VectorClient {
     };
 
     const results = (await db.execute(sql`
-      WITH candidate_corpus AS (
-        SELECT chunk_search_documents.search_tokens
-        FROM chunks
-        JOIN chunk_search_documents ON chunk_search_documents.chunk_id = chunks.id
-        WHERE publication_status = 'published' ${accessCondition} ${conditions}
+      WITH ${publishedPdfCorpusCte},
+      candidate_corpus AS (
+        SELECT search_tokens
+        FROM published_pdf_chunks
+        WHERE true ${accessCondition} ${conditions}
       ),
       corpus_stats AS (
         SELECT
@@ -410,14 +472,13 @@ export class VectorClient {
       ),
       matched_documents AS (
         SELECT
-          chunk_search_documents.chunk_id,
-          chunk_search_documents.search_tokens,
-          cardinality(chunk_search_documents.search_tokens)::double precision
+          id AS chunk_id,
+          search_tokens,
+          cardinality(search_tokens)::double precision
             AS document_length
-        FROM chunks
-        JOIN chunk_search_documents ON chunk_search_documents.chunk_id = chunks.id
-        WHERE publication_status = 'published' ${accessCondition} ${conditions}
-          AND chunk_search_documents.search_tokens && ${tokenArray}::text[]
+        FROM published_pdf_chunks
+        WHERE true ${accessCondition} ${conditions}
+          AND search_tokens && ${tokenArray}::text[]
       ),
       document_terms AS (
         SELECT
@@ -458,7 +519,7 @@ export class VectorClient {
         LIMIT ${limit}
       )
       SELECT
-        chunks.id,
+        published_pdf_chunks.id,
         scored.score,
         text,
         chunk_index,
@@ -492,8 +553,8 @@ export class VectorClient {
         amc_slug,
         retrieval_metadata
       FROM scored
-      JOIN chunks ON chunks.id = scored.chunk_id
-      ORDER BY scored.score DESC, chunks.id
+      JOIN published_pdf_chunks ON published_pdf_chunks.id = scored.chunk_id
+      ORDER BY scored.score DESC, published_pdf_chunks.id
     `)) as ResultRow[];
 
     return results.map((row) => ({
@@ -625,9 +686,10 @@ export class VectorClient {
   async getCollectionInfo(accessScope: TenantAccessScope): Promise<CollectionInfo> {
     const accessCondition = tenantAccessCondition(accessScope);
     const result = await db.execute(sql`
+      WITH ${publishedPdfCorpusCte}
       SELECT count(*)::integer AS count
-      FROM chunks
-      WHERE publication_status = 'published' ${accessCondition}
+      FROM published_pdf_chunks
+      WHERE true ${accessCondition}
     `) as Array<{ count: number }>;
     const totalCount = result[0]?.count ?? 0;
 
@@ -670,10 +732,10 @@ export class VectorClient {
   async getUniqueFundNames(accessScope: TenantAccessScope): Promise<string[]> {
     const accessCondition = tenantAccessCondition(accessScope);
     const results = await db.execute(sql`
+      WITH ${publishedPdfCorpusCte}
       SELECT DISTINCT fund_name
-      FROM chunks
-      WHERE publication_status = 'published'
-        ${accessCondition}
+      FROM published_pdf_chunks
+      WHERE true ${accessCondition}
         AND fund_name IS NOT NULL
         AND btrim(fund_name) <> ''
       ORDER BY fund_name
