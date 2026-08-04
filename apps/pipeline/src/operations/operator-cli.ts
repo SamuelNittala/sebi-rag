@@ -15,6 +15,7 @@ import {
   sources,
   sql,
   stageAttempts,
+  triggerManualDiscoveryRun,
   type Database,
 } from "@mf-rag/db";
 
@@ -41,6 +42,7 @@ export interface PipelineOperatorStatus {
 
 export interface PipelineOperatorRepository {
   status(): Promise<PipelineOperatorStatus>;
+  triggerSource(sourceId: string): Promise<{ readonly id: string }>;
   pauseSource(sourceId: string): Promise<boolean>;
   resumeSource(sourceId: string): Promise<boolean>;
   freezeSource(sourceId: string, reason: string | null): Promise<boolean>;
@@ -73,6 +75,7 @@ export interface PipelineOperatorRepository {
 export function createDatabasePipelineOperatorRepository(database: Database): PipelineOperatorRepository {
   return {
     status: () => loadStatus(database),
+    triggerSource: (sourceId) => triggerManualDiscoveryRun(database, { sourceId }),
     pauseSource: (sourceId) => pauseSourceSchedule(database, sourceId),
     resumeSource: (sourceId) => resumeSourceSchedule(database, sourceId),
     freezeSource: (sourceId, reason) => setSourceEmergencyFreeze(database, { sourceId, reason }),
@@ -94,6 +97,11 @@ export async function runOperatorCli(
     case "status":
       write(JSON.stringify(await repository.status(), null, 2));
       return;
+    case "trigger-source": {
+      const run = await repository.triggerSource(requiredFlag(flags, "source-id"));
+      write(JSON.stringify({ discoveryRunId: run.id }));
+      return;
+    }
     case "pause-source":
       await requireChanged(repository.pauseSource(requiredFlag(flags, "source-id")), command);
       return;
@@ -152,7 +160,7 @@ export async function runOperatorCli(
       return;
     }
     default:
-      throw new Error("Usage: pipeline-operator <status|pause-source|resume-source|freeze-source|unfreeze-source|freeze-scope|unfreeze-scope|requeue-stage|requeue-discovery|reactivate-generation> [--flag value]");
+      throw new Error("Usage: pipeline-operator <status|trigger-source|pause-source|resume-source|freeze-source|unfreeze-source|freeze-scope|unfreeze-scope|requeue-stage|requeue-discovery|reactivate-generation> [--flag value]");
   }
 }
 

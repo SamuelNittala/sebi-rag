@@ -17,6 +17,10 @@ const EMPTY_STATUS: PipelineOperatorStatus = {
 function fakeRepository(calls: unknown[]): PipelineOperatorRepository {
   return {
     status: async () => EMPTY_STATUS,
+    triggerSource: async (sourceId) => {
+      calls.push(["trigger-source", sourceId]);
+      return { id: "manual-discovery-1" };
+    },
     pauseSource: async (sourceId) => { calls.push(["pause", sourceId]); return true; },
     resumeSource: async (sourceId) => { calls.push(["resume", sourceId]); return true; },
     freezeSource: async (sourceId, reason) => { calls.push(["freeze-source", sourceId, reason]); return true; },
@@ -101,6 +105,19 @@ describe("pipeline operations", () => {
       ["freeze-scope", "scope-1", "incident-42"],
       ["freeze-scope", "scope-1", null],
     ]);
+  });
+
+  test("manual source trigger creates one durable run without enabling cadence", async () => {
+    const calls: unknown[] = [];
+    const output: string[] = [];
+
+    await runOperatorCli([
+      "trigger-source",
+      "--source-id", "source-1",
+    ], fakeRepository(calls), (value) => output.push(value));
+
+    expect(calls).toEqual([["trigger-source", "source-1"]]);
+    expect(output).toEqual([JSON.stringify({ discoveryRunId: "manual-discovery-1" })]);
   });
 
   test("stage requeue requires checksum and immutable ownership guards", async () => {
