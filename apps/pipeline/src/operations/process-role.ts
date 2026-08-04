@@ -3,7 +3,7 @@ import { client, db, type Database } from "@mf-rag/db";
 import type { ArtifactStore } from "../artifacts/artifact-store.ts";
 import { createDatabaseDiscoverySchedulerStore } from "../runtime/database-runtime-adapter.ts";
 import { DiscoveryScheduler } from "../runtime/scheduler.ts";
-import { artifactStoreFromEnvironment } from "./artifact-store-config.ts";
+import { artifactStoreFromEnvironment, requiredEnvironmentValue } from "./artifact-store-config.ts";
 import { PipelineHealth, startHealthServer, type ReadinessProbe } from "./health.ts";
 import { PipelineMetrics, structuredPipelineLog } from "./metrics.ts";
 import { refreshPipelineMetrics } from "./metrics-collector.ts";
@@ -88,7 +88,7 @@ async function createRuntime(
     };
   }
   if (!artifactStore) throw new Error("Worker artifact store was not initialized.");
-  const moduleUrl = required(env.PIPELINE_WORKER_MODULE, "PIPELINE_WORKER_MODULE");
+  const moduleUrl = requiredEnvironmentValue(env.PIPELINE_WORKER_MODULE, "PIPELINE_WORKER_MODULE");
   if (!moduleUrl.startsWith("file:///app/apps/")) {
     throw new Error("PIPELINE_WORKER_MODULE must be an immutable-image file URL below /app/apps/.");
   }
@@ -112,11 +112,6 @@ function positiveInteger(value: string | undefined, fallback: number): number {
   const number = value === undefined ? fallback : Number(value);
   if (!Number.isSafeInteger(number) || number <= 0) throw new Error("Pipeline integer configuration must be positive.");
   return number;
-}
-
-function required(value: string | undefined, name: string): string {
-  if (!value?.trim()) throw new Error(`${name} is required.`);
-  return value.trim();
 }
 
 if (import.meta.main) await runPipelineProcess();

@@ -41,6 +41,13 @@ export type ClassifiedKnowledgeOwnership = Exclude<
   { visibilityScope: "UNCLASSIFIED" }
 >;
 
+export interface KnowledgeOwnershipRecord {
+  readonly visibilityScope: KnowledgeOwnership["visibilityScope"];
+  readonly tenantId: string | null;
+  readonly ownershipManifestId: string | null;
+  readonly ownershipManifestVersion: number | null;
+}
+
 export function assertClassifiedKnowledgeOwnership(
   ownership: KnowledgeOwnership | null | undefined,
 ): asserts ownership is ClassifiedKnowledgeOwnership {
@@ -65,4 +72,27 @@ export function assertClassifiedKnowledgeOwnership(
     && (typeof ownership.tenantId !== "string" || !ownership.tenantId.trim())) {
     throw new Error("TENANT ownership requires a tenant ID.");
   }
+}
+
+export function classifiedKnowledgeOwnershipFromRecord(
+  record: KnowledgeOwnershipRecord,
+): ClassifiedKnowledgeOwnership {
+  const ownership = {
+    visibilityScope: record.visibilityScope,
+    tenantId: record.tenantId,
+    ownershipManifestId: record.ownershipManifestId,
+    ownershipManifestVersion: record.ownershipManifestVersion,
+  } as KnowledgeOwnership;
+  assertClassifiedKnowledgeOwnership(ownership);
+  return ownership;
+}
+
+export function hasSameKnowledgeOwnership(
+  record: KnowledgeOwnershipRecord,
+  ownership: ClassifiedKnowledgeOwnership,
+): boolean {
+  return record.visibilityScope === ownership.visibilityScope
+    && record.tenantId === ownership.tenantId
+    && record.ownershipManifestId === ownership.ownershipManifestId
+    && record.ownershipManifestVersion === ownership.ownershipManifestVersion;
 }

@@ -3,12 +3,14 @@ import type {
   CandidateChunkMetadata,
   ClassifiedKnowledgeOwnership,
   ChunkFlagStatus,
-  KnowledgeOwnership,
+  KnowledgeOwnershipRecord,
   ReviewPurpose,
   ReviewSourceType,
 } from "@mf-rag/types";
 import {
   assertClassifiedKnowledgeOwnership,
+  classifiedKnowledgeOwnershipFromRecord,
+  hasSameKnowledgeOwnership,
   isCuratedFaqMetadata,
 } from "@mf-rag/types";
 
@@ -228,22 +230,7 @@ function validateInspection(input: StageInspectionReviewInput): void {
   }
 }
 
-interface OwnershipRecord {
-  visibilityScope: KnowledgeOwnership["visibilityScope"];
-  tenantId: string | null;
-  ownershipManifestId: string | null;
-  ownershipManifestVersion: number | null;
-}
-
-function ownershipMatches(
-  record: OwnershipRecord,
-  ownership: ClassifiedKnowledgeOwnership,
-): boolean {
-  return record.visibilityScope === ownership.visibilityScope
-    && record.tenantId === ownership.tenantId
-    && record.ownershipManifestId === ownership.ownershipManifestId
-    && record.ownershipManifestVersion === ownership.ownershipManifestVersion;
-}
+type OwnershipRecord = KnowledgeOwnershipRecord;
 
 function metadataObject(
   value: CandidateChunkMetadata | string | null,
@@ -376,17 +363,6 @@ async function assertFaqDuplicateDisposition(
   }
 }
 
-function classifiedOwnershipFromRecord(record: OwnershipRecord): ClassifiedKnowledgeOwnership {
-  const ownership = {
-    visibilityScope: record.visibilityScope,
-    tenantId: record.tenantId,
-    ownershipManifestId: record.ownershipManifestId,
-    ownershipManifestVersion: record.ownershipManifestVersion,
-  } as KnowledgeOwnership;
-  assertClassifiedKnowledgeOwnership(ownership);
-  return ownership;
-}
-
 async function lockReviewSource(
   tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
   input: Pick<StageInspectionReviewInput,
@@ -498,8 +474,8 @@ export async function stageInspectionReview(
   return db.transaction(async (tx) => {
     const source = await lockReviewSource(tx, input);
     if (!source) throw new Error("Typed review source document not found.");
-    const sourceOwnership = classifiedOwnershipFromRecord(source);
-    if (!ownershipMatches(sourceOwnership, input.ownership)) {
+    const sourceOwnership = classifiedKnowledgeOwnershipFromRecord(source);
+    if (!hasSameKnowledgeOwnership(sourceOwnership, input.ownership)) {
       throw new Error("Trusted ownership does not match the source document ownership.");
     }
     if ((input.reviewPurpose ?? "content") === "content" && source.fileHash !== input.fileHash) {
@@ -536,7 +512,7 @@ export async function stageInspectionReview(
           || compatible.criticalCount !== input.report.criticalCount
           || compatible.blockingCount !== input.report.blockingCount
           || !candidateContentMatches
-          || !ownershipMatches(compatible, input.ownership)) {
+          || !hasSameKnowledgeOwnership(compatible, input.ownership)) {
           throw new Error("Compatible scheduled review lineage conflicts with the staged candidate contract.");
         }
         return compatible;
@@ -746,12 +722,10 @@ export async function persistScheduledRiskDecision(
     if (lineage.scope.emergencyFrozenAt || lineage.source.emergencyFrozenAt) {
       throw new Error("Emergency freeze prevents risk decision resume.");
     }
-    const flags = await tx.select({
-      status: chunkFlags.status,
-      severity: chunkFlags.severity,
-      blocksApproval: chunkFlags.blocksApproval,
+    const [flagCounts] = await tx.select({
+      blocking: sql<number>`count(*) filter (where ${chunkFlags.status} = 'open' and ${chunkFlags.blocksApproval} = true)::int`,
+      warning: sql<number>`count(*) filter (where ${chunkFlags.status} = 'open' and ${chunkFlags.severity} = 'warning')::int`,
     }).from(chunkFlags).where(eq(chunkFlags.ingestionRunId, run.id));
-    const open = flags.filter((flag) => flag.status === "open");
     const [previousPublication] = await tx.select().from(documentPublicationGenerations).where(and(
       eq(documentPublicationGenerations.sourceDocumentId, run.sourceDocumentId),
       eq(documentPublicationGenerations.status, "published"),
@@ -760,8 +734,8 @@ export async function persistScheduledRiskDecision(
       isFirstVersion: !previousPublication,
       candidateChunkCount: run.candidateChunkCount,
       inspectedChunkCount: run.inspectedChunkCount,
-      openBlockingCount: open.filter((flag) => flag.blocksApproval).length,
-      openWarningCount: open.filter((flag) => flag.severity === "warning").length,
+      openBlockingCount: flagCounts?.blocking ?? 0,
+      openWarningCount: flagCounts?.warning ?? 0,
       extractionAnomaly: run.criticalCount > 0,
       ownershipDrift: Boolean(previousPublication) && (
         previousPublication!.visibilityScope !== run.visibilityScope
@@ -1071,7 +1045,7 @@ export async function approveReviewRun(
     const reasons = approvalReasons(run, blockers.length, warnings.length);
     let runOwnership: ClassifiedKnowledgeOwnership | undefined;
     try {
-      runOwnership = classifiedOwnershipFromRecord(run);
+      runOwnership = classifiedKnowledgeOwnershipFromRecord(run);
     } catch {
       reasons.push("Review run ownership is missing or unclassified.");
     }
@@ -1085,7 +1059,7 @@ export async function approveReviewRun(
     }) : undefined;
     if (!source) {
       reasons.push("Typed review source document not found.");
-    } else if (runOwnership && !ownershipMatches(source, runOwnership)) {
+    } else if (runOwnership && !hasSameKnowledgeOwnership(source, runOwnership)) {
       reasons.push("Source document ownership does not match the review run.");
     }
     if (run.documentVersionId && run.pipelineRunId && run.configRevisionId) {
@@ -1128,7 +1102,7 @@ export async function approveReviewRun(
     }).from(chunkCandidates).where(eq(chunkCandidates.ingestionRunId, runId));
     if (runOwnership && (
       candidates.length !== run.candidateChunkCount
-      || candidates.some((candidate) => !ownershipMatches(candidate, runOwnership!))
+      || candidates.some((candidate) => !hasSameKnowledgeOwnership(candidate, runOwnership!))
     )) {
       reasons.push("Candidate ownership does not match the review run.");
     }
@@ -1261,7 +1235,7 @@ export async function publishReviewRun(
     if (run.status !== "staged") {
       throw new Error("Only a fully staged review run can be published.");
     }
-    const ownership = classifiedOwnershipFromRecord(run);
+    const ownership = classifiedKnowledgeOwnershipFromRecord(run);
     const source = await lockReviewSource(tx, {
       sourceType: run.sourceType,
       sourceDocumentId: run.sourceDocumentId,
@@ -1271,7 +1245,7 @@ export async function publishReviewRun(
       ownership,
     });
     if (!source) throw new Error("Typed publication source document not found.");
-    if (!ownershipMatches(source, ownership)) {
+    if (!hasSameKnowledgeOwnership(source, ownership)) {
       throw new Error("Source document ownership does not match the staged review run.");
     }
     if (run.reviewPurpose === "content" && source.fileHash !== run.fileHash) {
@@ -1286,7 +1260,7 @@ export async function publishReviewRun(
       ownershipManifestVersion: chunkCandidates.ownershipManifestVersion,
     }).from(chunkCandidates).where(eq(chunkCandidates.ingestionRunId, runId));
     if (candidates.length !== run.candidateChunkCount
-      || candidates.some((candidate) => !ownershipMatches(candidate, ownership))) {
+      || candidates.some((candidate) => !hasSameKnowledgeOwnership(candidate, ownership))) {
       throw new Error("Candidate ownership does not match the staged review run.");
     }
     await assertFaqDuplicateDisposition(tx, run.sourceDocumentId, candidates);
@@ -1307,7 +1281,7 @@ export async function publishReviewRun(
       if (staged.length !== run.candidateChunkCount) {
         throw new Error("Staged PDF vector count does not match the approved candidate count.");
       }
-      if (staged.some((chunk) => !ownershipMatches(chunk, ownership))) {
+      if (staged.some((chunk) => !hasSameKnowledgeOwnership(chunk, ownership))) {
         throw new Error("Staged PDF chunk ownership does not match the approved review run.");
       }
       await tx.update(chunks).set({ publicationStatus: "published" })
@@ -1348,7 +1322,7 @@ export async function publishReviewRun(
       if (staged.length !== run.candidateChunkCount) {
         throw new Error("Staged HTML vector count does not match the approved candidate count.");
       }
-      if (staged.some((chunk) => !ownershipMatches(chunk, ownership))) {
+      if (staged.some((chunk) => !hasSameKnowledgeOwnership(chunk, ownership))) {
         throw new Error("Staged HTML chunk ownership does not match the approved review run.");
       }
       await tx.update(htmlChunks).set({ publicationStatus: "published" })

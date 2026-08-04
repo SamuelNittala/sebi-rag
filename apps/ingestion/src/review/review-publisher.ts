@@ -27,11 +27,11 @@ import {
   type IngestionRun,
 } from "@mf-rag/db";
 import {
-  assertClassifiedKnowledgeOwnership,
   type CandidateChunkMetadata,
   type ClassifiedKnowledgeOwnership,
   type ContentCategory,
-  type KnowledgeOwnership,
+  classifiedKnowledgeOwnershipFromRecord,
+  hasSameKnowledgeOwnership,
 } from "@mf-rag/types";
 
 import { buildContextualEmbeddingText } from "../embedding/contextual-input.ts";
@@ -59,40 +59,12 @@ export interface PublishApprovedReviewOptions {
   onProgress?: (progress: ReviewPublicationProgress) => void;
 }
 
-interface OwnershipRecord {
-  visibilityScope: KnowledgeOwnership["visibilityScope"];
-  tenantId: string | null;
-  ownershipManifestId: string | null;
-  ownershipManifestVersion: number | null;
-}
-
-function classifiedOwnership(record: OwnershipRecord): ClassifiedKnowledgeOwnership {
-  const ownership = {
-    visibilityScope: record.visibilityScope,
-    tenantId: record.tenantId,
-    ownershipManifestId: record.ownershipManifestId,
-    ownershipManifestVersion: record.ownershipManifestVersion,
-  } as KnowledgeOwnership;
-  assertClassifiedKnowledgeOwnership(ownership);
-  return ownership;
-}
-
-function sameOwnership(
-  record: OwnershipRecord,
-  ownership: ClassifiedKnowledgeOwnership,
-): boolean {
-  return record.visibilityScope === ownership.visibilityScope
-    && record.tenantId === ownership.tenantId
-    && record.ownershipManifestId === ownership.ownershipManifestId
-    && record.ownershipManifestVersion === ownership.ownershipManifestVersion;
-}
-
 async function assertPublicationOwnership(
   database: Database,
   detail: NonNullable<Awaited<ReturnType<typeof getReviewRunDetail>>>,
   authorizedTenantId: string | null | undefined,
 ): Promise<ClassifiedKnowledgeOwnership> {
-  const ownership = classifiedOwnership(detail.run);
+  const ownership = classifiedKnowledgeOwnershipFromRecord(detail.run);
   if (ownership.visibilityScope === "TENANT"
     && authorizedTenantId !== ownership.tenantId) {
     throw new Error("Publisher is not authorized for the review run tenant ownership.");
@@ -125,7 +97,7 @@ async function assertPublicationOwnership(
     if (source.scopeFrozenAt || source.sourceFrozenAt) {
       throw new Error("Emergency freeze prevents scheduled publication.");
     }
-    if (detail.candidates.some((candidate) => !sameOwnership(candidate, ownership))) {
+    if (detail.candidates.some((candidate) => !hasSameKnowledgeOwnership(candidate, ownership))) {
       throw new Error("Candidate ownership does not match the approved review run.");
     }
     return ownership;
@@ -146,13 +118,13 @@ async function assertPublicationOwnership(
         ownershipManifestVersion: htmlDocuments.ownershipManifestVersion,
       }).from(htmlDocuments).where(eq(htmlDocuments.id, detail.run.sourceDocumentId));
   if (!source) throw new Error("Typed publication source document not found.");
-  if (!sameOwnership(source, ownership)) {
+  if (!hasSameKnowledgeOwnership(source, ownership)) {
     throw new Error("Source document ownership does not match the approved review run.");
   }
   if (detail.run.reviewPurpose === "content" && source.fileHash !== detail.run.fileHash) {
     throw new Error("Source document changed after review staging.");
   }
-  if (detail.candidates.some((candidate) => !sameOwnership(candidate, ownership))) {
+  if (detail.candidates.some((candidate) => !hasSameKnowledgeOwnership(candidate, ownership))) {
     throw new Error("Candidate ownership does not match the approved review run.");
   }
   return ownership;
@@ -400,11 +372,12 @@ export async function publishApprovedReviewRun(
           : "Scheduled publication approval became stale before cutover.");
       }
       options.onProgress?.({ stage: "publishing", completed: total, total });
-      const published = await getReviewRunDetail(database, runId);
-      if (!published || published.run.status !== "published" || generation.id !== cutover.generationId) {
+      const [published] = await database.select().from(ingestionRuns)
+        .where(eq(ingestionRuns.id, runId)).limit(1);
+      if (!published || published.status !== "published" || generation.id !== cutover.generationId) {
         throw new Error("Scheduled publication cutover did not commit the exact staged generation.");
       }
-      return published.run;
+      return published;
     }
 
     if (detail.run.sourceType === "pdf") {

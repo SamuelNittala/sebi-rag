@@ -157,31 +157,36 @@ export async function runOperatorCli(
 }
 
 async function loadStatus(database: Database): Promise<PipelineOperatorStatus> {
-  const rows = await database.select({
-    sourceId: sources.id,
-    sourceKey: sources.sourceKey,
-    accessScopeId: accessScopes.id,
-    externalCode: accessScopes.externalCode,
-    scheduleEnabled: sourceSchedules.enabled,
-    pausedAt: sourceSchedules.pausedAt,
-    sourceFrozenAt: sources.emergencyFrozenAt,
-    scopeFrozenAt: accessScopes.emergencyFrozenAt,
-    nextDueAt: sourceSchedules.nextDueAt,
-  }).from(sources)
-    .innerJoin(accessScopes, eq(accessScopes.id, sources.accessScopeId))
-    .innerJoin(sourceSchedules, eq(sourceSchedules.sourceId, sources.id));
-  const [queue] = await database.select({
-    pending: sql<number>`count(*) filter (where ${stageAttempts.status} = 'pending')::int`,
-    running: sql<number>`count(*) filter (where ${stageAttempts.status} = 'running')::int`,
-    retries: sql<number>`count(*) filter (where ${stageAttempts.status} = 'retry_wait')::int`,
-    deadLetters: sql<number>`count(*) filter (where ${stageAttempts.status} = 'dead_letter' and ${stageAttempts.isCurrent} = true)::int`,
-  }).from(stageAttempts);
-  const [review] = await database.select({
-    waitingReview: sql<number>`count(*) filter (where ${ingestionRuns.status} = 'review_ready')::int`,
-  }).from(ingestionRuns);
-  const [publication] = await database.select({
-    publicationLag: sql<number>`count(*) filter (where ${documentPublicationGenerations.status} = 'staged')::int`,
-  }).from(documentPublicationGenerations);
+  const [rows, queueRows, reviewRows, publicationRows] = await Promise.all([
+    database.select({
+      sourceId: sources.id,
+      sourceKey: sources.sourceKey,
+      accessScopeId: accessScopes.id,
+      externalCode: accessScopes.externalCode,
+      scheduleEnabled: sourceSchedules.enabled,
+      pausedAt: sourceSchedules.pausedAt,
+      sourceFrozenAt: sources.emergencyFrozenAt,
+      scopeFrozenAt: accessScopes.emergencyFrozenAt,
+      nextDueAt: sourceSchedules.nextDueAt,
+    }).from(sources)
+      .innerJoin(accessScopes, eq(accessScopes.id, sources.accessScopeId))
+      .innerJoin(sourceSchedules, eq(sourceSchedules.sourceId, sources.id)),
+    database.select({
+      pending: sql<number>`count(*) filter (where ${stageAttempts.status} = 'pending')::int`,
+      running: sql<number>`count(*) filter (where ${stageAttempts.status} = 'running')::int`,
+      retries: sql<number>`count(*) filter (where ${stageAttempts.status} = 'retry_wait')::int`,
+      deadLetters: sql<number>`count(*) filter (where ${stageAttempts.status} = 'dead_letter' and ${stageAttempts.isCurrent} = true)::int`,
+    }).from(stageAttempts),
+    database.select({
+      waitingReview: sql<number>`count(*) filter (where ${ingestionRuns.status} = 'review_ready')::int`,
+    }).from(ingestionRuns),
+    database.select({
+      publicationLag: sql<number>`count(*) filter (where ${documentPublicationGenerations.status} = 'staged')::int`,
+    }).from(documentPublicationGenerations),
+  ]);
+  const queue = queueRows[0];
+  const review = reviewRows[0];
+  const publication = publicationRows[0];
   return {
     sources: rows.map((row) => ({
       sourceId: row.sourceId,

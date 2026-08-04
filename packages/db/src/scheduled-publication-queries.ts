@@ -258,20 +258,17 @@ export async function cutoverScheduledPublicationGeneration(
     if ((chunkCount?.count ?? 0) !== run.candidateChunkCount) {
       throw new Error("Scheduled generation is only partially staged.");
     }
-    const candidates = await tx.select({
-      id: chunkCandidates.id,
-      visibilityScope: chunkCandidates.visibilityScope,
-      tenantId: chunkCandidates.tenantId,
-      ownershipManifestId: chunkCandidates.ownershipManifestId,
-      ownershipManifestVersion: chunkCandidates.ownershipManifestVersion,
-    }).from(chunkCandidates)
-      .where(eq(chunkCandidates.ingestionRunId, run.id));
-    if (candidates.length !== run.candidateChunkCount
-      || candidates.some((candidate) =>
-        candidate.visibilityScope !== run.visibilityScope
-        || candidate.tenantId !== run.tenantId
-        || candidate.ownershipManifestId !== run.ownershipManifestId
-        || candidate.ownershipManifestVersion !== run.ownershipManifestVersion)) {
+    const [candidateCounts] = await tx.select({
+      total: sql<number>`count(*)::int`,
+      ownershipMismatches: sql<number>`count(*) filter (where
+        ${chunkCandidates.visibilityScope} is distinct from ${run.visibilityScope}
+        or ${chunkCandidates.tenantId} is distinct from ${run.tenantId}
+        or ${chunkCandidates.ownershipManifestId} is distinct from ${run.ownershipManifestId}
+        or ${chunkCandidates.ownershipManifestVersion} is distinct from ${run.ownershipManifestVersion}
+      )::int`,
+    }).from(chunkCandidates).where(eq(chunkCandidates.ingestionRunId, run.id));
+    if ((candidateCounts?.total ?? 0) !== run.candidateChunkCount
+      || (candidateCounts?.ownershipMismatches ?? 0) > 0) {
       throw new Error("Approved scheduled candidate set changed before cutover.");
     }
     const now = new Date();
