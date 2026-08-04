@@ -151,15 +151,19 @@ export class DiscoveryWorker {
 
   private async execute(work: ClaimedDiscoveryExecution, controller: AbortController): Promise<void> {
     let heartbeat: ReturnType<typeof setInterval> | undefined;
+    let heartbeatInFlight = false;
     try {
       validateDiscoveryClaim(work, this.options.owner);
       heartbeat = setInterval(() => {
+        if (heartbeatInFlight) return;
+        heartbeatInFlight = true;
         void this.options.repository.heartbeat({
           ...discoveryFence(work),
           leaseDurationMs: this.options.leaseDurationMs,
         }).then((accepted) => {
           if (!accepted) controller.abort(new Error("Discovery lease is stale."));
-        }).catch(() => controller.abort(new Error("Discovery heartbeat failed.")));
+        }).catch(() => controller.abort(new Error("Discovery heartbeat failed.")))
+          .finally(() => { heartbeatInFlight = false; });
       }, this.options.heartbeatIntervalMs);
       await this.options.handler({
         discoveryRunId: work.id,

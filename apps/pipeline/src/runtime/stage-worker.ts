@@ -1,7 +1,7 @@
 import type { DocumentPipelineStage } from "@mf-rag/types";
 
 import type { RetryPolicy, StageFailureClassification } from "./retry-policy.ts";
-import { DeterministicStageError } from "./retry-policy.ts";
+import { DeterministicStageError, positiveInteger } from "./retry-policy.ts";
 import type { StageRegistry } from "./stage-registry.ts";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
@@ -164,6 +164,7 @@ export class StageWorker {
 
   private async execute(work: ClaimedStageWork, controller: AbortController): Promise<void> {
     let heartbeat: ReturnType<typeof setInterval> | undefined;
+    let heartbeatInFlight = false;
     try {
       validateClaimedWork(work, this.options.owner);
       const registration = this.options.registry.get(work.stage);
@@ -191,12 +192,15 @@ export class StageWorker {
       }
 
       heartbeat = setInterval(() => {
+        if (heartbeatInFlight) return;
+        heartbeatInFlight = true;
         void this.options.repository.heartbeat({
           ...fence(work),
           leaseDurationMs: this.options.leaseDurationMs,
         }).then((accepted) => {
           if (!accepted) controller.abort(new StaleLeaseError());
-        }).catch(() => controller.abort(new StaleLeaseError()));
+        }).catch(() => controller.abort(new StaleLeaseError()))
+          .finally(() => { heartbeatInFlight = false; });
       }, this.options.heartbeatIntervalMs);
 
       const output = await registration.handler({
@@ -268,9 +272,4 @@ function validateOutput(outputRef: string, outputChecksum: string): void {
 
 function assertNonEmpty(value: string, label: string): void {
   if (!value.trim()) throw new Error(`${label} is required.`);
-}
-
-function positiveInteger(value: number, label: string): number {
-  if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${label} must be a positive integer.`);
-  return value;
 }

@@ -172,6 +172,39 @@ describe("generic stage worker", () => {
     expect(fake.failed[0]).toMatchObject({ classification: "deterministic", errorCode: "INVALID_STAGE_ENVELOPE" });
   });
 
+  test("slow heartbeats never overlap", async () => {
+    const fake = fakeRepository();
+    let heartbeatInFlight = 0;
+    let maximumHeartbeatConcurrency = 0;
+    fake.repository.heartbeat = async () => {
+      heartbeatInFlight += 1;
+      maximumHeartbeatConcurrency = Math.max(maximumHeartbeatConcurrency, heartbeatInFlight);
+      await Bun.sleep(20);
+      heartbeatInFlight -= 1;
+      return true;
+    };
+    const worker = new StageWorker({
+      owner: "worker-a",
+      repository: fake.repository,
+      registry: new StageRegistry([{
+        stage: "PARSE",
+        implementationIdentity: parseIdentity,
+        handler: async () => {
+          await Bun.sleep(55);
+          return { outputRef: "artifact://parsed", outputChecksum: checksum("2") };
+        },
+      }]),
+      retryPolicy: createRetryPolicy(),
+      leaseDurationMs: 100,
+      heartbeatIntervalMs: 5,
+      claimBatchSize: 1,
+    });
+
+    await worker.runOnce();
+    await Bun.sleep(25);
+    expect(maximumHeartbeatConcurrency).toBe(1);
+  });
+
   test("graceful stop blocks new claims and releases unfinished leases", async () => {
     const fake = fakeRepository();
     let started!: () => void;

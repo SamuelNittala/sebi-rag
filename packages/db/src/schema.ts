@@ -769,7 +769,7 @@ export const sourceSchedules = pgTable(
     pausedAt: timestamp("paused_at", { mode: "date", withTimezone: true }),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("source_schedules_due_idx").on(table.enabled, table.nextDueAt)],
+  (table) => [index("source_schedules_due_idx").on(table.enabled, table.pausedAt, table.nextDueAt)],
 );
 
 export const discoveryRunStatuses = [

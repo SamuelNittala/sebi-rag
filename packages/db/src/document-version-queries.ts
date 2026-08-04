@@ -244,13 +244,17 @@ export async function recordDocumentObservation(
   const observedAt = input.observedAt ?? new Date();
 
   return db.transaction(async (tx) => {
-    const [document] = await tx.select().from(sourceDocuments)
-      .where(eq(sourceDocuments.id, input.sourceDocumentId)).limit(1);
-    const [run] = await tx.select().from(discoveryRuns)
-      .where(eq(discoveryRuns.id, input.discoveryRunId)).limit(1);
-    if (!document || !run || run.sourceId !== document.sourceId) {
+    const [ownership] = await tx.select({ document: sourceDocuments, run: discoveryRuns })
+      .from(sourceDocuments)
+      .innerJoin(discoveryRuns, eq(discoveryRuns.sourceId, sourceDocuments.sourceId))
+      .where(and(
+        eq(sourceDocuments.id, input.sourceDocumentId),
+        eq(discoveryRuns.id, input.discoveryRunId),
+      )).limit(1);
+    if (!ownership) {
       throw new Error("Document observation ownership does not match the discovery run source.");
     }
+    const { document, run } = ownership;
 
     const [observation] = await tx.insert(documentObservations).values({
       discoveryRunId: run.id,

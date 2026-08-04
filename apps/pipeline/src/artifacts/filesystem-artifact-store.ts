@@ -1,4 +1,4 @@
-import { link, mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, opendir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -65,9 +65,8 @@ export class FilesystemArtifactStore implements ArtifactStore {
     referencedKeys: ReadonlySet<string>,
     olderThan: Date,
   ): Promise<readonly OrphanArtifact[]> {
-    const files = await walkFiles(this.#root);
     const orphans: OrphanArtifact[] = [];
-    for (const path of files) {
+    for await (const path of walkFiles(this.#root)) {
       if (path.endsWith(".tmp")) continue;
       const metadata = await stat(path);
       const key = relative(this.#root, path).split(sep).join("/");
@@ -93,17 +92,17 @@ export class FilesystemArtifactStore implements ArtifactStore {
   }
 }
 
-async function walkFiles(root: string): Promise<string[]> {
-  let entries;
+async function* walkFiles(root: string): AsyncGenerator<string> {
+  let directory;
   try {
-    entries = await readdir(root, { withFileTypes: true });
+    directory = await opendir(root);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
     throw error;
   }
-  const nested = await Promise.all(entries.map(async (entry) => {
+  for await (const entry of directory) {
     const path = join(root, entry.name);
-    return entry.isDirectory() ? walkFiles(path) : [path];
-  }));
-  return nested.flat();
+    if (entry.isDirectory()) yield* walkFiles(path);
+    else yield path;
+  }
 }

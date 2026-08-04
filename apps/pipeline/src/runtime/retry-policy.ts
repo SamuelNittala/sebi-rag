@@ -1,4 +1,6 @@
-export type StageFailureClassification = "transient" | "deterministic";
+import type { PipelineFailureClassification } from "@mf-rag/types";
+
+export type StageFailureClassification = PipelineFailureClassification;
 
 export interface ClassifiedStageFailure {
   readonly classification: StageFailureClassification;
@@ -107,7 +109,7 @@ function classifyTransientShape(error: unknown): ClassifiedStageFailure | null {
   return null;
 }
 
-function positiveInteger(value: number, label: string): number {
+export function positiveInteger(value: number, label: string): number {
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${label} must be a positive integer.`);
   return value;
 }

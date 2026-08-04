@@ -20,6 +20,7 @@ export interface OrphanArtifact {
 }
 
 export interface ArtifactStore {
+  /** Writes or reuses an immutable object and returns only after integrity verification. */
   put(input: PutArtifactInput): Promise<ArtifactDescriptor>;
   read(descriptor: ArtifactDescriptor): Promise<Uint8Array>;
   verify(descriptor: ArtifactDescriptor): Promise<ArtifactDescriptor>;
@@ -28,7 +29,7 @@ export interface ArtifactStore {
 }
 
 /**
- * Storage is complete and re-verified before persistence is invoked. If
+ * Storage is complete and verified before persistence is invoked. If
  * persistence fails, the immutable object is an observable orphan and a retry
  * safely reuses it; no ready database record can point at a missing upload.
  */
@@ -37,8 +38,7 @@ export async function persistVerifiedArtifact<T>(
   input: PutArtifactInput,
   persist: (descriptor: ArtifactDescriptor) => Promise<T>,
 ): Promise<T> {
-  const uploaded = await store.put(input);
-  const verified = await store.verify(uploaded);
+  const verified = await store.put(input);
   return persist(verified);
 }
 

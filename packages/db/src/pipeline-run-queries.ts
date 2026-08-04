@@ -1,5 +1,5 @@
-import type { DocumentPipelineStage } from "@mf-rag/types";
-import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import type { DocumentPipelineStage, PipelineFailureClassification } from "@mf-rag/types";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 
 import type { Database } from "./client.ts";
 import {
@@ -70,7 +70,7 @@ export interface CompleteStageAttemptResult {
   readonly nextAttempt: typeof stageAttempts.$inferSelect | null;
 }
 
-export type FailureClassification = "transient" | "deterministic";
+export type FailureClassification = PipelineFailureClassification;
 
 export interface FailStageAttemptInput extends AttemptFence {
   readonly errorCode: string;
@@ -332,31 +332,14 @@ export async function completeStageAttempt(
       }).where(stageFence(input)).returning();
       if (!reused) return { accepted: false, attempt: null, nextAttempt: null };
 
-      let reusedNext: typeof stageAttempts.$inferSelect | null = null;
-      if (input.next) {
-        const [inserted] = await tx.insert(stageAttempts).values({
-          pipelineRunId: reused.pipelineRunId,
-          documentVersionId: reused.documentVersionId,
-          accessScopeId: reused.accessScopeId,
-          sourceId: reused.sourceId,
-          stage: input.next.stage,
-          implementationVersion: input.next.implementationVersion,
-          inputChecksum: compatible.outputChecksum,
-          maxAttempts: positiveInteger(input.next.maxAttempts ?? reused.maxAttempts, "Maximum attempts"),
-          nextRunAt: now,
-        }).onConflictDoNothing().returning();
-        reusedNext = inserted ?? (await tx.select().from(stageAttempts).where(and(
-          eq(stageAttempts.pipelineRunId, reused.pipelineRunId),
-          eq(stageAttempts.stage, input.next.stage),
-          eq(stageAttempts.implementationVersion, input.next.implementationVersion),
-          eq(stageAttempts.inputChecksum, compatible.outputChecksum),
-          eq(stageAttempts.isCurrent, true),
-        )).limit(1))[0] ?? null;
-        if (!reusedNext) throw new Error("Failed to commit next-stage work from concurrent compatible success.");
-      } else {
-        await tx.update(pipelineRuns).set({ status: "succeeded", completedAt: now, updatedAt: now })
-          .where(and(eq(pipelineRuns.id, reused.pipelineRunId), eq(pipelineRuns.status, "active")));
-      }
+      const reusedNext = await commitNextStageOrFinish(
+        tx,
+        reused,
+        input.next,
+        compatible.outputChecksum,
+        now,
+        "Failed to commit next-stage work from concurrent compatible success.",
+      );
       return { accepted: true, attempt: reused, nextAttempt: reusedNext };
     }
 
@@ -373,31 +356,14 @@ export async function completeStageAttempt(
     }).where(stageFence(input)).returning();
     if (!completed) return { accepted: false, attempt: null, nextAttempt: null };
 
-    let nextAttempt: typeof stageAttempts.$inferSelect | null = null;
-    if (input.next) {
-      const [inserted] = await tx.insert(stageAttempts).values({
-        pipelineRunId: completed.pipelineRunId,
-        documentVersionId: completed.documentVersionId,
-        accessScopeId: completed.accessScopeId,
-        sourceId: completed.sourceId,
-        stage: input.next.stage,
-        implementationVersion: input.next.implementationVersion,
-        inputChecksum: input.next.inputChecksum,
-        maxAttempts: positiveInteger(input.next.maxAttempts ?? completed.maxAttempts, "Maximum attempts"),
-        nextRunAt: now,
-      }).onConflictDoNothing().returning();
-      nextAttempt = inserted ?? (await tx.select().from(stageAttempts).where(and(
-        eq(stageAttempts.pipelineRunId, completed.pipelineRunId),
-        eq(stageAttempts.stage, input.next.stage),
-        eq(stageAttempts.implementationVersion, input.next.implementationVersion),
-        eq(stageAttempts.inputChecksum, input.next.inputChecksum),
-        eq(stageAttempts.isCurrent, true),
-      )).limit(1))[0] ?? null;
-      if (!nextAttempt) throw new Error("Failed to commit next-stage work atomically.");
-    } else {
-      await tx.update(pipelineRuns).set({ status: "succeeded", completedAt: now, updatedAt: now })
-        .where(and(eq(pipelineRuns.id, completed.pipelineRunId), eq(pipelineRuns.status, "active")));
-    }
+    const nextAttempt = await commitNextStageOrFinish(
+      tx,
+      completed,
+      input.next,
+      input.outputChecksum,
+      now,
+      "Failed to commit next-stage work atomically.",
+    );
     return { accepted: true, attempt: completed, nextAttempt };
   });
 }
@@ -448,31 +414,14 @@ export async function reuseCompatibleStageSuccess(
     }).where(stageFence(input)).returning();
     if (!reused) return { accepted: false, attempt: null, nextAttempt: null };
 
-    let nextAttempt: typeof stageAttempts.$inferSelect | null = null;
-    if (input.next) {
-      const [inserted] = await tx.insert(stageAttempts).values({
-        pipelineRunId: reused.pipelineRunId,
-        documentVersionId: reused.documentVersionId,
-        accessScopeId: reused.accessScopeId,
-        sourceId: reused.sourceId,
-        stage: input.next.stage,
-        implementationVersion: input.next.implementationVersion,
-        inputChecksum: input.next.inputChecksum,
-        maxAttempts: positiveInteger(input.next.maxAttempts ?? reused.maxAttempts, "Maximum attempts"),
-        nextRunAt: now,
-      }).onConflictDoNothing().returning();
-      nextAttempt = inserted ?? (await tx.select().from(stageAttempts).where(and(
-        eq(stageAttempts.pipelineRunId, reused.pipelineRunId),
-        eq(stageAttempts.stage, input.next.stage),
-        eq(stageAttempts.implementationVersion, input.next.implementationVersion),
-        eq(stageAttempts.inputChecksum, input.next.inputChecksum),
-        eq(stageAttempts.isCurrent, true),
-      )).limit(1))[0] ?? null;
-      if (!nextAttempt) throw new Error("Failed to commit next-stage work from compatible success.");
-    } else {
-      await tx.update(pipelineRuns).set({ status: "succeeded", completedAt: now, updatedAt: now })
-        .where(and(eq(pipelineRuns.id, reused.pipelineRunId), eq(pipelineRuns.status, "active")));
-    }
+    const nextAttempt = await commitNextStageOrFinish(
+      tx,
+      reused,
+      input.next,
+      success.outputChecksum,
+      now,
+      "Failed to commit next-stage work from compatible success.",
+    );
     return { accepted: true, attempt: reused, nextAttempt };
   });
 }
@@ -800,7 +749,7 @@ export async function pauseSourceSchedule(db: Database, sourceId: string, now = 
 
 export async function resumeSourceSchedule(db: Database, sourceId: string, now = new Date()): Promise<boolean> {
   const [resumed] = await db.update(sourceSchedules).set({ pausedAt: null, updatedAt: now })
-    .where(eq(sourceSchedules.sourceId, sourceId))
+    .where(and(eq(sourceSchedules.sourceId, sourceId), isNotNull(sourceSchedules.pausedAt)))
     .returning({ sourceId: sourceSchedules.sourceId });
   return Boolean(resumed);
 }
@@ -814,7 +763,11 @@ export async function pausePipelineRun(db: Database, pipelineRunId: string, now 
 
 export async function resumePipelineRun(db: Database, pipelineRunId: string, now = new Date()): Promise<boolean> {
   const [updated] = await db.update(pipelineRuns).set({ pausedAt: null, updatedAt: now })
-    .where(and(eq(pipelineRuns.id, pipelineRunId), eq(pipelineRuns.status, "active")))
+    .where(and(
+      eq(pipelineRuns.id, pipelineRunId),
+      eq(pipelineRuns.status, "active"),
+      isNotNull(pipelineRuns.pausedAt),
+    ))
     .returning({ id: pipelineRuns.id });
   return Boolean(updated);
 }
@@ -901,8 +854,46 @@ function fenceMatches(
     && attempt.leaseEpoch === input.leaseEpoch;
 }
 
+type DatabaseTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+async function commitNextStageOrFinish(
+  tx: DatabaseTransaction,
+  attempt: typeof stageAttempts.$inferSelect,
+  next: NextStageInput | undefined,
+  inputChecksum: string,
+  now: Date,
+  insertionError: string,
+): Promise<typeof stageAttempts.$inferSelect | null> {
+  if (!next) {
+    await tx.update(pipelineRuns).set({ status: "succeeded", completedAt: now, updatedAt: now })
+      .where(and(eq(pipelineRuns.id, attempt.pipelineRunId), eq(pipelineRuns.status, "active")));
+    return null;
+  }
+
+  const [inserted] = await tx.insert(stageAttempts).values({
+    pipelineRunId: attempt.pipelineRunId,
+    documentVersionId: attempt.documentVersionId,
+    accessScopeId: attempt.accessScopeId,
+    sourceId: attempt.sourceId,
+    stage: next.stage,
+    implementationVersion: next.implementationVersion,
+    inputChecksum,
+    maxAttempts: positiveInteger(next.maxAttempts ?? attempt.maxAttempts, "Maximum attempts"),
+    nextRunAt: now,
+  }).onConflictDoNothing().returning();
+  const existing = inserted ?? (await tx.select().from(stageAttempts).where(and(
+    eq(stageAttempts.pipelineRunId, attempt.pipelineRunId),
+    eq(stageAttempts.stage, next.stage),
+    eq(stageAttempts.implementationVersion, next.implementationVersion),
+    eq(stageAttempts.inputChecksum, inputChecksum),
+    eq(stageAttempts.isCurrent, true),
+  )).limit(1))[0] ?? null;
+  if (!existing) throw new Error(insertionError);
+  return existing;
+}
+
 async function terminalFailure(
-  tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
+  tx: DatabaseTransaction,
   attempt: typeof stageAttempts.$inferSelect,
   input: FailStageAttemptInput,
   now: Date,

@@ -75,6 +75,10 @@ ALTER TABLE "stage_attempts" ADD CONSTRAINT "stage_attempts_reused_attempt_id_st
 --> statement-breakpoint
 ALTER TABLE "source_schedules" ADD COLUMN "paused_at" timestamp with time zone;
 --> statement-breakpoint
+DROP INDEX "source_schedules_due_idx";
+--> statement-breakpoint
+CREATE INDEX "source_schedules_due_idx" ON "source_schedules" USING btree ("enabled","paused_at","next_due_at");
+--> statement-breakpoint
 ALTER TABLE "discovery_runs" ADD COLUMN "attempt_count" integer DEFAULT 0 NOT NULL;
 --> statement-breakpoint
 ALTER TABLE "discovery_runs" ADD COLUMN "max_attempts" integer DEFAULT 3 NOT NULL;

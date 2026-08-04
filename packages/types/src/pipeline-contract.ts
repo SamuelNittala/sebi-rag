@@ -29,6 +29,8 @@ export const documentPipelineStages = [
 ] as const;
 export type DocumentPipelineStage = (typeof documentPipelineStages)[number];
 
+export type PipelineFailureClassification = "transient" | "deterministic";
+
 export const stageOutcomes = ["SUCCEEDED", "FAILED", "WAITING_REVIEW"] as const;
 export type StageOutcome = (typeof stageOutcomes)[number];
 

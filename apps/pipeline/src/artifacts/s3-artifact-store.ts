@@ -85,7 +85,7 @@ export class S3ArtifactStore implements ArtifactStore {
       Key: this.#objectKey(descriptor.key),
       ChecksumMode: "ENABLED",
     }));
-    return readS3Body(result.Body);
+    return readS3Body(result.Body, descriptor.byteSize);
   }
 
   async verify(descriptor: ArtifactDescriptor): Promise<ArtifactDescriptor> {
@@ -171,24 +171,24 @@ function isPreconditionFailure(error: unknown): boolean {
   return candidate.name === "PreconditionFailed" || candidate.$metadata?.httpStatusCode === 412;
 }
 
-async function readS3Body(body: unknown): Promise<Uint8Array> {
+async function readS3Body(body: unknown, expectedSize: number): Promise<Uint8Array> {
   if (body instanceof Uint8Array) return body;
   if (body instanceof Blob) return new Uint8Array(await body.arrayBuffer());
   if (body && typeof body === "object" && "transformToByteArray" in body) {
     return (body as { transformToByteArray(): Promise<Uint8Array> }).transformToByteArray();
   }
   if (body && typeof body === "object" && Symbol.asyncIterator in body) {
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of body as AsyncIterable<Uint8Array | string>) {
-      chunks.push(typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk);
-    }
-    const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-    const combined = new Uint8Array(size);
+    const combined = new Uint8Array(expectedSize);
     let offset = 0;
-    for (const chunk of chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.byteLength;
+    for await (const chunk of body as AsyncIterable<Uint8Array | string>) {
+      const bytes = typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk;
+      if (offset + bytes.byteLength > expectedSize) {
+        throw new Error("S3 artifact response exceeded its declared byte size.");
+      }
+      combined.set(bytes, offset);
+      offset += bytes.byteLength;
     }
+    if (offset !== expectedSize) throw new Error("S3 artifact response did not match its declared byte size.");
     return combined;
   }
   throw new Error("S3 artifact response did not contain a readable body.");

@@ -467,7 +467,8 @@ integrationDescribe("fenced pipeline stage runtime", () => {
     const pending = await createPendingAttempt();
     await pausePipelineRun(db, pending.run.id);
     expect(await claimStageAttempts(db, { owner: "worker-a", batchSize: 1, leaseDurationMs: 60_000 })).toHaveLength(0);
-    await resumePipelineRun(db, pending.run.id);
+    expect(await resumePipelineRun(db, pending.run.id)).toBe(true);
+    expect(await resumePipelineRun(db, pending.run.id)).toBe(false);
     const [claimed] = await claimStageAttempts(db, { owner: "worker-a", batchSize: 1, leaseDurationMs: 60_000 });
     expect(await releaseStageAttemptLease(db, {
       attemptId: claimed!.id,
@@ -510,6 +511,7 @@ integrationDescribe("fenced pipeline stage runtime", () => {
     })).rejects.toThrow("paused source");
 
     expect(await resumeSourceSchedule(db, source!.id)).toBe(true);
+    expect(await resumeSourceSchedule(db, source!.id)).toBe(false);
     const manual = await triggerManualDiscoveryRun(db, {
       sourceId: source!.id,
       now: new Date("2026-08-04T10:31:00.000Z"),
