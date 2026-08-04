@@ -1,0 +1,33 @@
+apiVersion: mf-rag/v1
+kind: AccessScope
+metadata:
+  key: mirae-sif
+  externalCode: "910"
+ownership:
+  visibilityScope: TENANT
+  tenantId: "910"
+classification:
+  knowledgeDomain: sif
+  sourceCollection: mirae_sif
+  amcSlug: mirae-asset
+sources:
+  - key: mirae-sif-public-pdfs
+    connector: website_pdf
+    enabled: false
+    discovery:
+      strategy: explicit_urls
+      urls: []
+    schedule:
+      enabled: false
+      cron: "0 2 * * *"
+      timezone: Asia/Kolkata
+    fetch:
+      allowedHosts:
+        - platinumsif.miraeassetmf.co.in
+      allowedPathPrefixes:
+        - /
+      maxBytes: 26214400
+      timeoutMs: 30000
+      maxRedirects: 3
+    review:
+      policy: risk_based

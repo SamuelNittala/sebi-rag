@@ -8,3 +8,5 @@ export * from "./html-chunk.ts";
 export * from "./knowledge-scope.ts";
 export * from "./tenant-access-scope.ts";
 export * from "./chunk-review.ts";
+export * from "./source-registry.ts";
+export * from "./pipeline-contract.ts";

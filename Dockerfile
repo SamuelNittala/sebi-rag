@@ -13,6 +13,7 @@ COPY apps/cli/package.json apps/cli/
 COPY apps/ingestion/package.json apps/ingestion/
 COPY apps/mcp-server/package.json apps/mcp-server/
 COPY apps/scraper/package.json apps/scraper/
+COPY apps/pipeline/package.json apps/pipeline/
 COPY packages/types/package.json packages/types/
 COPY packages/db/package.json packages/db/
 COPY packages/vector/package.json packages/vector/

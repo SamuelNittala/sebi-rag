@@ -1,0 +1,33 @@
+apiVersion: mf-rag/v1
+kind: AccessScope
+metadata:
+  key: mirae-mf
+  externalCode: "117"
+ownership:
+  visibilityScope: TENANT
+  tenantId: "117"
+classification:
+  knowledgeDomain: mutual_fund
+  sourceCollection: mirae_mf
+  amcSlug: mirae-asset
+sources:
+  - key: mirae-mf-public-pdfs
+    connector: website_pdf
+    enabled: false
+    discovery:
+      strategy: explicit_urls
+      urls: []
+    schedule:
+      enabled: false
+      cron: "0 3 * * *"
+      timezone: Asia/Kolkata
+    fetch:
+      allowedHosts:
+        - www.miraeassetmf.co.in
+      allowedPathPrefixes:
+        - /
+      maxBytes: 26214400
+      timeoutMs: 30000
+      maxRedirects: 3
+    review:
+      policy: risk_based
