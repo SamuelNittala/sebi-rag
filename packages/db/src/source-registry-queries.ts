@@ -12,7 +12,7 @@ import {
   externalAccessCodeToTenantId,
   findInlineSecretField,
 } from "@mf-rag/types";
-import { and, asc, eq, inArray, lte, ne, notExists, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, ne, notExists, sql } from "drizzle-orm";
 import { parseExpression } from "cron-parser";
 
 import type { Database } from "./client.ts";
@@ -218,13 +218,14 @@ export async function claimDueDiscoveryRun(
       .innerJoin(accessScopes, eq(accessScopes.id, sources.accessScopeId))
       .where(and(
         eq(sourceSchedules.enabled, true),
+        isNull(sourceSchedules.pausedAt),
         eq(sources.enabled, true),
         eq(accessScopes.enabled, true),
         lte(sourceSchedules.nextDueAt, now),
         notExists(
           tx.select({ one: sql`1` }).from(discoveryRuns).where(and(
             eq(discoveryRuns.sourceId, sources.id),
-            inArray(discoveryRuns.status, ["pending", "running"]),
+            inArray(discoveryRuns.status, ["pending", "running", "retry_wait"]),
           )),
         ),
       ))

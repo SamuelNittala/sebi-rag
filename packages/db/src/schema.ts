@@ -31,6 +31,7 @@ import type {
   SourceFetchConstraints,
   SourceReviewConfig,
   VisibilityScope,
+  DocumentPipelineStage,
 } from "@mf-rag/types";
 
 // Custom type for pgvector
@@ -765,13 +766,30 @@ export const sourceSchedules = pgTable(
     cron: varchar("cron", { length: 100 }).notNull(),
     timezone: varchar("timezone", { length: 100 }).notNull(),
     nextDueAt: timestamp("next_due_at", { mode: "date", withTimezone: true }).notNull(),
+    pausedAt: timestamp("paused_at", { mode: "date", withTimezone: true }),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index("source_schedules_due_idx").on(table.enabled, table.nextDueAt)],
 );
 
-export const discoveryRunStatuses = ["pending", "running", "succeeded", "failed"] as const;
+export const discoveryRunStatuses = [
+  "pending",
+  "running",
+  "retry_wait",
+  "succeeded",
+  "failed",
+  "dead_letter",
+  "cancelled",
+] as const;
 export type DiscoveryRunStatus = (typeof discoveryRunStatuses)[number];
+
+export interface DiscoveryRetryHistoryEntry {
+  readonly attempt: number;
+  readonly errorCode: string;
+  readonly errorMessage: string;
+  readonly failedAt: string;
+  readonly retryAt: string | null;
+}
 
 /** Append-only scheduling/discovery history; source removal never deletes these rows. */
 export const discoveryRuns = pgTable(
@@ -788,17 +806,31 @@ export const discoveryRuns = pgTable(
     status: varchar("status", { length: 20 }).notNull().$type<DiscoveryRunStatus>(),
     startedAt: timestamp("started_at", { mode: "date", withTimezone: true }),
     completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    maxAttempts: integer("max_attempts").default(3).notNull(),
+    nextRetryAt: timestamp("next_retry_at", { mode: "date", withTimezone: true }),
+    leaseOwner: varchar("lease_owner", { length: 255 }),
+    leaseEpoch: integer("lease_epoch").default(0).notNull(),
+    leaseExpiresAt: timestamp("lease_expires_at", { mode: "date", withTimezone: true }),
+    heartbeatAt: timestamp("heartbeat_at", { mode: "date", withTimezone: true }),
+    errorCode: varchar("error_code", { length: 100 }),
     errorMessage: text("error_message"),
+    terminalDisposition: varchar("terminal_disposition", { length: 40 }),
+    retryHistory: jsonb("retry_history").$type<DiscoveryRetryHistoryEntry[]>().default([]).notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("discovery_runs_source_scheduled_uidx").on(table.sourceId, table.scheduledFor),
     index("discovery_runs_source_created_idx").on(table.sourceId, table.createdAt),
     index("discovery_runs_status_idx").on(table.status),
+    index("discovery_runs_claim_idx").on(table.status, table.nextRetryAt),
+    index("discovery_runs_lease_idx").on(table.status, table.leaseExpiresAt),
     index("discovery_runs_active_source_idx")
       .on(table.sourceId)
-      .where(sql`${table.status} IN ('pending', 'running')`),
-    check("discovery_runs_status_ck", sql`${table.status} IN ('pending', 'running', 'succeeded', 'failed')`),
+      .where(sql`${table.status} IN ('pending', 'running', 'retry_wait')`),
+    check("discovery_runs_status_ck", sql`${table.status} IN ('pending', 'running', 'retry_wait', 'succeeded', 'failed', 'dead_letter', 'cancelled')`),
+    check("discovery_runs_attempts_ck", sql`${table.attemptCount} >= 0 AND ${table.maxAttempts} > 0`),
+    check("discovery_runs_lease_epoch_ck", sql`${table.leaseEpoch} >= 0`),
   ],
 );
 
@@ -884,6 +916,7 @@ export const documentVersions = pgTable(
   (table) => [
     uniqueIndex("document_versions_document_hash_uidx").on(table.sourceDocumentId, table.contentSha256),
     uniqueIndex("document_versions_document_sequence_uidx").on(table.sourceDocumentId, table.sequence),
+    uniqueIndex("document_versions_id_source_scope_uidx").on(table.id, table.sourceId, table.accessScopeId),
     index("document_versions_scope_source_idx").on(table.accessScopeId, table.sourceId),
     check("document_versions_sequence_ck", sql`${table.sequence} > 0`),
     check("document_versions_sha256_ck", sql`${table.contentSha256} ~ '^[0-9a-f]{64}$'`),
@@ -953,6 +986,143 @@ export const documentObservations = pgTable(
       name: "document_observations_document_owner_fk",
       columns: [table.sourceDocumentId, table.sourceId, table.accessScopeId],
       foreignColumns: [sourceDocuments.id, sourceDocuments.sourceId, sourceDocuments.accessScopeId],
+    }).onDelete("restrict"),
+  ],
+);
+
+export const pipelineRunStatuses = ["active", "succeeded", "failed", "cancelled"] as const;
+export type PipelineRunStatus = (typeof pipelineRunStatuses)[number];
+
+/** One version-owned workflow. Pause drains running work and blocks new claims. */
+export const pipelineRuns = pgTable(
+  "pipeline_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentVersionId: uuid("document_version_id")
+      .notNull()
+      .references(() => documentVersions.id, { onDelete: "restrict" }),
+    accessScopeId: uuid("access_scope_id")
+      .notNull()
+      .references(() => accessScopes.id, { onDelete: "restrict" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "restrict" }),
+    implementationVersion: varchar("implementation_version", { length: 255 }).notNull(),
+    initialStage: varchar("initial_stage", { length: 50 }).notNull().$type<DocumentPipelineStage>(),
+    initialStageImplementationVersion: varchar("initial_stage_implementation_version", { length: 255 }).notNull(),
+    initialInputChecksum: varchar("initial_input_checksum", { length: 64 }).notNull(),
+    initialMaxAttempts: integer("initial_max_attempts").notNull(),
+    status: varchar("status", { length: 20 }).default("active").notNull().$type<PipelineRunStatus>(),
+    pausedAt: timestamp("paused_at", { mode: "date", withTimezone: true }),
+    completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("pipeline_runs_version_implementation_uidx")
+      .on(table.documentVersionId, table.implementationVersion),
+    uniqueIndex("pipeline_runs_id_version_source_scope_uidx")
+      .on(table.id, table.documentVersionId, table.sourceId, table.accessScopeId),
+    index("pipeline_runs_scope_status_idx").on(table.accessScopeId, table.status),
+    check("pipeline_runs_status_ck", sql`${table.status} IN ('active', 'succeeded', 'failed', 'cancelled')`),
+    check("pipeline_runs_initial_input_checksum_ck", sql`${table.initialInputChecksum} ~ '^[0-9a-f]{64}$'`),
+    check("pipeline_runs_initial_max_attempts_ck", sql`${table.initialMaxAttempts} > 0`),
+    foreignKey({
+      name: "pipeline_runs_document_owner_fk",
+      columns: [table.documentVersionId, table.sourceId, table.accessScopeId],
+      foreignColumns: [documentVersions.id, documentVersions.sourceId, documentVersions.accessScopeId],
+    }).onDelete("restrict"),
+  ],
+);
+
+export const stageAttemptStatuses = [
+  "pending",
+  "running",
+  "retry_wait",
+  "succeeded",
+  "failed",
+  "dead_letter",
+  "reused",
+  "cancelled",
+] as const;
+export type StageAttemptStatus = (typeof stageAttemptStatuses)[number];
+
+export const stageTerminalDispositions = [
+  "SUCCEEDED",
+  "RETRY_SCHEDULED",
+  "DETERMINISTIC_FAILURE",
+  "DEAD_LETTER",
+  "REUSED_SUCCESS",
+  "CANCELLED",
+] as const;
+export type StageTerminalDisposition = (typeof stageTerminalDispositions)[number];
+
+/**
+ * Immutable execution history for one compatible stage input. `is_current`
+ * identifies the only claimable retry while prior attempts remain auditable.
+ */
+export const stageAttempts = pgTable(
+  "stage_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pipelineRunId: uuid("pipeline_run_id")
+      .notNull()
+      .references(() => pipelineRuns.id, { onDelete: "restrict" }),
+    documentVersionId: uuid("document_version_id")
+      .notNull()
+      .references(() => documentVersions.id, { onDelete: "restrict" }),
+    accessScopeId: uuid("access_scope_id")
+      .notNull()
+      .references(() => accessScopes.id, { onDelete: "restrict" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "restrict" }),
+    stage: varchar("stage", { length: 50 }).notNull().$type<DocumentPipelineStage>(),
+    implementationVersion: varchar("implementation_version", { length: 255 }).notNull(),
+    inputChecksum: varchar("input_checksum", { length: 64 }).notNull(),
+    outputRef: varchar("output_ref", { length: 2000 }),
+    outputChecksum: varchar("output_checksum", { length: 64 }),
+    status: varchar("status", { length: 20 }).default("pending").notNull().$type<StageAttemptStatus>(),
+    terminalDisposition: varchar("terminal_disposition", { length: 40 }).$type<StageTerminalDisposition>(),
+    attemptNumber: integer("attempt_number").default(1).notNull(),
+    maxAttempts: integer("max_attempts").default(3).notNull(),
+    isCurrent: boolean("is_current").default(true).notNull(),
+    nextRunAt: timestamp("next_run_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    leaseOwner: varchar("lease_owner", { length: 255 }),
+    leaseEpoch: integer("lease_epoch").default(0).notNull(),
+    leaseExpiresAt: timestamp("lease_expires_at", { mode: "date", withTimezone: true }),
+    heartbeatAt: timestamp("heartbeat_at", { mode: "date", withTimezone: true }),
+    errorCode: varchar("error_code", { length: 100 }),
+    errorMessage: text("error_message"),
+    requeuedBy: varchar("requeued_by", { length: 255 }),
+    requeuedFromAttemptId: uuid("requeued_from_attempt_id")
+      .references((): AnyPgColumn => stageAttempts.id, { onDelete: "restrict" }),
+    reusedAttemptId: uuid("reused_attempt_id")
+      .references((): AnyPgColumn => stageAttempts.id, { onDelete: "restrict" }),
+    startedAt: timestamp("started_at", { mode: "date", withTimezone: true }),
+    completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("stage_attempts_one_current_compatible_uidx")
+      .on(table.pipelineRunId, table.stage)
+      .where(sql`${table.isCurrent} = true`),
+    uniqueIndex("stage_attempts_one_success_compatible_uidx")
+      .on(table.documentVersionId, table.stage, table.implementationVersion, table.inputChecksum)
+      .where(sql`${table.status} = 'succeeded'`),
+    index("stage_attempts_claim_due_idx").on(table.status, table.nextRunAt),
+    index("stage_attempts_expired_lease_idx").on(table.status, table.leaseExpiresAt),
+    index("stage_attempts_dead_letter_idx").on(table.status, table.completedAt),
+    check("stage_attempts_status_ck", sql`${table.status} IN ('pending', 'running', 'retry_wait', 'succeeded', 'failed', 'dead_letter', 'reused', 'cancelled')`),
+    check("stage_attempts_input_checksum_ck", sql`${table.inputChecksum} ~ '^[0-9a-f]{64}$'`),
+    check("stage_attempts_output_checksum_ck", sql`${table.outputChecksum} IS NULL OR ${table.outputChecksum} ~ '^[0-9a-f]{64}$'`),
+    check("stage_attempts_attempt_number_ck", sql`${table.attemptNumber} > 0 AND ${table.maxAttempts} > 0`),
+    check("stage_attempts_lease_epoch_ck", sql`${table.leaseEpoch} >= 0`),
+    foreignKey({
+      name: "stage_attempts_pipeline_run_owner_fk",
+      columns: [table.pipelineRunId, table.documentVersionId, table.sourceId, table.accessScopeId],
+      foreignColumns: [pipelineRuns.id, pipelineRuns.documentVersionId, pipelineRuns.sourceId, pipelineRuns.accessScopeId],
     }).onDelete("restrict"),
   ],
 );

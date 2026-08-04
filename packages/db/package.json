@@ -10,6 +10,7 @@
     "./review-queries": "./src/review-queries.ts",
     "./source-registry-queries": "./src/source-registry-queries.ts",
     "./document-version-queries": "./src/document-version-queries.ts",
+    "./pipeline-run-queries": "./src/pipeline-run-queries.ts",
     "./client": "./src/client.ts"
   },
   "scripts": {

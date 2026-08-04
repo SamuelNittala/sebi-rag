@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "unpdf": "^0.11.0",
-    "bullmq": "^5.7.0",
-    "chokidar": "^3.6.0",
     "@mf-rag/core": "workspace:*",
     "@mf-rag/db": "workspace:*",
     "@mf-rag/vector": "workspace:*",

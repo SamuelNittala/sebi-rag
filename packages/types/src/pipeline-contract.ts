@@ -18,6 +18,17 @@ export const pipelineStages = [
 ] as const;
 export type PipelineStage = (typeof pipelineStages)[number];
 
+export const sourceAcquisitionStages = ["DISCOVER", "FETCH"] as const;
+export type SourceAcquisitionStage = (typeof sourceAcquisitionStages)[number];
+
+export const documentPipelineStages = [
+  "PARSE",
+  "CHUNK_AND_INSPECT",
+  "REVIEW_DECISION",
+  "EMBED_AND_PUBLISH",
+] as const;
+export type DocumentPipelineStage = (typeof documentPipelineStages)[number];
+
 export const stageOutcomes = ["SUCCEEDED", "FAILED", "WAITING_REVIEW"] as const;
 export type StageOutcome = (typeof stageOutcomes)[number];
 
@@ -35,7 +46,7 @@ export interface PipelineStageResult {
   readonly pipelineRunId: PipelineRunId;
   readonly documentVersionId: DocumentVersionId;
   readonly accessScopeKey: AccessScopeKey;
-  readonly stage: PipelineStage;
+  readonly stage: DocumentPipelineStage;
   readonly implementationVersion: string;
   readonly inputChecksum: string;
   readonly outputRef: string | null;
