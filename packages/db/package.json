@@ -8,6 +8,7 @@
     "./schema": "./src/schema.ts",
     "./queries": "./src/queries.ts",
     "./review-queries": "./src/review-queries.ts",
+    "./source-registry-queries": "./src/source-registry-queries.ts",
     "./client": "./src/client.ts"
   },
   "scripts": {
@@ -20,7 +21,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.0",
+    "drizzle-orm": "^0.45.1",
+    "cron-parser": "^4.9.0",
     "@mf-rag/types": "workspace:*"
   },
   "devDependencies": {

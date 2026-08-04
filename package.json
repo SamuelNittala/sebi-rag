@@ -25,6 +25,7 @@
     "benchmark": "bun run scripts/benchmark.ts",
     "review:publish": "bun run scripts/publish-reviewed-run.ts",
     "review:stage-mirae-metadata": "bun run scripts/stage-mirae-sif-metadata.ts",
+    "source:sync": "bun run scripts/sync-source-registry.ts",
     "retrieval:evaluate-mirae-sif": "bun run scripts/evaluate-mirae-sif-retrieval.ts",
     "retrieval:evaluate-general-mf-faq": "bun run scripts/evaluate-general-mf-faq-retrieval.ts",
     "eval:basic": "bun run scripts/run-basic-eval.ts",

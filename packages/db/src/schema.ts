@@ -17,12 +17,17 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import type {
+  AccessScopeClassification,
   CandidateChunkMetadata,
   ChunkFlagSeverity,
   ChunkFlagStatus,
   ReviewRunStatus,
   ReviewPurpose,
   ReviewSourceType,
+  SourceDiscoveryConfig,
+  DesiredSourceRegistry,
+  SourceFetchConstraints,
+  SourceReviewConfig,
   VisibilityScope,
 } from "@mf-rag/types";
 
@@ -662,6 +667,126 @@ export const tenantOwnershipManifestApplications = pgTable(
   ],
 );
 
+// ─── Document Source Control Plane ─────────────────────────────────────────
+
+/** One immutable, checksummed desired-state snapshot. Exactly one is active. */
+export const sourceRegistryRevisions = pgTable(
+  "source_registry_revisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    checksum: varchar("checksum", { length: 64 }).notNull(),
+    desiredState: jsonb("desired_state").$type<DesiredSourceRegistry>().notNull(),
+    isActive: boolean("is_active").default(false).notNull(),
+    appliedAt: timestamp("applied_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    supersededAt: timestamp("superseded_at", { mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("source_registry_revisions_checksum_uidx").on(table.checksum),
+    uniqueIndex("source_registry_revisions_one_active_uidx")
+      .on(table.isActive)
+      .where(sql`${table.isActive} = true`),
+  ],
+);
+
+/** Stable retrieval boundary, independent from organization and knowledge domain. */
+export const accessScopes = pgTable(
+  "access_scopes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accessScopeKey: varchar("access_scope_key", { length: 100 }).notNull(),
+    externalCode: varchar("external_code", { length: 100 }).notNull(),
+    tenantId: varchar("tenant_id", { length: 100 }).notNull(),
+    knowledgeDomain: varchar("knowledge_domain", { length: 50 })
+      .notNull()
+      .$type<AccessScopeClassification["knowledgeDomain"]>(),
+    sourceCollection: varchar("source_collection", { length: 100 }).notNull(),
+    amcSlug: varchar("amc_slug", { length: 100 }),
+    enabled: boolean("enabled").default(true).notNull(),
+    configRevisionId: uuid("config_revision_id")
+      .notNull()
+      .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("access_scopes_key_uidx").on(table.accessScopeKey),
+    uniqueIndex("access_scopes_external_code_uidx").on(table.externalCode),
+    check("access_scopes_external_code_ck", sql`${table.externalCode} ~ '^[0-9]{1,20}$'`),
+    check("access_scopes_tenant_compat_ck", sql`${table.tenantId} = ${table.externalCode}`),
+  ],
+);
+
+/** Stable source identity plus its currently reconciled desired configuration. */
+export const sources = pgTable(
+  "sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accessScopeId: uuid("access_scope_id")
+      .notNull()
+      .references(() => accessScopes.id, { onDelete: "restrict" }),
+    sourceKey: varchar("source_key", { length: 100 }).notNull(),
+    connector: varchar("connector", { length: 50 }).notNull(),
+    discoveryConfig: jsonb("discovery_config").$type<SourceDiscoveryConfig>().notNull(),
+    fetchConfig: jsonb("fetch_config").$type<SourceFetchConstraints>().notNull(),
+    reviewConfig: jsonb("review_config").$type<SourceReviewConfig>().notNull(),
+    enabled: boolean("enabled").default(false).notNull(),
+    configRevisionId: uuid("config_revision_id")
+      .notNull()
+      .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("sources_scope_key_uidx").on(table.accessScopeId, table.sourceKey),
+    index("sources_enabled_idx").on(table.enabled),
+  ],
+);
+
+/** Desired cadence and the next wall-clock occurrence not yet claimed. */
+export const sourceSchedules = pgTable(
+  "source_schedules",
+  {
+    sourceId: uuid("source_id")
+      .primaryKey()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    enabled: boolean("enabled").default(false).notNull(),
+    cron: varchar("cron", { length: 100 }).notNull(),
+    timezone: varchar("timezone", { length: 100 }).notNull(),
+    nextDueAt: timestamp("next_due_at", { mode: "date", withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("source_schedules_due_idx").on(table.enabled, table.nextDueAt)],
+);
+
+export const discoveryRunStatuses = ["pending", "running", "succeeded", "failed"] as const;
+export type DiscoveryRunStatus = (typeof discoveryRunStatuses)[number];
+
+/** Append-only scheduling/discovery history; source removal never deletes these rows. */
+export const discoveryRuns = pgTable(
+  "discovery_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "restrict" }),
+    configRevisionId: uuid("config_revision_id")
+      .notNull()
+      .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
+    scheduledFor: timestamp("scheduled_for", { mode: "date", withTimezone: true }).notNull(),
+    status: varchar("status", { length: 20 }).notNull().$type<DiscoveryRunStatus>(),
+    startedAt: timestamp("started_at", { mode: "date", withTimezone: true }),
+    completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("discovery_runs_source_scheduled_uidx").on(table.sourceId, table.scheduledFor),
+    index("discovery_runs_source_created_idx").on(table.sourceId, table.createdAt),
+    index("discovery_runs_status_idx").on(table.status),
+    check("discovery_runs_status_ck", sql`${table.status} IN ('pending', 'running', 'succeeded', 'failed')`),
+  ],
+);
+
 /**
  * Usage Records table - tracks API usage for rate limiting
  */
@@ -742,3 +867,13 @@ export type ChunkFlag = typeof chunkFlags.$inferSelect;
 export type NewChunkFlag = typeof chunkFlags.$inferInsert;
 export type ReviewEvent = typeof reviewEvents.$inferSelect;
 export type NewReviewEvent = typeof reviewEvents.$inferInsert;
+export type SourceRegistryRevision = typeof sourceRegistryRevisions.$inferSelect;
+export type NewSourceRegistryRevision = typeof sourceRegistryRevisions.$inferInsert;
+export type AccessScope = typeof accessScopes.$inferSelect;
+export type NewAccessScope = typeof accessScopes.$inferInsert;
+export type Source = typeof sources.$inferSelect;
+export type NewSource = typeof sources.$inferInsert;
+export type SourceSchedule = typeof sourceSchedules.$inferSelect;
+export type NewSourceSchedule = typeof sourceSchedules.$inferInsert;
+export type DiscoveryRun = typeof discoveryRuns.$inferSelect;
+export type NewDiscoveryRun = typeof discoveryRuns.$inferInsert;
