@@ -84,10 +84,26 @@ const constrainedCrawlSchema = z.object({
   identity: normalizedPathIdentitySchema,
 }).strict();
 
+const miraeSifDownloadCatalogSchema = z.object({
+  strategy: z.literal("mirae_sif_download_catalog"),
+  catalogUrl: safeUrlSchema,
+  sections: z.literal("all"),
+  additionalTargets: z.array(z.object({
+    section: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    subsection: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    endpoint: z.enum(["download-forms-sub", "ter"]),
+  }).strict()).max(100),
+  pageSize: z.number().int().min(1).max(500),
+  maxPages: z.number().int().min(1).max(10_000),
+  maxDocuments: z.number().int().min(1).max(10_000),
+  minimumDocuments: z.number().int().min(1).max(10_000),
+}).strict();
+
 const discoverySchema = z.discriminatedUnion("strategy", [
   explicitUrlsSchema,
   sitemapSchema,
   constrainedCrawlSchema,
+  miraeSifDownloadCatalogSchema,
 ]);
 
 const scheduleSchema = z.object({
@@ -121,6 +137,25 @@ const sourceSchema = z.object({
     const duplicateUrl = findDuplicate(source.discovery.urls.map(({ url }) => url));
     if (duplicateKey) context.addIssue({ code: z.ZodIssueCode.custom, message: `Duplicate pinned document key: ${duplicateKey}`, path: ["discovery", "urls"] });
     if (duplicateUrl) context.addIssue({ code: z.ZodIssueCode.custom, message: `Duplicate explicit document URL: ${duplicateUrl}`, path: ["discovery", "urls"] });
+  }
+  if (source.discovery.strategy === "mirae_sif_download_catalog") {
+    if (source.discovery.minimumDocuments > source.discovery.maxDocuments) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "minimumDocuments must not exceed maxDocuments.",
+        path: ["discovery", "minimumDocuments"],
+      });
+    }
+    const duplicate = findDuplicate(source.discovery.additionalTargets.map((target) => (
+      `${target.section}:${target.subsection}`
+    )));
+    if (duplicate) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Duplicate additional catalogue target: ${duplicate}`,
+        path: ["discovery", "additionalTargets"],
+      });
+    }
   }
   if (!source.enabled) {
     return;
@@ -285,6 +320,8 @@ function discoveryTargets(discovery: SourceDiscoveryConfig): readonly string[] {
       return discovery.sitemapUrls;
     case "constrained_crawl":
       return discovery.startUrls;
+    case "mirae_sif_download_catalog":
+      return [discovery.catalogUrl];
   }
 }
 

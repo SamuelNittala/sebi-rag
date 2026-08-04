@@ -61,3 +61,11 @@ export class SourceConnectorError extends Error {
     this.name = "SourceConnectorError";
   }
 }
+
+export function isPdfDocumentUrl(url: URL): boolean {
+  return url.pathname.toLowerCase().endsWith(".pdf");
+}
+
+export function deterministicSourceConnectorError(code: string, message: string): SourceConnectorError {
+  return new SourceConnectorError(code, "deterministic", message);
+}

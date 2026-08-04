@@ -37,6 +37,91 @@ describe("access-scope manifest validation", () => {
     expect(Object.isFrozen(desiredState)).toBe(true);
     expect(Object.isFrozen(desiredState.accessScopes)).toBe(true);
     expect(Object.isFrozen(desiredState.accessScopes[0]?.sources)).toBe(true);
+
+    const miraeSif = desiredState.accessScopes.find((scope) => String(scope.externalCode) === "910");
+    expect(miraeSif?.sources[0]?.discovery).toEqual({
+      strategy: "mirae_sif_download_catalog",
+      catalogUrl: "https://platinumsif.miraeassetmf.co.in/forms-downloads/forms",
+      sections: "all",
+      additionalTargets: [{
+        section: "regulatory",
+        subsection: "total-expense-ratio",
+        endpoint: "ter",
+      }],
+      pageSize: 100,
+      maxPages: 500,
+      maxDocuments: 5_000,
+      minimumDocuments: 40,
+    });
+    expect(miraeSif?.sources[0]?.fetch.allowedHosts).toEqual([
+      "platinumsif.miraeassetmf.co.in",
+      "miraeassetetf.co.in",
+      "cms-dev.example.com",
+    ]);
+    expect(miraeSif?.sources[0]?.fetch.allowedPathPrefixes).toEqual([
+      "/forms-downloads/forms",
+      "/api/sif-dynamic-get",
+      "/wp-content/uploads/",
+    ]);
+  });
+
+  test("accepts a manifest-driven Mirae SIF catalogue watcher without pinned documents", () => {
+    const yaml = validManifest().replace(
+      "strategy: explicit_urls\n      urls: []",
+      `strategy: mirae_sif_download_catalog
+      catalogUrl: https://platinumsif.miraeassetmf.co.in/forms-downloads/forms
+      sections: all
+      additionalTargets:
+        - section: regulatory
+          subsection: total-expense-ratio
+          endpoint: ter
+      pageSize: 100
+      maxPages: 500
+      maxDocuments: 5000
+      minimumDocuments: 40`,
+    );
+
+    expect(parseAccessScopeManifestYaml(yaml).sources[0]?.discovery).toEqual({
+      strategy: "mirae_sif_download_catalog",
+      catalogUrl: "https://platinumsif.miraeassetmf.co.in/forms-downloads/forms",
+      sections: "all",
+      additionalTargets: [{
+        section: "regulatory",
+        subsection: "total-expense-ratio",
+        endpoint: "ter",
+      }],
+      pageSize: 100,
+      maxPages: 500,
+      maxDocuments: 5_000,
+      minimumDocuments: 40,
+    });
+  });
+
+  test("requires a bounded catalogue completeness guard and strict additional targets", () => {
+    const watcher = validManifest().replace(
+      "strategy: explicit_urls\n      urls: []",
+      `strategy: mirae_sif_download_catalog
+      catalogUrl: https://platinumsif.miraeassetmf.co.in/forms-downloads/forms
+      sections: all
+      additionalTargets: []
+      pageSize: 100
+      maxPages: 500
+      maxDocuments: 50
+      minimumDocuments: 40`,
+    );
+
+    expect(() => parseAccessScopeManifestYaml(watcher.replace("      minimumDocuments: 40\n", "")))
+      .toThrow(/minimumDocuments/i);
+    expect(() => parseAccessScopeManifestYaml(watcher.replace("minimumDocuments: 40", "minimumDocuments: 51")))
+      .toThrow(/minimumDocuments.*maxDocuments/i);
+    expect(() => parseAccessScopeManifestYaml(watcher.replace(
+      "      additionalTargets: []",
+      `      additionalTargets:
+        - section: regulatory
+          subsection: total-expense-ratio
+          endpoint: ter
+          url: https://example.com/ter`,
+    ))).toThrow(/url|unrecognized/i);
   });
 
   test("rejects an organization slug as the external access code", () => {

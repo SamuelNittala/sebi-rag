@@ -15,19 +15,22 @@ sources:
     connector: website_pdf
     enabled: false
     discovery:
-      # Reviewed landing root only. Keep disabled until cross-host PDF delivery is
-      # explicitly approved and added to allowedHosts.
-      strategy: constrained_crawl
-      startUrls:
-        - https://platinumsif.miraeassetmf.co.in/
-      allowedPathPrefixes:
-        - /
-      maxDepth: 2
-      maxPages: 100
-      maxDocuments: 250
-      identity:
-        strategy: normalized_path
-        queryParameters: []
+      # The manifest pins the catalogue, never its current document URLs. Each
+      # successful run enumerates every advertised section and subsection.
+      strategy: mirae_sif_download_catalog
+      catalogUrl: https://platinumsif.miraeassetmf.co.in/forms-downloads/forms
+      sections: all
+      # The site exposes TER through its API but omits it from sideLinks.
+      # Keeping this target here makes that exception human-owned and reviewed.
+      additionalTargets:
+        - section: regulatory
+          subsection: total-expense-ratio
+          endpoint: ter
+      pageSize: 100
+      maxPages: 500
+      maxDocuments: 5000
+      # The reviewed 2026-08-04 baseline returned 46 PDFs.
+      minimumDocuments: 40
     schedule:
       enabled: false
       cron: "0 2 * * *"
@@ -35,8 +38,13 @@ sources:
     fetch:
       allowedHosts:
         - platinumsif.miraeassetmf.co.in
+        - miraeassetetf.co.in
+        # Official catalogue delivery host for the product-presentation PDF.
+        - cms-dev.example.com
       allowedPathPrefixes:
-        - /
+        - /forms-downloads/forms
+        - /api/sif-dynamic-get
+        - /wp-content/uploads/
       maxBytes: 26214400
       timeoutMs: 30000
       maxRedirects: 3

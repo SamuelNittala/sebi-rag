@@ -50,6 +50,7 @@ export const discoveryStrategies = [
   "explicit_urls",
   "sitemap",
   "constrained_crawl",
+  "mirae_sif_download_catalog",
 ] as const;
 export type DiscoveryStrategy = (typeof discoveryStrategies)[number];
 
@@ -63,6 +64,12 @@ export interface NormalizedPathIdentityRule {
   readonly strategy: "normalized_path";
   /** Query parameters not listed here are deliberately excluded from identity. */
   readonly queryParameters: readonly string[];
+}
+
+export interface MiraeSifCatalogAdditionalTarget {
+  readonly section: string;
+  readonly subsection: string;
+  readonly endpoint: "download-forms-sub" | "ter";
 }
 
 export type SourceDiscoveryConfig =
@@ -85,6 +92,20 @@ export type SourceDiscoveryConfig =
       readonly maxPages: number;
       readonly maxDocuments: number;
       readonly identity: NormalizedPathIdentityRule;
+    }
+  | {
+      /** Watches every section and subsection advertised by the Mirae SIF download catalogue. */
+      readonly strategy: "mirae_sif_download_catalog";
+      readonly catalogUrl: string;
+      readonly sections: "all";
+      /** Endpoints not represented as catalogue navigation links. */
+      readonly additionalTargets: readonly MiraeSifCatalogAdditionalTarget[];
+      readonly pageSize: number;
+      /** Total catalogue API requests allowed in one complete discovery run. */
+      readonly maxPages: number;
+      readonly maxDocuments: number;
+      /** Fail closed when discovery returns fewer documents than this reviewed baseline. */
+      readonly minimumDocuments: number;
     };
 
 export interface SourceSchedule {

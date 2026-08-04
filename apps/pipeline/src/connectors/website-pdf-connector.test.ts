@@ -5,7 +5,7 @@ import {
   WebsitePdfConnector,
   normalizeDocumentUrl,
 } from "./website-pdf-connector.ts";
-import { createLogicalDocumentKey } from "@mf-rag/types";
+import { createLogicalDocumentKey, type SourceDiscoveryConfig } from "@mf-rag/types";
 
 const servers: Array<ReturnType<typeof Bun.serve>> = [];
 afterEach(() => servers.splice(0).forEach((server) => server.stop(true)));
@@ -49,6 +49,252 @@ describe("WebsitePdfConnector", () => {
       "path:/docs/a.pdf",
       expect.stringMatching(/^path:\/docs\/b\.pdf:q-/),
     ]);
+  });
+
+  test("watches every Mirae SIF catalogue section, subsection, and page", async () => {
+    const requestedEndpoints: string[] = [];
+    const connector = new WebsitePdfConnector({
+      allowedHosts: ["catalog.example", "cdn.example"],
+      allowedPathPrefixes: ["/"],
+      maxBytes: 1024 * 1024,
+      timeoutMs: 500,
+      maxRedirects: 2,
+      resolveHost: async () => ["8.8.8.8"],
+      fetch: async (input) => {
+        const url = new URL(String(input));
+        if (url.pathname === "/forms-downloads/forms") {
+          return response(REPRESENTATIVE_CATALOG_PAGE);
+        }
+        if (url.pathname !== "/api/sif-dynamic-get") return new Response("not found", { status: 404 });
+
+        const endpoint = url.searchParams.get("endpoint") ?? "";
+        requestedEndpoints.push(endpoint);
+        const endpointUrl = new URL(endpoint, "https://catalog.example/");
+        const page = Number(endpointUrl.searchParams.get("pageNo") ?? endpointUrl.searchParams.get("page") ?? "1");
+        const main = endpointUrl.searchParams.get("mainLink");
+        const side = endpointUrl.searchParams.get("sideLink");
+
+        if (main === "forms" && side === "isid") {
+          return Response.json({ children: [{
+            title: "ISID", totalPages: 2, forms: page === 1
+              ? [{ id: 101, label: "Current ISID", link: "https://cdn.example/docs/isid.pdf", date: "2026-06-10" }]
+              : [
+                  { id: 102, label: "Prior ISID", link: "https://cdn.example/docs/isid-prior.pdf", date: "2026-05-01" },
+                  { id: 999, label: "Unsupported sheet", link: "https://cdn.example/docs/data.xlsx", date: "2026-05-01" },
+                ],
+          }] });
+        }
+        if (main === "product-literature" && side === "factsheet") {
+          return Response.json([
+            { children: [{ title: "Factsheet", totalPages: 1, forms: [
+              { id: 201, label: "Factsheet", link: "https://cdn.example/docs/factsheet.pdf", date: "2026-07-01" },
+            ] }] },
+            { children: [{ title: "Presentation", totalPages: 1, forms: [
+              { id: 202, label: "Presentation", link: "https://cdn.example/docs/presentation.pdf", date: "2026-07-02" },
+            ] }] },
+          ]);
+        }
+        if (main === "regulatory" && side === "policies") {
+          return Response.json({ children: [{ title: "Policies", totalPages: 1, forms: [
+            { id: 301, label: "Policy", link: "https://cdn.example/docs/policy.pdf", date: "2026-04-01" },
+          ] }] });
+        }
+        if (endpointUrl.pathname === "/ter") {
+          return Response.json({ title: "Total Expense Ratio", totalPages: 1, forms: [
+            { id: 401, label: "TER", link: "https://cdn.example/docs/ter.pdf", date: "2026-07-31" },
+          ] });
+        }
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    const discovered = await connector.discover({
+      strategy: "mirae_sif_download_catalog",
+      catalogUrl: "https://catalog.example/forms-downloads/forms",
+      sections: "all",
+      additionalTargets: [{ section: "regulatory", subsection: "total-expense-ratio", endpoint: "ter" }],
+      pageSize: 2,
+      maxPages: 10,
+      maxDocuments: 20,
+      minimumDocuments: 1,
+    });
+
+    expect(discovered).toEqual([
+      { logicalDocumentKey: createLogicalDocumentKey("catalog:101"), url: "https://cdn.example/docs/isid.pdf" },
+      { logicalDocumentKey: createLogicalDocumentKey("catalog:102"), url: "https://cdn.example/docs/isid-prior.pdf" },
+      { logicalDocumentKey: createLogicalDocumentKey("catalog:201"), url: "https://cdn.example/docs/factsheet.pdf" },
+      { logicalDocumentKey: createLogicalDocumentKey("catalog:202"), url: "https://cdn.example/docs/presentation.pdf" },
+      { logicalDocumentKey: createLogicalDocumentKey("catalog:301"), url: "https://cdn.example/docs/policy.pdf" },
+      { logicalDocumentKey: createLogicalDocumentKey("catalog:401"), url: "https://cdn.example/docs/ter.pdf" },
+    ]);
+    expect(requestedEndpoints).toEqual(expect.arrayContaining([
+      "download-forms-sub?mainLink=forms&sideLink=isid&pageNo=1&NoOfRows=2",
+      "download-forms-sub?mainLink=forms&sideLink=isid&pageNo=2&NoOfRows=2",
+      "download-forms-sub?mainLink=product-literature&sideLink=factsheet&pageNo=1&NoOfRows=2",
+      "download-forms-sub?mainLink=regulatory&sideLink=policies&pageNo=1&NoOfRows=2",
+      "ter?page=1&rows=2",
+    ]));
+  });
+
+  test("fails closed when the Mirae SIF catalogue cannot provide a complete inventory", async () => {
+    const connector = new WebsitePdfConnector({
+      allowedHosts: ["catalog.example"],
+      allowedPathPrefixes: ["/"],
+      maxBytes: 1024,
+      timeoutMs: 500,
+      maxRedirects: 1,
+      resolveHost: async () => ["8.8.8.8"],
+      fetch: async () => response("<html>catalog structure changed</html>"),
+    });
+
+    await expect(connector.discover({
+      strategy: "mirae_sif_download_catalog",
+      catalogUrl: "https://catalog.example/forms-downloads/forms",
+      sections: "all",
+      additionalTargets: [],
+      pageSize: 100,
+      maxPages: 500,
+      maxDocuments: 5_000,
+      minimumDocuments: 1,
+    })).rejects.toMatchObject({
+      code: "CATALOG_SECTIONS_MISSING",
+      classification: "deterministic",
+    });
+  });
+
+  test("limits the Mirae SIF watcher to catalogue, proxy API, and upload paths", async () => {
+    const connector = new WebsitePdfConnector({
+      allowedHosts: ["catalog.example", "cdn.example"],
+      allowedPathPrefixes: [
+        "/forms-downloads/forms",
+        "/api/sif-dynamic-get",
+        "/wp-content/uploads/",
+      ],
+      maxBytes: 1024 * 1024,
+      timeoutMs: 500,
+      maxRedirects: 1,
+      resolveHost: async () => ["8.8.8.8"],
+      fetch: async (input) => {
+        const url = new URL(String(input));
+        if (url.pathname === "/forms-downloads/forms") {
+          return response(catalogPage([{
+            title: "Forms",
+            slug: "forms",
+            sideLinks: [{ title: "ISID", slug: "isid" }],
+          }]));
+        }
+        if (url.pathname === "/api/sif-dynamic-get") {
+          return Response.json({ children: [{
+            totalPages: 1,
+            forms: [{ id: 910, link: "https://cdn.example/wp-content/uploads/isid.pdf" }],
+          }] });
+        }
+        if (url.pathname === "/wp-content/uploads/isid.pdf") {
+          return response("%PDF-watcher", "application/pdf");
+        }
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    const discovered = await connector.discover(catalogDiscovery());
+    expect(discovered).toEqual([{
+      logicalDocumentKey: createLogicalDocumentKey("catalog:910"),
+      url: "https://cdn.example/wp-content/uploads/isid.pdf",
+    }]);
+    await expect(connector.fetch(discovered[0]!.url)).resolves.toMatchObject({ kind: "fetched" });
+    await expect(connector.fetch("https://cdn.example/unrelated/document.pdf")).rejects.toMatchObject({
+      code: "URL_PATH_NOT_ALLOWED",
+      classification: "deterministic",
+    });
+  });
+
+  test("enforces catalogue page, document, and reviewed-minimum safety limits", async () => {
+    const section = [{ title: "Forms", slug: "forms", sideLinks: [{ title: "ISID", slug: "isid" }] }];
+    const pageLimited = catalogFixtureConnector(section, () => ({ children: [{
+      totalPages: 2,
+      forms: [{ id: 1, link: "https://cdn.example/docs/one.pdf" }],
+    }] }));
+    await expect(pageLimited.discover(catalogDiscovery({ maxPages: 1 }))).rejects.toMatchObject({
+      code: "CATALOG_PAGE_LIMIT",
+      classification: "deterministic",
+    });
+
+    const documentLimited = catalogFixtureConnector(section, () => ({ children: [{
+      totalPages: 1,
+      forms: [
+        { id: 1, link: "https://cdn.example/docs/one.pdf" },
+        { id: 2, link: "https://cdn.example/docs/two.pdf" },
+      ],
+    }] }));
+    await expect(documentLimited.discover(catalogDiscovery({ maxDocuments: 1 }))).rejects.toMatchObject({
+      code: "CATALOG_DOCUMENT_LIMIT",
+      classification: "deterministic",
+    });
+
+    const belowMinimum = catalogFixtureConnector(section, () => ({ children: [{
+      totalPages: 1,
+      forms: [],
+    }] }));
+    await expect(belowMinimum.discover(catalogDiscovery({ minimumDocuments: 1 }))).rejects.toMatchObject({
+      code: "CATALOG_DOCUMENT_MINIMUM",
+      classification: "deterministic",
+    });
+  });
+
+  test("keeps provider identity stable across navigation moves and rejects ID reuse", async () => {
+    const sections = [{ title: "Forms", slug: "forms", sideLinks: [
+      { title: "Current", slug: "current" },
+      { title: "Archive", slug: "archive" },
+    ] }];
+    const stable = catalogFixtureConnector(sections, () => ({ children: [{
+      totalPages: 1,
+      forms: [{ id: 777, link: "https://cdn.example/docs/stable.pdf" }],
+    }] }));
+    await expect(stable.discover(catalogDiscovery())).resolves.toEqual([{
+      logicalDocumentKey: createLogicalDocumentKey("catalog:777"),
+      url: "https://cdn.example/docs/stable.pdf",
+    }]);
+
+    const conflicting = catalogFixtureConnector(sections, (endpointUrl) => ({ children: [{
+      totalPages: 1,
+      forms: [{
+        id: 777,
+        link: endpointUrl.searchParams.get("sideLink") === "current"
+          ? "https://cdn.example/docs/current.pdf"
+          : "https://cdn.example/docs/archive.pdf",
+      }],
+    }] }));
+    await expect(conflicting.discover(catalogDiscovery())).rejects.toMatchObject({
+      code: "CATALOG_ID_CONFLICT",
+      classification: "deterministic",
+    });
+  });
+
+  test("queries manifest-owned additional targets only under advertised parent sections", async () => {
+    const sections = [{ title: "Regulatory", slug: "regulatory", sideLinks: [] }];
+    const endpoints: string[] = [];
+    const connector = catalogFixtureConnector(sections, (endpointUrl) => {
+      endpoints.push(`${endpointUrl.pathname}${endpointUrl.search}`);
+      return { totalPages: 1, forms: [{ id: 2, link: "https://cdn.example/docs/ter.pdf" }] };
+    });
+    const discovered = await connector.discover(catalogDiscovery({
+      additionalTargets: [{ section: "regulatory", subsection: "total-expense-ratio", endpoint: "ter" }],
+    }));
+    expect(discovered.map(({ logicalDocumentKey }) => String(logicalDocumentKey))).toEqual(["catalog:2"]);
+    expect(endpoints).toContain("/ter?page=1&rows=100");
+
+    let apiRequests = 0;
+    const missingParent = catalogFixtureConnector(
+      [{ title: "Forms", slug: "forms", sideLinks: [{ title: "ISID", slug: "isid" }] }],
+      () => { apiRequests += 1; return { children: [] }; },
+    );
+    await expect(missingParent.discover(catalogDiscovery({
+      additionalTargets: [{ section: "regulatory", subsection: "total-expense-ratio", endpoint: "ter" }],
+    }))).rejects.toMatchObject({
+      code: "CATALOG_ADDITIONAL_TARGET_PARENT_MISSING",
+      classification: "deterministic",
+    });
+    expect(apiRequests).toBe(0);
   });
 
   test("normalizes URL query ordering and removes fragments", () => {
@@ -130,6 +376,39 @@ describe("WebsitePdfConnector", () => {
     });
   });
 
+  test("bounds a never-settling DNS resolver by timeout and caller cancellation", async () => {
+    const connector = (timeoutMs: number) => new WebsitePdfConnector({
+      allowedHosts: ["fixture.example"],
+      allowedPathPrefixes: ["/docs"],
+      maxBytes: 1024,
+      timeoutMs,
+      maxRedirects: 1,
+      resolveHost: () => new Promise<readonly string[]>(() => {}),
+      fetch: async () => response("%PDF-never", "application/pdf"),
+    });
+    const failIfStillPending = async () => {
+      await Bun.sleep(200);
+      throw new Error("DNS resolution was not bounded by the request abort signal.");
+    };
+
+    await expect(Promise.race([
+      connector(20).fetch("https://fixture.example/docs/a.pdf"),
+      failIfStillPending(),
+    ])).rejects.toMatchObject({ code: "FETCH_TIMEOUT", classification: "transient" });
+
+    const controller = new AbortController();
+    const cancelled = connector(500).fetch(
+      "https://fixture.example/docs/a.pdf",
+      {},
+      controller.signal,
+    );
+    controller.abort();
+    await expect(Promise.race([cancelled, failIfStillPending()])).rejects.toMatchObject({
+      code: "FETCH_CANCELLED",
+      classification: "transient",
+    });
+  });
+
   test("enforces segment path boundaries and blocks private DNS by default", async () => {
     const server = fixtureServer(() => response("%PDF-ok", "application/pdf"));
     const strictPath = new WebsitePdfConnector({
@@ -190,6 +469,47 @@ function fixtureServer(handler: (url: URL, request: Request) => Response | Promi
 
 function origin(server: ReturnType<typeof Bun.serve>): string { return `http://127.0.0.1:${server.port}`; }
 function response(body: string | Uint8Array, contentType = "text/html") { return new Response(body, { headers: { "content-type": contentType } }); }
+function catalogPage(mainLinks: unknown): string {
+  return `<script type="application/json">{"mainLinksData":${JSON.stringify({ mainLinks })}}</script>`;
+}
+const REPRESENTATIVE_CATALOG_PAGE = String.raw`<script>self.__next_f.push([1,"initialData\":{\"mainLinksData\":{\"mainLinks\":[{\"title\":\"Forms\",\"slug\":\"forms\",\"sideLinks\":[{\"title\":\"ISID\",\"slug\":\"isid\"}]},{\"title\":\"Product Literature\",\"slug\":\"product-literature\",\"sideLinks\":[{\"title\":\"Factsheet\",\"slug\":\"factsheet\"}]},{\"title\":\"Regulatory\",\"slug\":\"regulatory\",\"sideLinks\":[{\"title\":\"Policies\",\"slug\":\"policies\"}]}]},\"initialSlug\":[\"forms\"]}"])</script>`;
+
+function catalogDiscovery(
+  overrides: Partial<Extract<SourceDiscoveryConfig, { strategy: "mirae_sif_download_catalog" }>> = {},
+): Extract<SourceDiscoveryConfig, { strategy: "mirae_sif_download_catalog" }> {
+  return {
+    strategy: "mirae_sif_download_catalog",
+    catalogUrl: "https://catalog.example/forms-downloads/forms",
+    sections: "all",
+    additionalTargets: [],
+    pageSize: 100,
+    maxPages: 20,
+    maxDocuments: 100,
+    minimumDocuments: 1,
+    ...overrides,
+  };
+}
+
+function catalogFixtureConnector(
+  mainLinks: unknown,
+  payload: (endpointUrl: URL) => unknown,
+): WebsitePdfConnector {
+  return new WebsitePdfConnector({
+    allowedHosts: ["catalog.example", "cdn.example"],
+    allowedPathPrefixes: ["/"],
+    maxBytes: 1024 * 1024,
+    timeoutMs: 500,
+    maxRedirects: 2,
+    resolveHost: async () => ["8.8.8.8"],
+    fetch: async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/forms-downloads/forms") return response(catalogPage(mainLinks));
+      if (url.pathname !== "/api/sif-dynamic-get") return new Response("not found", { status: 404 });
+      const endpoint = new URL(url.searchParams.get("endpoint") ?? "", "https://catalog.example/");
+      return Response.json(payload(endpoint));
+    },
+  });
+}
 function connectorFor(server: ReturnType<typeof Bun.serve>, overrides: { maxBytes?: number; timeoutMs?: number } = {}) {
   return new WebsitePdfConnector({
     allowedHosts: ["127.0.0.1"],

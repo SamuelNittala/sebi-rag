@@ -10,6 +10,8 @@ import {
 } from "@mf-rag/types";
 
 import {
+  deterministicSourceConnectorError as deterministic,
+  isPdfDocumentUrl as isPdfUrl,
   SourceConnectorError,
   type DiscoveredSourceDocument,
   type FetchValidators,
@@ -17,6 +19,7 @@ import {
   type SourceConnectorOptions,
   type SourceFetchResult,
 } from "./source-connector.ts";
+import { discoverMiraeSifDownloadCatalog } from "./mirae-sif-download-catalog.ts";
 
 const PDF_SIGNATURE = new TextEncoder().encode("%PDF-");
 const DEFAULT_HEADERS = { "user-agent": "mf-rag-document-pipeline/1.0" } as const;
@@ -59,6 +62,13 @@ export class WebsitePdfConnector implements SourceConnector {
         return this.#discoverSitemaps(config, signal);
       case "constrained_crawl":
         return this.#discoverCrawl(config, signal);
+      case "mirae_sif_download_catalog":
+        return discoverMiraeSifDownloadCatalog(
+          config,
+          (url, accept, requestSignal) => this.#fetchText(url, accept, requestSignal),
+          (url) => this.#assertAllowed(url),
+          signal,
+        );
     }
   }
 
@@ -175,9 +185,13 @@ export class WebsitePdfConnector implements SourceConnector {
       aliases.push(current);
       const timeout = AbortSignal.timeout(this.#timeoutMs);
       const combinedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+      // Keep DNS cancellation on a derived signal. Bun currently stops firing a
+      // timeout signal after its last listener is removed; fetch/body streaming
+      // must retain the original timeout for the rest of the request lifecycle.
+      const resolutionSignal = AbortSignal.any(signal ? [signal, timeout] : [timeout]);
       let response: Response;
       try {
-        await this.#assertPublicResolution(new URL(current).hostname);
+        await this.#assertPublicResolution(new URL(current).hostname, resolutionSignal);
         response = await this.#fetch(current, { headers: currentHeaders, redirect: "manual", signal: combinedSignal });
       } catch (error) {
         if (error instanceof SourceConnectorError) throw error;
@@ -220,9 +234,10 @@ export class WebsitePdfConnector implements SourceConnector {
     return normalized;
   }
 
-  async #assertPublicResolution(hostname: string): Promise<void> {
+  async #assertPublicResolution(hostname: string, signal: AbortSignal): Promise<void> {
     let addresses: readonly string[];
-    try { addresses = await this.#resolveHost(hostname); } catch (error) {
+    try { addresses = await settleBeforeAbort(() => this.#resolveHost(hostname), signal); } catch (error) {
+      if (signal.aborted) throw error;
       throw transient("DNS_RESOLUTION_FAILED", `Could not resolve allowed host ${hostname}.`, error);
     }
     if (addresses.length === 0) throw transient("DNS_RESOLUTION_FAILED", `Allowed host ${hostname} resolved to no addresses.`);
@@ -328,7 +343,6 @@ function extractHtmlLinks(html: string): string[] {
 function decodeXml(value: string): string {
   return value.replaceAll("&amp;", "&").replaceAll("&quot;", '"').replaceAll("&apos;", "'").replaceAll("&lt;", "<").replaceAll("&gt;", ">");
 }
-function isPdfUrl(url: URL): boolean { return url.pathname.toLowerCase().endsWith(".pdf"); }
 function hasAllowedPrefix(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => prefix === "/"
     || pathname === prefix
@@ -339,8 +353,23 @@ function safeDecode(value: string): string { try { return decodeURIComponent(val
 function sortedDocuments(documents: ReadonlyMap<string, DiscoveredSourceDocument>) { return [...documents.values()].sort((left, right) => left.url.localeCompare(right.url)); }
 function positiveInteger(value: number, label: string): number { if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${label} must be positive.`); return value; }
 function nonNegativeInteger(value: number, label: string): number { if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${label} must be non-negative.`); return value; }
-function deterministic(code: string, message: string): SourceConnectorError { return new SourceConnectorError(code, "deterministic", message); }
 function transient(code: string, message: string, cause?: unknown): SourceConnectorError { return new SourceConnectorError(code, "transient", message, cause === undefined ? undefined : { cause }); }
+
+function settleBeforeAbort<T>(start: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new DOMException("Request aborted.", "AbortError"));
+  return new Promise((resolve, reject) => {
+    const removeAbortListener = () => signal.removeEventListener("abort", abort);
+    const abort = () => {
+      removeAbortListener();
+      reject(new DOMException("Request aborted.", "AbortError"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    Promise.resolve().then(start).then(
+      (value) => { removeAbortListener(); resolve(value); },
+      (error: unknown) => { removeAbortListener(); reject(error); },
+    );
+  });
+}
 
 function isPrivateAddress(address: string): boolean {
   const version = isIP(address);
