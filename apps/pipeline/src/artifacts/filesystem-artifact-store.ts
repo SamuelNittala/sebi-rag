@@ -51,13 +51,18 @@ export class FilesystemArtifactStore implements ArtifactStore {
     return new Uint8Array(await readFile(this.#pathFor(descriptor.key)));
   }
 
-  async verify(descriptor: ArtifactDescriptor): Promise<ArtifactDescriptor> {
+  async readVerified(descriptor: ArtifactDescriptor): Promise<Uint8Array> {
     const expectedUri = pathToFileURL(this.#pathFor(descriptor.key)).href;
     if (descriptor.uri !== expectedUri) throw new Error("Artifact URI does not match its filesystem key.");
     const bytes = await this.read(descriptor).catch((error) => {
       throw new Error(`Artifact integrity verification failed because ${descriptor.key} is unreadable.`, { cause: error });
     });
     assertArtifactIntegrity(descriptor, bytes);
+    return bytes;
+  }
+
+  async verify(descriptor: ArtifactDescriptor): Promise<ArtifactDescriptor> {
+    await this.readVerified(descriptor);
     return descriptor;
   }
 

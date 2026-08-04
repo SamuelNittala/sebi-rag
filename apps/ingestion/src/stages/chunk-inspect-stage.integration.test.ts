@@ -84,8 +84,7 @@ class IdempotentReviewRepository implements ChunkInspectionReviewRepository {
 function stageFor(fixtureValue: ReturnType<typeof fixture>, repository: IdempotentReviewRepository) {
   return new ChunkInspectStage({
     artifactStore: {
-      verify: async (descriptor) => descriptor,
-      read: async () => fixtureValue.bytes,
+      readVerified: async () => fixtureValue.bytes,
     },
     reviewRepository: repository,
   });
@@ -196,7 +195,7 @@ describe("ChunkInspectStage", () => {
       const descriptor = { ...value.descriptor, sha256: checksum, byteSize: bytes.byteLength };
       const repository = new IdempotentReviewRepository();
       const stage = new ChunkInspectStage({
-        artifactStore: { verify: async (item) => item, read: async () => bytes },
+        artifactStore: { readVerified: async () => bytes },
         reviewRepository: repository,
       });
       await expect(stage.execute({

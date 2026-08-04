@@ -124,10 +124,12 @@ export class WebsitePdfConnector implements SourceConnector {
       const allowed = this.#assertAllowed(url);
       return { url: allowed, depth: 0, rootHostname: new URL(allowed).hostname.toLowerCase() };
     });
+    const enqueued = new Set(queue.map(({ url }) => url));
+    let queueIndex = 0;
     const visited = new Set<string>();
     const documents = new Map<string, DiscoveredSourceDocument>();
-    while (queue.length > 0 && visited.size < config.maxPages && documents.size < config.maxDocuments) {
-      const next = queue.shift();
+    while (queueIndex < queue.length && visited.size < config.maxPages && documents.size < config.maxDocuments) {
+      const next = queue[queueIndex++];
       if (!next || visited.has(next.url)) continue;
       visited.add(next.url);
       const html = await this.#fetchText(next.url, "text/html,application/xhtml+xml", signal);
@@ -141,7 +143,10 @@ export class WebsitePdfConnector implements SourceConnector {
         if (isPdfUrl(parsed)) {
           const identityUrl = canonicalizeForIdentity(parsed, config.identity);
           documents.set(identityUrl, { logicalDocumentKey: derivePathKey(new URL(identityUrl), config.identity), url: identityUrl });
-        } else if (next.depth < config.maxDepth && !visited.has(normalized)) {
+        } else if (next.depth < config.maxDepth
+          && !enqueued.has(normalized)
+          && queue.length - queueIndex < config.maxPages - visited.size) {
+          enqueued.add(normalized);
           queue.push({ url: normalized, depth: next.depth + 1, rootHostname: next.rootHostname });
         }
         if (documents.size >= config.maxDocuments) break;

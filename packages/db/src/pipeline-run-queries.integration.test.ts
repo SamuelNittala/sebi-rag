@@ -208,7 +208,7 @@ integrationDescribe("fenced pipeline stage runtime", () => {
 
   test("an expired lease is recovered with a higher epoch and rejects the stale owner", async () => {
     await createPendingAttempt();
-    const now = new Date("2026-08-04T10:00:00.000Z");
+    const now = new Date(Date.now() + 1_000);
     const [workerA] = await claimStageAttempts(db, {
       owner: "worker-a",
       now,
@@ -406,7 +406,7 @@ integrationDescribe("fenced pipeline stage runtime", () => {
 
   test("transient failure records a new backoff attempt and later success creates one next stage", async () => {
     await createPendingAttempt(3);
-    const now = new Date("2026-08-04T10:00:00.000Z");
+    const now = new Date(Date.now() + 1_000);
     const [claimed] = await claimStageAttempts(db, { owner: "worker-a", now, batchSize: 1, leaseDurationMs: 60_000 });
     const failed = await failStageAttempt(db, {
       attemptId: claimed!.id,

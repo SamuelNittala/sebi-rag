@@ -17,11 +17,7 @@ class MemoryArtifactStore implements PdfStageArtifactStore {
 
   constructor(private readonly raw: Uint8Array) {}
 
-  async verify(descriptor: ArtifactDescriptor): Promise<ArtifactDescriptor> {
-    return descriptor;
-  }
-
-  async read(): Promise<Uint8Array> {
+  async readVerified(): Promise<Uint8Array> {
     return this.raw;
   }
 

@@ -154,54 +154,13 @@ export async function findOrCreateSourceDocument(
   const logicalDocumentKey = createLogicalDocumentKey(input.logicalDocumentKey);
   const canonicalUrl = canonicalHttpUrl(input.canonicalUrl);
 
-  return db.transaction(async (tx) => {
-    const [source] = await tx.select().from(sources)
-      .where(eq(sources.id, input.sourceId)).limit(1);
-    if (!source || source.accessScopeId !== input.accessScopeId) {
-      throw new Error("Source document ownership does not match the source access scope.");
-    }
-
-    const [urlOwner] = await tx.select().from(sourceDocuments).where(and(
-      eq(sourceDocuments.accessScopeId, input.accessScopeId),
-      eq(sourceDocuments.canonicalUrl, canonicalUrl),
-    )).limit(1);
-    if (urlOwner && (
-      urlOwner.sourceId !== input.sourceId
-      || urlOwner.logicalDocumentKey !== logicalDocumentKey
-    )) {
-      throw new Error("The canonical URL is already owned by another logical document in this access scope.");
-    }
-
-    const [inserted] = await tx.insert(sourceDocuments).values({
-      accessScopeId: input.accessScopeId,
-      sourceId: input.sourceId,
-      logicalDocumentKey,
-      canonicalUrl,
-    }).onConflictDoNothing({
-      target: [sourceDocuments.sourceId, sourceDocuments.logicalDocumentKey],
-    }).returning();
-
-    const document = inserted ?? (await tx.select().from(sourceDocuments).where(and(
-      eq(sourceDocuments.sourceId, input.sourceId),
-      eq(sourceDocuments.logicalDocumentKey, logicalDocumentKey),
-    )).limit(1))[0];
-    if (!document) throw new Error("Failed to resolve logical source document.");
-    if (document.accessScopeId !== input.accessScopeId || document.canonicalUrl !== canonicalUrl) {
-      throw new Error("Logical document identity conflicts with existing ownership or canonical URL.");
-    }
-
-    await tx.insert(sourceDocumentUrlAliases).values({
-      sourceDocumentId: document.id,
-      accessScopeId: document.accessScopeId,
-      sourceId: document.sourceId,
-      aliasUrl: canonicalUrl,
-      isCanonical: true,
-    }).onConflictDoNothing({
-      target: [sourceDocumentUrlAliases.accessScopeId, sourceDocumentUrlAliases.aliasUrl],
-    });
-
-    return document;
-  });
+  return db.transaction((tx) => resolveSourceDocumentIdentity(tx, {
+    accessScopeId: input.accessScopeId,
+    sourceId: input.sourceId,
+    logicalDocumentKey,
+    canonicalUrl,
+    missingDocumentError: "Failed to resolve logical source document.",
+  }));
 }
 
 /** Discovery writer variant: identity creation is rejected after lease reassignment. */
@@ -214,33 +173,13 @@ export async function findOrCreateSourceDocumentForDiscovery(
   return db.transaction(async (tx) => {
     const fence = await assertDiscoveryWriteFence(tx, input.fence);
     if (fence.sourceId !== input.sourceId) throw new Error("Discovery write fence belongs to another source.");
-    const [source] = await tx.select().from(sources).where(eq(sources.id, input.sourceId)).limit(1);
-    if (!source || source.accessScopeId !== input.accessScopeId) {
-      throw new Error("Source document ownership does not match the source access scope.");
-    }
-    const [urlOwner] = await tx.select().from(sourceDocuments).where(and(
-      eq(sourceDocuments.accessScopeId, input.accessScopeId),
-      eq(sourceDocuments.canonicalUrl, canonicalUrl),
-    )).limit(1);
-    if (urlOwner && (urlOwner.sourceId !== input.sourceId || urlOwner.logicalDocumentKey !== logicalDocumentKey)) {
-      throw new Error("The canonical URL is already owned by another logical document in this access scope.");
-    }
-    const [inserted] = await tx.insert(sourceDocuments).values({
-      accessScopeId: input.accessScopeId, sourceId: input.sourceId,
-      logicalDocumentKey, canonicalUrl,
-    }).onConflictDoNothing({ target: [sourceDocuments.sourceId, sourceDocuments.logicalDocumentKey] }).returning();
-    const document = inserted ?? (await tx.select().from(sourceDocuments).where(and(
-      eq(sourceDocuments.sourceId, input.sourceId),
-      eq(sourceDocuments.logicalDocumentKey, logicalDocumentKey),
-    )).limit(1))[0];
-    if (!document || document.accessScopeId !== input.accessScopeId || document.canonicalUrl !== canonicalUrl) {
-      throw new Error("Logical document identity conflicts with existing ownership or canonical URL.");
-    }
-    await tx.insert(sourceDocumentUrlAliases).values({
-      sourceDocumentId: document.id, accessScopeId: document.accessScopeId,
-      sourceId: document.sourceId, aliasUrl: canonicalUrl, isCanonical: true,
-    }).onConflictDoNothing({ target: [sourceDocumentUrlAliases.accessScopeId, sourceDocumentUrlAliases.aliasUrl] });
-    return document;
+    return resolveSourceDocumentIdentity(tx, {
+      accessScopeId: input.accessScopeId,
+      sourceId: input.sourceId,
+      logicalDocumentKey,
+      canonicalUrl,
+      missingDocumentError: "Logical document identity conflicts with existing ownership or canonical URL.",
+    });
   });
 }
 
@@ -680,6 +619,58 @@ function groupedLegacyIssues(
 }
 
 type DatabaseTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+async function resolveSourceDocumentIdentity(
+  tx: DatabaseTransaction,
+  input: {
+    readonly accessScopeId: string;
+    readonly sourceId: string;
+    readonly logicalDocumentKey: string;
+    readonly canonicalUrl: string;
+    readonly missingDocumentError: string;
+  },
+): Promise<typeof sourceDocuments.$inferSelect> {
+  const [source] = await tx.select().from(sources).where(eq(sources.id, input.sourceId)).limit(1);
+  if (!source || source.accessScopeId !== input.accessScopeId) {
+    throw new Error("Source document ownership does not match the source access scope.");
+  }
+  const [urlOwner] = await tx.select().from(sourceDocuments).where(and(
+    eq(sourceDocuments.accessScopeId, input.accessScopeId),
+    eq(sourceDocuments.canonicalUrl, input.canonicalUrl),
+  )).limit(1);
+  if (urlOwner && (
+    urlOwner.sourceId !== input.sourceId
+    || urlOwner.logicalDocumentKey !== input.logicalDocumentKey
+  )) {
+    throw new Error("The canonical URL is already owned by another logical document in this access scope.");
+  }
+  const [inserted] = await tx.insert(sourceDocuments).values({
+    accessScopeId: input.accessScopeId,
+    sourceId: input.sourceId,
+    logicalDocumentKey: input.logicalDocumentKey,
+    canonicalUrl: input.canonicalUrl,
+  }).onConflictDoNothing({
+    target: [sourceDocuments.sourceId, sourceDocuments.logicalDocumentKey],
+  }).returning();
+  const document = inserted ?? (await tx.select().from(sourceDocuments).where(and(
+    eq(sourceDocuments.sourceId, input.sourceId),
+    eq(sourceDocuments.logicalDocumentKey, input.logicalDocumentKey),
+  )).limit(1))[0];
+  if (!document) throw new Error(input.missingDocumentError);
+  if (document.accessScopeId !== input.accessScopeId || document.canonicalUrl !== input.canonicalUrl) {
+    throw new Error("Logical document identity conflicts with existing ownership or canonical URL.");
+  }
+  await tx.insert(sourceDocumentUrlAliases).values({
+    sourceDocumentId: document.id,
+    accessScopeId: document.accessScopeId,
+    sourceId: document.sourceId,
+    aliasUrl: input.canonicalUrl,
+    isCanonical: true,
+  }).onConflictDoNothing({
+    target: [sourceDocumentUrlAliases.accessScopeId, sourceDocumentUrlAliases.aliasUrl],
+  });
+  return document;
+}
 
 async function assertDiscoveryWriteFence(tx: DatabaseTransaction, fence: DiscoveryWriteFence): Promise<{
   readonly sourceId: string;

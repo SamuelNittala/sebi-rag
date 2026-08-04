@@ -48,8 +48,7 @@ export interface NormalizedPdfParseArtifact {
 }
 
 export interface PdfStageArtifactStore {
-  verify(descriptor: ArtifactDescriptor): Promise<ArtifactDescriptor>;
-  read(descriptor: ArtifactDescriptor): Promise<Uint8Array>;
+  readVerified(descriptor: ArtifactDescriptor): Promise<Uint8Array>;
   put(input: {
     readonly namespace: string;
     readonly bytes: Uint8Array;
@@ -107,9 +106,8 @@ export class ParsePdfStage {
       throw deterministicParseError("INVALID_RAW_MEDIA_TYPE", "Parse stage accepts application/pdf artifacts only.");
     }
     input.signal?.throwIfAborted();
-    const verified = await this.dependencies.artifactStore.verify(input.rawArtifact);
-    const rawBytes = await this.dependencies.artifactStore.read(verified);
-    assertBytesMatchDescriptor(rawBytes, verified);
+    const rawBytes = await this.dependencies.artifactStore.readVerified(input.rawArtifact);
+    assertBytesMatchDescriptor(rawBytes, input.rawArtifact);
     input.signal?.throwIfAborted();
 
     const parsed = await withTemporaryPdf(input.filename, rawBytes, async (path) => {
@@ -121,7 +119,7 @@ export class ParsePdfStage {
         documentVersionId: input.documentVersionId,
         filename: input.filename,
         canonicalUrl,
-        rawArtifact: verified,
+        rawArtifact: input.rawArtifact,
         parsedPdf: pdf,
         tableResult: tables,
         parserVersion: this.options.parserVersion,

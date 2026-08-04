@@ -124,6 +124,7 @@ describe("artifact store contract", () => {
       expect(first, candidate.name).toEqual(retry);
       expect(first).toMatchObject({ sha256, byteSize: bytes.byteLength, mediaType: "application/pdf", producerVersion: "fetcher-v1" });
       expect(await candidate.store.read(first)).toEqual(bytes);
+      expect(await candidate.store.readVerified(first)).toEqual(bytes);
       expect(await candidate.inspect()).toEqual(bytes);
       await expect(candidate.store.verify(first)).resolves.toEqual(first);
     }

@@ -23,6 +23,8 @@ export interface ArtifactStore {
   /** Writes or reuses an immutable object and returns only after integrity verification. */
   put(input: PutArtifactInput): Promise<ArtifactDescriptor>;
   read(descriptor: ArtifactDescriptor): Promise<Uint8Array>;
+  /** Reads bytes once while validating the descriptor, metadata, size, and checksum. */
+  readVerified(descriptor: ArtifactDescriptor): Promise<Uint8Array>;
   verify(descriptor: ArtifactDescriptor): Promise<ArtifactDescriptor>;
   /** Reporting only. U3 deliberately performs no destructive object deletion. */
   listOrphans(referencedKeys: ReadonlySet<string>, olderThan: Date): Promise<readonly OrphanArtifact[]>;

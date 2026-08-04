@@ -70,7 +70,7 @@ export interface ChunkInspectionReviewRepository {
 }
 
 export interface ChunkInspectStageOptions {
-  readonly artifactStore: Pick<PdfStageArtifactStore, "verify" | "read">;
+  readonly artifactStore: Pick<PdfStageArtifactStore, "readVerified">;
   readonly reviewRepository: ChunkInspectionReviewRepository;
 }
 
@@ -106,9 +106,8 @@ export class ChunkInspectStage {
       throw deterministicChunkError("INVALID_PARSED_MEDIA_TYPE", "Chunk stage accepts only the normalized PDF artifact contract.");
     }
     input.signal?.throwIfAborted();
-    const descriptor = await this.options.artifactStore.verify(input.parsedArtifact);
-    const bytes = await this.options.artifactStore.read(descriptor);
-    if (sha256Hex(bytes) !== descriptor.sha256 || bytes.byteLength !== descriptor.byteSize) {
+    const bytes = await this.options.artifactStore.readVerified(input.parsedArtifact);
+    if (sha256Hex(bytes) !== input.parsedArtifact.sha256 || bytes.byteLength !== input.parsedArtifact.byteSize) {
       throw deterministicChunkError("PARSED_ARTIFACT_CHECKSUM_MISMATCH", "Parsed artifact bytes failed integrity verification.");
     }
     const parsed = decodeNormalizedParseArtifact(bytes);

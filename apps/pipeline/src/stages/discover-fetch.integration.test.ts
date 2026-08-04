@@ -181,7 +181,8 @@ function fakeArtifactStore(events: string[]): ArtifactStore {
       events.push("artifact");
       return { key: `raw/${input.sha256}`, uri: `memory://${input.sha256}`, sha256: input.sha256, byteSize: input.byteSize, mediaType: input.mediaType, producerVersion: input.producerVersion };
     },
-    read: async () => new Uint8Array(), verify: async (descriptor) => descriptor, listOrphans: async () => [],
+    read: async () => new Uint8Array(), readVerified: async () => new Uint8Array(),
+    verify: async (descriptor) => descriptor, listOrphans: async () => [],
   };
 }
 function fixtureServer(handler: (url: URL, request: Request) => Response | Promise<Response>) { const server = Bun.serve({ port: 0, fetch: (request) => handler(new URL(request.url), request) }); servers.push(server); return server; }

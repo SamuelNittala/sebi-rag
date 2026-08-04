@@ -88,7 +88,7 @@ export class S3ArtifactStore implements ArtifactStore {
     return readS3Body(result.Body, descriptor.byteSize);
   }
 
-  async verify(descriptor: ArtifactDescriptor): Promise<ArtifactDescriptor> {
+  async readVerified(descriptor: ArtifactDescriptor): Promise<Uint8Array> {
     const objectKey = this.#objectKey(descriptor.key);
     if (descriptor.uri !== `s3://${this.#bucket}/${objectKey}`) {
       throw new Error("Artifact URI does not match its S3 key.");
@@ -115,6 +115,11 @@ export class S3ArtifactStore implements ArtifactStore {
     }
     const bytes = await this.read(descriptor);
     assertArtifactIntegrity(descriptor, bytes);
+    return bytes;
+  }
+
+  async verify(descriptor: ArtifactDescriptor): Promise<ArtifactDescriptor> {
+    await this.readVerified(descriptor);
     return descriptor;
   }
 
