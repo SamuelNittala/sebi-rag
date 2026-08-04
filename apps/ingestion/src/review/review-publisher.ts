@@ -2,9 +2,15 @@ import { createHash } from "node:crypto";
 
 import {
   and,
+  accessScopes,
+  assertScheduledPublicationReady,
   chunks,
   db,
   documents,
+  documentVersions,
+  sourceDocuments,
+  sources,
+  pipelineRuns,
   eq,
   getReviewRunDetail,
   htmlChunks,
@@ -12,6 +18,8 @@ import {
   ingestionRuns,
   markReviewRunFailed,
   publishReviewRun,
+  stageScheduledPublicationGeneration,
+  cutoverScheduledPublicationGeneration,
   reviewEvents,
   sql,
   updateReviewRunStatus,
@@ -88,6 +96,39 @@ async function assertPublicationOwnership(
   if (ownership.visibilityScope === "TENANT"
     && authorizedTenantId !== ownership.tenantId) {
     throw new Error("Publisher is not authorized for the review run tenant ownership.");
+  }
+  if (detail.run.documentVersionId && detail.run.pipelineRunId && detail.run.configRevisionId) {
+    const [source] = await database.select({
+      contentSha256: documentVersions.contentSha256,
+      documentId: sourceDocuments.id,
+      currentVersionId: sourceDocuments.currentVersionId,
+      pipelineVersionId: pipelineRuns.documentVersionId,
+      pipelineConfigRevisionId: pipelineRuns.configRevisionId,
+      scopeFrozenAt: accessScopes.emergencyFrozenAt,
+      sourceFrozenAt: sources.emergencyFrozenAt,
+    }).from(documentVersions)
+      .innerJoin(sourceDocuments, eq(sourceDocuments.id, documentVersions.sourceDocumentId))
+      .innerJoin(pipelineRuns, eq(pipelineRuns.id, detail.run.pipelineRunId))
+      .innerJoin(accessScopes, eq(accessScopes.id, pipelineRuns.accessScopeId))
+      .innerJoin(sources, eq(sources.id, pipelineRuns.sourceId))
+      .where(and(
+        eq(documentVersions.id, detail.run.documentVersionId),
+        eq(sourceDocuments.id, detail.run.sourceDocumentId),
+        eq(pipelineRuns.documentVersionId, detail.run.documentVersionId),
+      )).limit(1);
+    if (!source) throw new Error("Scheduled publication source lineage not found.");
+    if (source.contentSha256 !== detail.run.fileHash
+      || source.pipelineVersionId !== detail.run.documentVersionId
+      || source.pipelineConfigRevisionId !== detail.run.configRevisionId) {
+      throw new Error("Scheduled publication source changed after review staging.");
+    }
+    if (source.scopeFrozenAt || source.sourceFrozenAt) {
+      throw new Error("Emergency freeze prevents scheduled publication.");
+    }
+    if (detail.candidates.some((candidate) => !sameOwnership(candidate, ownership))) {
+      throw new Error("Candidate ownership does not match the approved review run.");
+    }
+    return ownership;
   }
   const [source] = detail.run.sourceType === "pdf"
     ? await database.select({
@@ -265,6 +306,10 @@ export async function publishApprovedReviewRun(
     options.authorizedTenantId,
   );
 
+  if (detail.run.documentVersionId) {
+    await assertScheduledPublicationReady(database, runId);
+  }
+
   if (detail.run.reviewPurpose === "metadata") {
     return publishApprovedMetadataReview(
       database,
@@ -286,10 +331,12 @@ export async function publishApprovedReviewRun(
   try {
     // A failed attempt may have left an incomplete staged version. It was never
     // searchable, so it is safe to replace before retrying the same reviewed run.
-    if (detail.run.sourceType === "pdf") {
-      await database.delete(chunks).where(eq(chunks.ingestionRunId, runId));
-    } else {
-      await database.delete(htmlChunks).where(eq(htmlChunks.ingestionRunId, runId));
+    if (!detail.run.documentVersionId) {
+      if (detail.run.sourceType === "pdf") {
+        await database.delete(chunks).where(eq(chunks.ingestionRunId, runId));
+      } else {
+        await database.delete(htmlChunks).where(eq(htmlChunks.ingestionRunId, runId));
+      }
     }
 
     const embeddingInputs: EmbeddingInput[] = detail.candidates.map((candidate) => ({
@@ -324,6 +371,41 @@ export async function publishApprovedReviewRun(
       embeddings.map((embedding) => [embedding.chunkIndex, embedding.embedding]),
     );
     options.onProgress?.({ stage: "staging", completed: 0, total });
+
+    if (detail.run.documentVersionId) {
+      const generation = await stageScheduledPublicationGeneration(database, {
+        ingestionRunId: runId,
+        chunks: detail.candidates.map((candidate) => {
+          const vector = embeddingByIndex.get(candidate.chunkIndex);
+          if (!vector) throw new Error(`Missing embedding for chunk ${candidate.chunkIndex}.`);
+          return {
+            embedding: vector,
+            text: candidate.text,
+            chunkIndex: candidate.chunkIndex,
+            totalChunks: total,
+            pageNumbers: candidate.pageNumbers,
+            sectionHeader: candidate.sectionHeader,
+            hasTable: candidate.hasTable,
+            metadata: candidate.metadata,
+          };
+        }),
+      });
+      options.onProgress?.({ stage: "staging", completed: total, total });
+      await updateReviewRunStatus(database, runId, "embedding", "staged", options.actor);
+      options.onProgress?.({ stage: "publishing", completed: 0, total });
+      const cutover = await cutoverScheduledPublicationGeneration(database, runId, options.actor);
+      if (cutover.status !== "published") {
+        throw new Error(cutover.status === "frozen"
+          ? "Emergency freeze prevented scheduled publication cutover."
+          : "Scheduled publication approval became stale before cutover.");
+      }
+      options.onProgress?.({ stage: "publishing", completed: total, total });
+      const published = await getReviewRunDetail(database, runId);
+      if (!published || published.run.status !== "published" || generation.id !== cutover.generationId) {
+        throw new Error("Scheduled publication cutover did not commit the exact staged generation.");
+      }
+      return published.run;
+    }
 
     if (detail.run.sourceType === "pdf") {
       await database.insert(chunks).values(detail.candidates.map((candidate) => {

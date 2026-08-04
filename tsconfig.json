@@ -21,6 +21,7 @@
     "baseUrl": ".",
     "paths": {
       "@mf-rag/core": ["packages/core/src"],
+      "@mf-rag/core/*": ["packages/core/src/*"],
       "@mf-rag/db": ["packages/db/src"],
       "@mf-rag/vector": ["packages/vector/src"],
       "@mf-rag/types": ["packages/types/src"]

@@ -34,6 +34,22 @@ import type {
   DocumentPipelineStage,
 } from "@mf-rag/types";
 
+type StoredDocumentRiskClassification = "low" | "elevated";
+type StoredDocumentRiskRoute = "system_approve" | "human_review";
+interface StoredDocumentRiskEvidence {
+  readonly isFirstVersion: boolean;
+  readonly candidateChunkCount: number;
+  readonly inspectedChunkCount: number;
+  readonly openBlockingCount: number;
+  readonly openWarningCount: number;
+  readonly extractionAnomaly: boolean;
+  readonly ownershipDrift: boolean;
+  readonly configRevisionDrift: boolean;
+  readonly parserVersionDrift: boolean;
+  readonly chunkerVersionDrift: boolean;
+  readonly inspectorVersionDrift: boolean;
+}
+
 // Custom type for pgvector
 const vector = customType<{
   data: number[];
@@ -479,6 +495,14 @@ export const ingestionRuns = pgTable(
       .references((): AnyPgColumn => pipelineRuns.id, { onDelete: "set null" }),
     configRevisionId: uuid("config_revision_id")
       .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
+    riskPolicyVersion: varchar("risk_policy_version", { length: 100 }),
+    riskClassification: varchar("risk_classification", { length: 20 })
+      .$type<StoredDocumentRiskClassification>(),
+    riskRoute: varchar("risk_route", { length: 30 }).$type<StoredDocumentRiskRoute>(),
+    riskReasonCodes: jsonb("risk_reason_codes").$type<string[]>(),
+    riskEvidence: jsonb("risk_evidence").$type<StoredDocumentRiskEvidence>(),
+    riskActor: varchar("risk_actor", { length: 255 }),
+    riskDecidedAt: timestamp("risk_decided_at", { mode: "date", withTimezone: true }),
     ...ownershipColumns(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
@@ -731,6 +755,8 @@ export const accessScopes = pgTable(
     configRevisionId: uuid("config_revision_id")
       .notNull()
       .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
+    emergencyFrozenAt: timestamp("emergency_frozen_at", { mode: "date", withTimezone: true }),
+    emergencyFreezeReason: text("emergency_freeze_reason"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
@@ -759,6 +785,8 @@ export const sources = pgTable(
     configRevisionId: uuid("config_revision_id")
       .notNull()
       .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
+    emergencyFrozenAt: timestamp("emergency_frozen_at", { mode: "date", withTimezone: true }),
+    emergencyFreezeReason: text("emergency_freeze_reason"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
@@ -1146,6 +1174,96 @@ export const stageAttempts = pgTable(
       columns: [table.pipelineRunId, table.documentVersionId, table.sourceId, table.accessScopeId],
       foreignColumns: [pipelineRuns.id, pipelineRuns.documentVersionId, pipelineRuns.sourceId, pipelineRuns.accessScopeId],
     }).onDelete("restrict"),
+  ],
+);
+
+export const documentPublicationStatuses = ["staged", "published", "retired", "stale"] as const;
+export type DocumentPublicationStatus = (typeof documentPublicationStatuses)[number];
+
+/**
+ * Scheduled-path vector generation. It deliberately references the control-plane
+ * document/version lineage and never fabricates a row in the legacy documents table.
+ */
+export const documentPublicationGenerations = pgTable(
+  "document_publication_generations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceDocumentId: uuid("source_document_id")
+      .notNull()
+      .references(() => sourceDocuments.id, { onDelete: "restrict" }),
+    documentVersionId: uuid("document_version_id")
+      .notNull()
+      .references(() => documentVersions.id, { onDelete: "restrict" }),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.id, { onDelete: "restrict" }),
+    pipelineRunId: uuid("pipeline_run_id")
+      .notNull()
+      .references(() => pipelineRuns.id, { onDelete: "restrict" }),
+    accessScopeId: uuid("access_scope_id")
+      .notNull()
+      .references(() => accessScopes.id, { onDelete: "restrict" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "restrict" }),
+    configRevisionId: uuid("config_revision_id")
+      .notNull()
+      .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
+    riskPolicyVersion: varchar("risk_policy_version", { length: 100 }).notNull(),
+    riskDecisionActor: varchar("risk_decision_actor", { length: 255 }).notNull(),
+    parserVersion: varchar("parser_version", { length: 50 }).notNull(),
+    chunkerVersion: varchar("chunker_version", { length: 50 }).notNull(),
+    inspectorVersion: varchar("inspector_version", { length: 50 }).notNull(),
+    status: varchar("status", { length: 20 })
+      .default("staged")
+      .notNull()
+      .$type<DocumentPublicationStatus>(),
+    ...ownershipColumns(),
+    stagedAt: timestamp("staged_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    publishedAt: timestamp("published_at", { mode: "date", withTimezone: true }),
+    retiredAt: timestamp("retired_at", { mode: "date", withTimezone: true }),
+    staleAt: timestamp("stale_at", { mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("document_publication_generations_run_uidx").on(table.ingestionRunId),
+    uniqueIndex("document_publication_generations_one_published_uidx")
+      .on(table.sourceDocumentId)
+      .where(sql`${table.status} = 'published'`),
+    index("document_publication_generations_version_idx").on(table.documentVersionId),
+    check("document_publication_generations_status_ck", sql`${table.status} IN ('staged', 'published', 'retired', 'stale')`),
+    check("document_publication_generations_ownership_ck", ownershipInvariant),
+    foreignKey({
+      name: "document_publication_generation_owner_fk",
+      columns: [table.documentVersionId, table.sourceId, table.accessScopeId],
+      foreignColumns: [documentVersions.id, documentVersions.sourceId, documentVersions.accessScopeId],
+    }).onDelete("restrict"),
+  ],
+);
+
+/** Unsearchable until its parent generation is atomically promoted. */
+export const documentPublicationChunks = pgTable(
+  "document_publication_chunks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    generationId: uuid("generation_id")
+      .notNull()
+      .references(() => documentPublicationGenerations.id, { onDelete: "cascade" }),
+    embedding: vector("embedding", { dimensions: VECTOR_DIMENSIONS }).notNull(),
+    text: text("text").notNull(),
+    chunkIndex: integer("chunk_index").notNull(),
+    totalChunks: integer("total_chunks").notNull(),
+    pageNumbers: jsonb("page_numbers").$type<number[]>().notNull(),
+    sectionHeader: text("section_header"),
+    hasTable: boolean("has_table").default(false).notNull(),
+    retrievalMetadata: jsonb("retrieval_metadata").$type<CandidateChunkMetadata>().notNull(),
+    ...ownershipColumns(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("document_publication_chunks_generation_chunk_uidx")
+      .on(table.generationId, table.chunkIndex),
+    index("document_publication_chunks_generation_idx").on(table.generationId),
+    check("document_publication_chunks_ownership_ck", ownershipInvariant),
   ],
 );
 

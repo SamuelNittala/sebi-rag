@@ -12,7 +12,11 @@ import {
 } from "@mf-rag/types";
 
 import * as schema from "./schema.ts";
-import { stageInspectionReview } from "./review-queries.ts";
+import {
+  persistScheduledRiskDecision,
+  rejectReviewRun,
+  stageInspectionReview,
+} from "./review-queries.ts";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const integrationDescribe = testDatabaseUrl ? describe : describe.skip;
@@ -147,7 +151,7 @@ integrationDescribe("scheduled review lineage", () => {
     await client.close();
   });
 
-  test("reuses one compatible review and rejects a pipeline-run/config pairing mismatch", async () => {
+  test("reuses one compatible review, persists exact risk evidence, and terminates on rejection", async () => {
     const candidateId = crypto.randomUUID();
     const input = {
       sourceType: "pdf" as const,
@@ -203,5 +207,44 @@ integrationDescribe("scheduled review lineage", () => {
       ...input,
       pipelineRunId: crypto.randomUUID(),
     })).rejects.toThrow("Typed review source document not found");
+
+    const risk = await persistScheduledRiskDecision(db, {
+      runId: first.id,
+      policyVersion: "document-risk-v1",
+      classification: "elevated",
+      route: "human_review",
+      reasonCodes: ["FIRST_VERSION"],
+      actor: "system:risk-policy",
+      evidence: {
+        isFirstVersion: true,
+        candidateChunkCount: 1,
+        inspectedChunkCount: 1,
+        openBlockingCount: 0,
+        openWarningCount: 0,
+        extractionAnomaly: false,
+        ownershipDrift: false,
+        configRevisionDrift: false,
+        parserVersionDrift: false,
+        chunkerVersionDrift: false,
+        inspectorVersionDrift: false,
+      },
+    });
+    expect(risk).toMatchObject({
+      riskPolicyVersion: "document-risk-v1",
+      riskActor: "system:risk-policy",
+      riskReasonCodes: ["FIRST_VERSION"],
+      documentVersionId: versionId,
+    });
+    expect((await db.select().from(schema.pipelineRuns)
+      .where(eq(schema.pipelineRuns.id, pipelineRunId)))[0]?.pausedAt).not.toBeNull();
+
+    await rejectReviewRun(db, first.id, "reviewer@example.com", "Rejected fixture");
+    expect((await db.select().from(schema.pipelineRuns)
+      .where(eq(schema.pipelineRuns.id, pipelineRunId)))[0]).toMatchObject({
+      status: "failed",
+      pausedAt: null,
+    });
+    expect(await db.select().from(schema.documentPublicationGenerations)
+      .where(eq(schema.documentPublicationGenerations.sourceDocumentId, sourceDocumentId))).toHaveLength(0);
   });
 });

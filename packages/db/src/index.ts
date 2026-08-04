@@ -12,6 +12,7 @@ export * from "./review-queries.ts";
 export * from "./source-registry-queries.ts";
 export * from "./document-version-queries.ts";
 export * from "./pipeline-run-queries.ts";
+export * from "./scheduled-publication-queries.ts";
 
 // Re-export drizzle-orm utilities for consumers to use the same version
 export { eq, and, or, sql, desc, asc } from "drizzle-orm";

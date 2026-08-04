@@ -20,6 +20,7 @@ import {
   chunkFlags,
   chunkSearchDocuments,
   chunks,
+  documentPublicationGenerations,
   documentVersions,
   documents,
   htmlChunks,
@@ -112,6 +113,22 @@ export interface ReviewApprovalResult {
   approved: boolean;
   reasons: string[];
   run: IngestionRun;
+}
+
+export interface ScheduledReviewRiskContext {
+  readonly run: IngestionRun;
+  readonly isFirstVersion: boolean;
+  readonly previousPublication: typeof documentPublicationGenerations.$inferSelect | null;
+}
+
+export interface PersistScheduledRiskDecisionInput {
+  readonly runId: string;
+  readonly policyVersion: string;
+  readonly classification: "low" | "elevated";
+  readonly route: "system_approve" | "human_review";
+  readonly reasonCodes: readonly string[];
+  readonly evidence: NonNullable<IngestionRun["riskEvidence"]>;
+  readonly actor: string;
 }
 
 export interface UpdateReviewCandidateMetadataInput {
@@ -662,6 +679,166 @@ export async function getReviewRunDetail(
   return { run, candidates, flags, edits, events };
 }
 
+export async function getScheduledReviewRiskContext(
+  db: Database,
+  runId: string,
+): Promise<ScheduledReviewRiskContext> {
+  const [run] = await db.select().from(ingestionRuns).where(eq(ingestionRuns.id, runId));
+  if (!run) throw new Error("Review run not found.");
+  if (!run.documentVersionId || !run.pipelineRunId || !run.configRevisionId) {
+    throw new Error("Scheduled risk routing requires exact document, pipeline, and configuration lineage.");
+  }
+  const [previousPublication] = await db.select().from(documentPublicationGenerations).where(and(
+    eq(documentPublicationGenerations.sourceDocumentId, run.sourceDocumentId),
+    eq(documentPublicationGenerations.status, "published"),
+  )).limit(1);
+  return {
+    run,
+    isFirstVersion: !previousPublication,
+    previousPublication: previousPublication ?? null,
+  };
+}
+
+/** Persist one immutable policy decision and either auto-approve or pause for a person. */
+export async function persistScheduledRiskDecision(
+  db: Database,
+  input: PersistScheduledRiskDecisionInput,
+): Promise<IngestionRun> {
+  if (!input.policyVersion.trim() || !input.actor.trim() || input.reasonCodes.length === 0) {
+    throw new Error("Risk decision requires policy version, actor, and reason codes.");
+  }
+  return db.transaction(async (tx) => {
+    const [run] = await tx.select().from(ingestionRuns)
+      .where(eq(ingestionRuns.id, input.runId)).limit(1).for("update");
+    if (!run) throw new Error("Review run not found.");
+    if (!run.documentVersionId || !run.pipelineRunId || !run.configRevisionId) {
+      throw new Error("Scheduled risk decision requires exact lineage.");
+    }
+    if (run.riskPolicyVersion) {
+      const same = run.riskPolicyVersion === input.policyVersion
+        && run.riskClassification === input.classification
+        && run.riskRoute === input.route
+        && run.riskActor === input.actor
+        && JSON.stringify(run.riskReasonCodes) === JSON.stringify(input.reasonCodes)
+        && JSON.stringify(run.riskEvidence) === JSON.stringify(input.evidence);
+      if (!same) throw new Error("Review run already has a different risk decision.");
+      return run;
+    }
+    if (run.status !== "review_ready") throw new Error("Only a review-ready run can be risk routed.");
+    const [lineage] = await tx.select({
+      pipeline: pipelineRuns,
+      version: documentVersions,
+      document: sourceDocuments,
+      scope: accessScopes,
+      source: sources,
+    }).from(pipelineRuns)
+      .innerJoin(documentVersions, eq(documentVersions.id, pipelineRuns.documentVersionId))
+      .innerJoin(sourceDocuments, eq(sourceDocuments.id, documentVersions.sourceDocumentId))
+      .innerJoin(accessScopes, eq(accessScopes.id, pipelineRuns.accessScopeId))
+      .innerJoin(sources, eq(sources.id, pipelineRuns.sourceId))
+      .where(and(
+        eq(pipelineRuns.id, run.pipelineRunId),
+        eq(documentVersions.id, run.documentVersionId),
+        eq(sourceDocuments.id, run.sourceDocumentId),
+        eq(pipelineRuns.configRevisionId, run.configRevisionId),
+      )).limit(1);
+    if (!lineage) throw new Error("Scheduled risk lineage no longer matches the review run.");
+    if (lineage.scope.emergencyFrozenAt || lineage.source.emergencyFrozenAt) {
+      throw new Error("Emergency freeze prevents risk decision resume.");
+    }
+    const flags = await tx.select({
+      status: chunkFlags.status,
+      severity: chunkFlags.severity,
+      blocksApproval: chunkFlags.blocksApproval,
+    }).from(chunkFlags).where(eq(chunkFlags.ingestionRunId, run.id));
+    const open = flags.filter((flag) => flag.status === "open");
+    const [previousPublication] = await tx.select().from(documentPublicationGenerations).where(and(
+      eq(documentPublicationGenerations.sourceDocumentId, run.sourceDocumentId),
+      eq(documentPublicationGenerations.status, "published"),
+    )).limit(1).for("update");
+    const expectedEvidence: NonNullable<IngestionRun["riskEvidence"]> = {
+      isFirstVersion: !previousPublication,
+      candidateChunkCount: run.candidateChunkCount,
+      inspectedChunkCount: run.inspectedChunkCount,
+      openBlockingCount: open.filter((flag) => flag.blocksApproval).length,
+      openWarningCount: open.filter((flag) => flag.severity === "warning").length,
+      extractionAnomaly: run.criticalCount > 0,
+      ownershipDrift: Boolean(previousPublication) && (
+        previousPublication!.visibilityScope !== run.visibilityScope
+        || previousPublication!.tenantId !== run.tenantId
+        || previousPublication!.ownershipManifestId !== run.ownershipManifestId
+        || previousPublication!.ownershipManifestVersion !== run.ownershipManifestVersion
+      ),
+      configRevisionDrift: Boolean(previousPublication)
+        && previousPublication!.configRevisionId !== run.configRevisionId,
+      parserVersionDrift: Boolean(previousPublication)
+        && previousPublication!.parserVersion !== run.parserVersion,
+      chunkerVersionDrift: Boolean(previousPublication)
+        && previousPublication!.chunkerVersion !== run.chunkerVersion,
+      inspectorVersionDrift: Boolean(previousPublication)
+        && previousPublication!.inspectorVersion !== run.inspectorVersion,
+    };
+    if (Object.entries(expectedEvidence).some(([key, value]) =>
+      input.evidence[key as keyof typeof expectedEvidence] !== value)) {
+      throw new Error("Risk decision evidence does not match the current inspected review state.");
+    }
+    if (input.route === "system_approve") {
+      const unsafe = input.classification !== "low"
+        || input.evidence.isFirstVersion
+        || input.evidence.candidateChunkCount <= 0
+        || input.evidence.inspectedChunkCount !== input.evidence.candidateChunkCount
+        || input.evidence.openBlockingCount > 0
+        || input.evidence.openWarningCount > 0
+        || input.evidence.extractionAnomaly
+        || input.evidence.ownershipDrift
+        || input.evidence.configRevisionDrift
+        || input.evidence.parserVersionDrift
+        || input.evidence.chunkerVersionDrift
+        || input.evidence.inspectorVersionDrift;
+      if (unsafe) throw new Error("System approval is allowed only for a clean established update.");
+    }
+    const now = new Date();
+    const [updated] = await tx.update(ingestionRuns).set({
+      status: input.route === "system_approve" ? "approved" : "review_ready",
+      reviewer: input.route === "system_approve" ? input.actor : null,
+      reviewNote: input.route === "system_approve" ? input.reasonCodes.join(",") : null,
+      reviewedAt: input.route === "system_approve" ? now : null,
+      riskPolicyVersion: input.policyVersion,
+      riskClassification: input.classification,
+      riskRoute: input.route,
+      riskReasonCodes: [...input.reasonCodes],
+      riskEvidence: input.evidence,
+      riskActor: input.actor,
+      riskDecidedAt: now,
+      updatedAt: now,
+    }).where(and(
+      eq(ingestionRuns.id, run.id),
+      isNull(ingestionRuns.riskPolicyVersion),
+    )).returning();
+    if (!updated) throw new Error("Risk decision was concurrently changed.");
+    await tx.execute(sql`
+      UPDATE ${ingestionRuns}
+      SET
+        risk_reason_codes = CASE WHEN jsonb_typeof(${ingestionRuns.riskReasonCodes}) = 'string'
+          THEN (${ingestionRuns.riskReasonCodes} #>> '{}')::jsonb ELSE ${ingestionRuns.riskReasonCodes} END,
+        risk_evidence = CASE WHEN jsonb_typeof(${ingestionRuns.riskEvidence}) = 'string'
+          THEN (${ingestionRuns.riskEvidence} #>> '{}')::jsonb ELSE ${ingestionRuns.riskEvidence} END
+      WHERE ${ingestionRuns.id} = ${run.id}
+    `);
+    await tx.update(pipelineRuns).set({
+      pausedAt: input.route === "human_review" ? now : null,
+      updatedAt: now,
+    }).where(and(eq(pipelineRuns.id, run.pipelineRunId), eq(pipelineRuns.status, "active")));
+    await tx.insert(reviewEvents).values({
+      ingestionRunId: run.id,
+      eventType: input.route === "system_approve" ? "risk_system_approved" : "risk_human_required",
+      actor: input.actor,
+      details: { policyVersion: input.policyVersion, classification: input.classification, reasonCodes: input.reasonCodes },
+    });
+    return updated;
+  });
+}
+
 export async function getReviewRunDetailByCandidateId(
   db: Database,
   candidateId: string,
@@ -911,6 +1088,38 @@ export async function approveReviewRun(
     } else if (runOwnership && !ownershipMatches(source, runOwnership)) {
       reasons.push("Source document ownership does not match the review run.");
     }
+    if (run.documentVersionId && run.pipelineRunId && run.configRevisionId) {
+      const [scheduled] = await tx.select({
+        currentVersionId: sourceDocuments.currentVersionId,
+        pipelineConfigRevisionId: pipelineRuns.configRevisionId,
+        pipelineStatus: pipelineRuns.status,
+        scopeFrozenAt: accessScopes.emergencyFrozenAt,
+        sourceFrozenAt: sources.emergencyFrozenAt,
+      }).from(pipelineRuns)
+        .innerJoin(sourceDocuments, eq(sourceDocuments.id, run.sourceDocumentId))
+        .innerJoin(accessScopes, eq(accessScopes.id, pipelineRuns.accessScopeId))
+        .innerJoin(sources, eq(sources.id, pipelineRuns.sourceId))
+        .where(and(
+          eq(pipelineRuns.id, run.pipelineRunId),
+          eq(pipelineRuns.documentVersionId, run.documentVersionId),
+        )).limit(1);
+      if (!scheduled || scheduled.pipelineStatus !== "active") {
+        reasons.push("Scheduled pipeline run is no longer active.");
+      } else {
+        if (scheduled.currentVersionId !== run.documentVersionId) {
+          reasons.push("A newer document version superseded this review.");
+        }
+        if (scheduled.pipelineConfigRevisionId !== run.configRevisionId) {
+          reasons.push("Pipeline configuration lineage changed after review staging.");
+        }
+        if (scheduled.scopeFrozenAt || scheduled.sourceFrozenAt) {
+          reasons.push("Emergency freeze prevents review resume.");
+        }
+      }
+      if (run.riskRoute !== "human_review" || !run.riskPolicyVersion || !run.riskActor) {
+        reasons.push("Scheduled human review has no exact risk-policy decision.");
+      }
+    }
     const candidates = await tx.select({
       visibilityScope: chunkCandidates.visibilityScope,
       tenantId: chunkCandidates.tenantId,
@@ -940,6 +1149,12 @@ export async function approveReviewRun(
       actor: reviewer,
       note,
     });
+    if (approved.pipelineRunId) {
+      await tx.update(pipelineRuns).set({ pausedAt: null, updatedAt: new Date() }).where(and(
+        eq(pipelineRuns.id, approved.pipelineRunId),
+        eq(pipelineRuns.status, "active"),
+      ));
+    }
     return { approved: true, reasons: [], run: approved };
   });
 }
@@ -952,13 +1167,17 @@ export async function rejectReviewRun(
 ): Promise<IngestionRun> {
   if (!note.trim()) throw new Error("A rejection note is required.");
   return db.transaction(async (tx) => {
+    const now = new Date();
     const [run] = await tx.update(ingestionRuns).set({
       status: "rejected",
       reviewer,
       reviewNote: note,
-      reviewedAt: new Date(),
-      updatedAt: new Date(),
-    }).where(eq(ingestionRuns.id, runId)).returning();
+      reviewedAt: now,
+      updatedAt: now,
+    }).where(and(
+      eq(ingestionRuns.id, runId),
+      eq(ingestionRuns.status, "review_ready"),
+    )).returning();
     if (!run) throw new Error("Review run not found.");
     await tx.insert(reviewEvents).values({
       ingestionRunId: runId,
@@ -966,6 +1185,14 @@ export async function rejectReviewRun(
       actor: reviewer,
       note,
     });
+    if (run.pipelineRunId) {
+      await tx.update(pipelineRuns).set({
+        status: "failed",
+        pausedAt: null,
+        completedAt: now,
+        updatedAt: now,
+      }).where(and(eq(pipelineRuns.id, run.pipelineRunId), eq(pipelineRuns.status, "active")));
+    }
     return run;
   });
 }

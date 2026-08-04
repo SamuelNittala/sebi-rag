@@ -27,6 +27,8 @@ integrationDescribe("chunk review persistence", () => {
   };
 
   beforeAll(async () => {
+    await db.delete(schema.documentPublicationChunks);
+    await db.delete(schema.documentPublicationGenerations);
     await db.delete(schema.reviewEvents);
     await db.delete(schema.chunkFlags);
     await db.delete(schema.chunkCandidates);

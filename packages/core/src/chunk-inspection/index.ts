@@ -14,6 +14,7 @@ import type {
 
 export * from "./types.ts";
 export * from "./review-policy.ts";
+export * from "./document-risk-policy.ts";
 export * from "./manual-edit.ts";
 export * from "./faq.ts";
 
