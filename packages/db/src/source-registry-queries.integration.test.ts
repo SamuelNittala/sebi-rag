@@ -13,6 +13,7 @@ import {
 import * as schema from "./schema.ts";
 import {
   claimDueDiscoveryRun,
+  loadDiscoveryExecutionConfig,
   reconcileSourceRegistry,
 } from "./source-registry-queries.ts";
 
@@ -38,7 +39,10 @@ function desiredRegistry(sourceKeys: readonly string[] = ["factsheets"]): Desire
         enabled: true,
         discovery: {
           strategy: "explicit_urls" as const,
-          urls: [`https://www.miraeassetmf.co.in/${sourceKey}.pdf`],
+          urls: [{
+            key: `${sourceKey}-document` as never,
+            url: `https://www.miraeassetmf.co.in/${sourceKey}.pdf`,
+          }],
         },
         schedule: {
           enabled: true,
@@ -86,6 +90,35 @@ integrationDescribe("source registry control plane", () => {
     expect(second.changed).toBe(false);
     expect(await db.select().from(schema.sourceRegistryRevisions)).toHaveLength(1);
     expect(await db.select().from(schema.sources)).toHaveLength(1);
+  });
+
+  test("a claimed run resolves fetch rules from its immutable revision and rejects revision drift", async () => {
+    const first = await reconcileSourceRegistry(db, desiredRegistry());
+    const [source] = await db.select().from(schema.sources);
+    const [run] = await db.insert(schema.discoveryRuns).values({
+      sourceId: source!.id, configRevisionId: first.revisionId,
+      scheduledFor: new Date("2026-08-04T00:00:00Z"), status: "running",
+      leaseOwner: "worker-a", leaseEpoch: 1, attemptCount: 1,
+    }).returning();
+    const original = desiredRegistry();
+    const manifest = original.accessScopes[0]!;
+    const sourceManifest = manifest.sources[0]!;
+    const changed: DesiredSourceRegistry = {
+      version: 1,
+      accessScopes: [{
+        ...manifest,
+        sources: [{ ...sourceManifest, fetch: { ...sourceManifest.fetch, maxBytes: 20_000_000 } }],
+      }],
+    };
+    const second = await reconcileSourceRegistry(db, changed);
+    expect((await loadDiscoveryExecutionConfig(db, {
+      discoveryRunId: run!.id, sourceId: source!.id, configRevisionId: first.revisionId,
+      owner: "worker-a", leaseEpoch: 1,
+    })).fetch.maxBytes).toBe(10_000_000);
+    await expect(loadDiscoveryExecutionConfig(db, {
+      discoveryRunId: run!.id, sourceId: source!.id, configRevisionId: second.revisionId,
+      owner: "worker-a", leaseEpoch: 1,
+    })).rejects.toThrow(/revision|fence/i);
   });
 
   test("a database reconciliation failure rolls back the revision and every source change", async () => {

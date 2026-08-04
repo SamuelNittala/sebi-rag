@@ -53,21 +53,38 @@ export const discoveryStrategies = [
 ] as const;
 export type DiscoveryStrategy = (typeof discoveryStrategies)[number];
 
+export interface ExplicitDocumentTarget {
+  /** Human-owned identity. URL changes and redirects do not change this key. */
+  readonly key: LogicalDocumentKey;
+  readonly url: string;
+}
+
+export interface NormalizedPathIdentityRule {
+  readonly strategy: "normalized_path";
+  /** Query parameters not listed here are deliberately excluded from identity. */
+  readonly queryParameters: readonly string[];
+}
+
 export type SourceDiscoveryConfig =
   | {
       readonly strategy: "explicit_urls";
-      readonly urls: readonly string[];
+      readonly urls: readonly ExplicitDocumentTarget[];
     }
   | {
       readonly strategy: "sitemap";
       readonly sitemapUrls: readonly string[];
       readonly includePathPrefixes: readonly string[];
+      readonly maxDocuments: number;
+      readonly identity: NormalizedPathIdentityRule;
     }
   | {
       readonly strategy: "constrained_crawl";
       readonly startUrls: readonly string[];
       readonly allowedPathPrefixes: readonly string[];
       readonly maxDepth: number;
+      readonly maxPages: number;
+      readonly maxDocuments: number;
+      readonly identity: NormalizedPathIdentityRule;
     };
 
 export interface SourceSchedule {

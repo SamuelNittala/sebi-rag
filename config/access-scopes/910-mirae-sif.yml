@@ -17,6 +17,7 @@ sources:
     discovery:
       strategy: explicit_urls
       urls: []
+      # Each future entry is { key, url }; key remains stable across URL redirects.
     schedule:
       enabled: false
       cron: "0 2 * * *"

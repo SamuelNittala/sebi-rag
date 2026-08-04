@@ -14,8 +14,14 @@ import {
   auditLegacyDocumentVersionReadiness,
   compareAndSetCurrentDocumentVersion,
   findOrCreateSourceDocument,
+  findOrCreateSourceDocumentForDiscovery,
+  findSourceDocumentFetchState,
+  ensureDocumentVersionPipelineForDiscovery,
   recordDocumentObservation,
   recordFetchedDocumentVersion,
+  recordFetchedDocumentVersionAndEnsurePipeline,
+  recordSourceDocumentAlias,
+  recordSuccessfulDocumentObservations,
 } from "./document-version-queries.ts";
 import { reconcileSourceRegistry } from "./source-registry-queries.ts";
 import * as schema from "./schema.ts";
@@ -71,6 +77,8 @@ integrationDescribe("document version registry", () => {
 
   beforeEach(async () => {
     await db.delete(schema.documentObservations);
+    await db.delete(schema.stageAttempts);
+    await db.delete(schema.pipelineRuns);
     await db.update(schema.sourceDocuments).set({ currentVersionId: null });
     await db.delete(schema.documentVersions);
     await db.delete(schema.sourceDocumentUrlAliases);
@@ -117,6 +125,133 @@ integrationDescribe("document version registry", () => {
     await recordDocumentObservation(db, { discoveryRunId: run!.id, sourceDocumentId: doc.id, observedUrl: doc.canonicalUrl, etag: "etag-1" });
     await recordDocumentObservation(db, { discoveryRunId: run!.id, sourceDocumentId: doc.id, observedUrl: doc.canonicalUrl, etag: "etag-1" });
     expect(await db.select().from(schema.documentObservations)).toHaveLength(1);
+  });
+
+  test("stores validators/aliases and writes presence only as one complete running-run batch", async () => {
+    const { scope, source } = await ownedSource("910");
+    const first = await findOrCreateSourceDocument(db, {
+      accessScopeId: scope.id, sourceId: source.id,
+      logicalDocumentKey: "factsheet:observed",
+      canonicalUrl: "https://www.miraeassetmf.co.in/observed.pdf",
+    });
+    await recordFetchedDocumentVersion(db, {
+      sourceDocumentId: first.id,
+      artifact: artifact("9".repeat(64)),
+      etag: '"version-9"',
+      lastModified: "Tue, 04 Aug 2026 00:00:00 GMT",
+    });
+    expect(await findSourceDocumentFetchState(db, {
+      accessScopeId: scope.id, sourceId: source.id, logicalDocumentKey: "factsheet:observed",
+    })).toMatchObject({
+      sourceDocumentId: first.id,
+      currentSha256: "9".repeat(64),
+      etag: '"version-9"',
+    });
+    const [running] = await db.insert(schema.discoveryRuns).values({
+      sourceId: source.id, configRevisionId: source.configRevisionId,
+      scheduledFor: new Date("2026-08-04T01:00:00Z"), status: "running",
+      leaseOwner: "worker-a", leaseEpoch: 1, attemptCount: 1,
+    }).returning();
+    const fence = { discoveryRunId: running!.id, owner: "worker-a", leaseEpoch: 1 };
+    await recordSourceDocumentAlias(db, {
+      fence,
+      accessScopeId: scope.id, sourceId: source.id, sourceDocumentId: first.id,
+      aliasUrl: "https://www.miraeassetmf.co.in/redirected/observed.pdf#fragment",
+    });
+
+    const second = await findOrCreateSourceDocument(db, {
+      accessScopeId: scope.id, sourceId: source.id,
+      logicalDocumentKey: "factsheet:other",
+      canonicalUrl: "https://www.miraeassetmf.co.in/other.pdf",
+    });
+    await expect(recordSourceDocumentAlias(db, {
+      fence,
+      accessScopeId: scope.id, sourceId: source.id, sourceDocumentId: second.id,
+      aliasUrl: "https://www.miraeassetmf.co.in/redirected/observed.pdf",
+    })).rejects.toThrow(/already owned/i);
+
+    await recordSuccessfulDocumentObservations(db, {
+      ...fence,
+      observations: [{
+        sourceDocumentId: first.id,
+        observedUrl: "https://www.miraeassetmf.co.in/redirected/observed.pdf",
+        etag: '"version-9"', lastModified: null,
+      }],
+    });
+    expect(await db.select().from(schema.documentObservations)).toHaveLength(1);
+    expect((await db.select().from(schema.discoveryRuns).where(eq(schema.discoveryRuns.id, running!.id)))[0]?.status)
+      .toBe("succeeded");
+
+    const [failed] = await db.insert(schema.discoveryRuns).values({
+      sourceId: source.id, configRevisionId: source.configRevisionId,
+      scheduledFor: new Date("2026-08-04T02:00:00Z"), status: "failed",
+    }).returning();
+    await expect(recordSuccessfulDocumentObservations(db, {
+      discoveryRunId: failed!.id,
+      owner: "worker-a", leaseEpoch: 1,
+      observations: [{ sourceDocumentId: second.id, observedUrl: second.canonicalUrl }],
+    })).rejects.toThrow(/stale/i);
+    expect(await db.select().from(schema.documentObservations)).toHaveLength(1);
+  });
+
+  test("stale discovery owners cannot write identity, versions, PARSE work, aliases, or observations", async () => {
+    const { scope, source } = await ownedSource("910");
+    const document = await findOrCreateSourceDocument(db, {
+      accessScopeId: scope.id, sourceId: source.id, logicalDocumentKey: "factsheet:fenced-fetch",
+      canonicalUrl: "https://www.miraeassetmf.co.in/fenced-fetch.pdf",
+    });
+    const [run] = await db.insert(schema.discoveryRuns).values({
+      sourceId: source.id, configRevisionId: source.configRevisionId,
+      scheduledFor: new Date("2026-08-04T03:00:00Z"), status: "running",
+      leaseOwner: "worker-a", leaseEpoch: 1, attemptCount: 1,
+    }).returning();
+    const stale = { discoveryRunId: run!.id, owner: "worker-a", leaseEpoch: 1 };
+    const current = { discoveryRunId: run!.id, owner: "worker-b", leaseEpoch: 2 };
+    await db.update(schema.discoveryRuns).set({ leaseOwner: "worker-b", leaseEpoch: 2 })
+      .where(eq(schema.discoveryRuns.id, run!.id));
+    const input = {
+      fence: stale, sourceDocumentId: document.id, artifact: artifact("8".repeat(64)),
+      pipelineIdentity: { pipelineImplementationVersion: "pipeline-v1", parseImplementationVersion: "parse-v1", maxAttempts: 3 },
+    };
+    await expect(recordFetchedDocumentVersionAndEnsurePipeline(db, input)).rejects.toThrow(/stale/i);
+    await expect(recordSourceDocumentAlias(db, {
+      fence: stale, accessScopeId: scope.id, sourceId: source.id, sourceDocumentId: document.id,
+      aliasUrl: "https://www.miraeassetmf.co.in/stale-alias.pdf",
+    })).rejects.toThrow(/stale/i);
+    await expect(recordSuccessfulDocumentObservations(db, {
+      ...stale, observations: [{ sourceDocumentId: document.id, observedUrl: document.canonicalUrl }],
+    })).rejects.toThrow(/stale/i);
+    expect(await db.select().from(schema.documentVersions)).toHaveLength(0);
+    expect(await db.select().from(schema.pipelineRuns)).toHaveLength(0);
+
+    const [otherSource] = await db.insert(schema.sources).values({
+      accessScopeId: scope.id, sourceKey: "other-documents", connector: "website_pdf",
+      discoveryConfig: { strategy: "explicit_urls", urls: [] },
+      fetchConfig: source.fetchConfig, reviewConfig: source.reviewConfig,
+      enabled: false, configRevisionId: source.configRevisionId,
+    }).returning();
+    const otherDocument = await findOrCreateSourceDocument(db, {
+      accessScopeId: scope.id, sourceId: otherSource!.id, logicalDocumentKey: "factsheet:other-source",
+      canonicalUrl: "https://www.miraeassetmf.co.in/other-source.pdf",
+    });
+    await expect(findOrCreateSourceDocumentForDiscovery(db, {
+      fence: current, accessScopeId: scope.id, sourceId: otherSource!.id,
+      logicalDocumentKey: "factsheet:cross-source-write",
+      canonicalUrl: "https://www.miraeassetmf.co.in/cross-source-write.pdf",
+    })).rejects.toThrow(/another source/i);
+    await expect(recordFetchedDocumentVersionAndEnsurePipeline(db, {
+      ...input, fence: current, sourceDocumentId: otherDocument.id,
+    })).rejects.toThrow(/another source/i);
+
+    const accepted = await recordFetchedDocumentVersionAndEnsurePipeline(db, { ...input, fence: current });
+    expect(accepted.created).toBe(true);
+    await ensureDocumentVersionPipelineForDiscovery(db, {
+      fence: current, documentVersionId: accepted.version.id, inputChecksum: accepted.version.contentSha256,
+      pipelineIdentity: { pipelineImplementationVersion: "pipeline-v2", parseImplementationVersion: "parse-v1", maxAttempts: 3 },
+    });
+    expect(await db.select().from(schema.documentVersions)).toHaveLength(1);
+    expect(await db.select().from(schema.pipelineRuns)).toHaveLength(2);
+    expect(await db.select().from(schema.stageAttempts)).toHaveLength(2);
   });
 
   test("identical bytes in 910 and 117 remain separate owned versions", async () => {
@@ -224,17 +359,18 @@ integrationDescribe("document version registry", () => {
 
   test("reports ambiguous legacy identity and null ownership without mutating legacy rows", async () => {
     const sharedUrl = "https://legacy.example.test/ambiguous.pdf";
+    const uniqueHash = () => crypto.randomUUID().replaceAll("-", "").repeat(2);
     const inserted = await db.insert(schema.documents).values([
       {
         filename: "legacy-one.pdf",
         filepath: "/legacy/one.pdf",
-        fileHash: "1".repeat(64),
+        fileHash: uniqueHash(),
         sourceUrl: sharedUrl,
       },
       {
         filename: "legacy-two.pdf",
         filepath: "/legacy/two.pdf",
-        fileHash: "2".repeat(64),
+        fileHash: uniqueHash(),
         sourceUrl: sharedUrl,
       },
     ]).returning();

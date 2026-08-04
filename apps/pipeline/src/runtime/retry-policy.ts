@@ -58,6 +58,8 @@ export function createRetryPolicy(options: RetryPolicyOptions = {}): RetryPolicy
           errorMessage: error.message,
         };
       }
+      const explicitlyClassified = classifyExplicitShape(error);
+      if (explicitlyClassified) return explicitlyClassified;
       if (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError")) {
         return { classification: "transient", errorCode: error.name.toUpperCase(), errorMessage: error.message };
       }
@@ -73,6 +75,18 @@ export function createRetryPolicy(options: RetryPolicyOptions = {}): RetryPolicy
       const attempt = positiveInteger(attemptNumber, "Attempt number");
       return Math.min(maxDelayMs, baseDelayMs * 2 ** Math.min(attempt - 1, 20));
     },
+  };
+}
+
+function classifyExplicitShape(error: unknown): ClassifiedStageFailure | null {
+  if (!error || typeof error !== "object") return null;
+  const record = error as Record<string, unknown>;
+  if ((record.classification !== "transient" && record.classification !== "deterministic")
+    || typeof record.code !== "string" || !/^[A-Z][A-Z0-9_]{1,99}$/.test(record.code)) return null;
+  return {
+    classification: record.classification,
+    errorCode: record.code,
+    errorMessage: error instanceof Error ? error.message : String(error),
   };
 }
 

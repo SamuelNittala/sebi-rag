@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   createAccessScopeKey,
   createExternalAccessCode,
+  createLogicalDocumentKey,
   createSourceKey,
   findInlineSecretField,
   sourceConnectorKinds,
@@ -23,6 +24,9 @@ const secretReferenceSchema = z.string().regex(
 
 const safeUrlSchema = z.string().url().superRefine((value, context) => {
   const url = new URL(value);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "URLs must use HTTP or HTTPS." });
+  }
   if (url.username || url.password) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
@@ -33,13 +37,28 @@ const safeUrlSchema = z.string().url().superRefine((value, context) => {
 
 const explicitUrlsSchema = z.object({
   strategy: z.literal("explicit_urls"),
-  urls: z.array(safeUrlSchema),
+  urls: z.array(z.object({
+    key: z.string().transform((value, context) => {
+      try { return createLogicalDocumentKey(value); } catch (error) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: (error as Error).message });
+        return z.NEVER;
+      }
+    }),
+    url: safeUrlSchema,
+  }).strict()).max(1000),
+}).strict();
+
+const normalizedPathIdentitySchema = z.object({
+  strategy: z.literal("normalized_path"),
+  queryParameters: z.array(z.string().regex(/^[A-Za-z0-9._~-]+$/)).max(20).default([]),
 }).strict();
 
 const sitemapSchema = z.object({
   strategy: z.literal("sitemap"),
   sitemapUrls: z.array(safeUrlSchema),
   includePathPrefixes: z.array(z.string().startsWith("/")),
+  maxDocuments: z.number().int().min(1).max(10_000),
+  identity: normalizedPathIdentitySchema,
 }).strict();
 
 const constrainedCrawlSchema = z.object({
@@ -47,6 +66,9 @@ const constrainedCrawlSchema = z.object({
   startUrls: z.array(safeUrlSchema),
   allowedPathPrefixes: z.array(z.string().startsWith("/")),
   maxDepth: z.number().int().min(0).max(5),
+  maxPages: z.number().int().min(1).max(1000),
+  maxDocuments: z.number().int().min(1).max(10_000),
+  identity: normalizedPathIdentitySchema,
 }).strict();
 
 const discoverySchema = z.discriminatedUnion("strategy", [
@@ -63,7 +85,7 @@ const scheduleSchema = z.object({
 
 const fetchSchema = z.object({
   secretRef: secretReferenceSchema.optional(),
-  allowedHosts: z.array(z.string().min(1)).min(1),
+  allowedHosts: z.array(z.string().regex(/^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,62})\.)*[A-Za-z0-9](?:[A-Za-z0-9-]{0,62})$/)).min(1),
   allowedPathPrefixes: z.array(z.string().startsWith("/")).min(1),
   maxBytes: z.number().int().positive(),
   timeoutMs: z.number().int().positive(),
@@ -81,6 +103,12 @@ const sourceSchema = z.object({
     policy: z.literal("risk_based"),
   }).strict(),
 }).strict().superRefine((source, context) => {
+  if (source.discovery.strategy === "explicit_urls") {
+    const duplicateKey = findDuplicate(source.discovery.urls.map(({ key }) => String(key)));
+    const duplicateUrl = findDuplicate(source.discovery.urls.map(({ url }) => url));
+    if (duplicateKey) context.addIssue({ code: z.ZodIssueCode.custom, message: `Duplicate pinned document key: ${duplicateKey}`, path: ["discovery", "urls"] });
+    if (duplicateUrl) context.addIssue({ code: z.ZodIssueCode.custom, message: `Duplicate explicit document URL: ${duplicateUrl}`, path: ["discovery", "urls"] });
+  }
   if (!source.enabled) {
     return;
   }
@@ -239,7 +267,7 @@ function validateTimezone(value: string, context: z.RefinementCtx): void {
 function discoveryTargets(discovery: SourceDiscoveryConfig): readonly string[] {
   switch (discovery.strategy) {
     case "explicit_urls":
-      return discovery.urls;
+      return discovery.urls.map((target) => target.url);
     case "sitemap":
       return discovery.sitemapUrls;
     case "constrained_crawl":

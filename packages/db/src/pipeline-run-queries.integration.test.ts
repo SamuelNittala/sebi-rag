@@ -60,7 +60,10 @@ function registry(): DesiredSourceRegistry {
         sourceKey: createSourceKey("documents"),
         connector: "website_pdf",
         enabled: true,
-        discovery: { strategy: "explicit_urls", urls: ["https://example.com/factsheet.pdf"] },
+        discovery: { strategy: "explicit_urls", urls: [{
+          key: "factsheet" as never,
+          url: "https://example.com/factsheet.pdf",
+        }] },
         schedule: { enabled: true, cron: "0 * * * *", timezone: "UTC" },
         fetch: {
           allowedHosts: ["example.com"],

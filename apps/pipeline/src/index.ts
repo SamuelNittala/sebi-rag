@@ -7,3 +7,7 @@ export * from "./runtime/database-runtime-adapter.ts";
 export * from "./runtime/scheduler.ts";
 export * from "./runtime/stage-registry.ts";
 export * from "./runtime/stage-worker.ts";
+export * from "./connectors/source-connector.ts";
+export * from "./connectors/website-pdf-connector.ts";
+export * from "./stages/discover-source.ts";
+export * from "./stages/fetch-document.ts";

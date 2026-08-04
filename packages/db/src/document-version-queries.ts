@@ -12,6 +12,8 @@ import {
   sourceDocuments,
   sourceDocumentUrlAliases,
   sources,
+  pipelineRuns,
+  stageAttempts,
 } from "./schema.ts";
 
 export interface FindOrCreateSourceDocumentInput {
@@ -49,6 +51,56 @@ export interface RecordDocumentObservationInput {
   readonly observedAt?: Date;
 }
 
+export interface FindSourceDocumentFetchStateInput {
+  readonly accessScopeId: string;
+  readonly sourceId: string;
+  readonly logicalDocumentKey: string;
+}
+
+export interface RecordSourceDocumentAliasInput {
+  readonly fence: DiscoveryWriteFence;
+  readonly accessScopeId: string;
+  readonly sourceId: string;
+  readonly sourceDocumentId: string;
+  readonly aliasUrl: string;
+}
+
+export interface RecordSuccessfulDocumentObservationsInput {
+  readonly discoveryRunId: string;
+  readonly owner: string;
+  readonly leaseEpoch: number;
+  readonly observations: readonly Omit<RecordDocumentObservationInput, "discoveryRunId">[];
+}
+
+export interface DiscoveryWriteFence {
+  readonly discoveryRunId: string;
+  readonly owner: string;
+  readonly leaseEpoch: number;
+}
+
+export interface PipelineIdentityInput {
+  readonly pipelineImplementationVersion: string;
+  readonly parseImplementationVersion: string;
+  readonly maxAttempts: number;
+}
+
+export interface RecordFetchedDocumentVersionAndEnsurePipelineInput {
+  readonly fence: DiscoveryWriteFence;
+  readonly sourceDocumentId: string;
+  readonly artifact: ArtifactDescriptor;
+  readonly etag?: string | null;
+  readonly lastModified?: string | null;
+  readonly pipelineIdentity: PipelineIdentityInput;
+  readonly observedAt?: Date;
+}
+
+export interface EnsureDocumentVersionPipelineForDiscoveryInput {
+  readonly fence: DiscoveryWriteFence;
+  readonly documentVersionId: string;
+  readonly inputChecksum: string;
+  readonly pipelineIdentity: PipelineIdentityInput;
+}
+
 export type LegacyDocumentVersionIssueKind =
   | "UNRESOLVED_OWNERSHIP"
   | "AMBIGUOUS_CANONICAL_URL"
@@ -61,6 +113,35 @@ export interface LegacyDocumentVersionIssue {
 }
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+
+export async function findSourceDocumentFetchState(
+  db: Database,
+  input: FindSourceDocumentFetchStateInput,
+): Promise<{
+  readonly sourceDocumentId: string;
+  readonly canonicalUrl: string;
+  readonly currentVersionId: string | null;
+  readonly currentSha256: string | null;
+  readonly etag: string | null;
+  readonly lastModified: string | null;
+} | null> {
+  const logicalDocumentKey = createLogicalDocumentKey(input.logicalDocumentKey);
+  const [row] = await db.select({
+    sourceDocumentId: sourceDocuments.id,
+    canonicalUrl: sourceDocuments.canonicalUrl,
+    currentVersionId: sourceDocuments.currentVersionId,
+    currentSha256: documentVersions.contentSha256,
+    etag: documentVersions.etag,
+    lastModified: documentVersions.lastModified,
+  }).from(sourceDocuments)
+    .leftJoin(documentVersions, eq(documentVersions.id, sourceDocuments.currentVersionId))
+    .where(and(
+      eq(sourceDocuments.accessScopeId, input.accessScopeId),
+      eq(sourceDocuments.sourceId, input.sourceId),
+      eq(sourceDocuments.logicalDocumentKey, logicalDocumentKey),
+    )).limit(1);
+  return row ?? null;
+}
 
 /**
  * Resolve a stable source-owned document identity. Canonical URL ownership is
@@ -120,6 +201,80 @@ export async function findOrCreateSourceDocument(
     });
 
     return document;
+  });
+}
+
+/** Discovery writer variant: identity creation is rejected after lease reassignment. */
+export async function findOrCreateSourceDocumentForDiscovery(
+  db: Database,
+  input: FindOrCreateSourceDocumentInput & { readonly fence: DiscoveryWriteFence },
+): Promise<typeof sourceDocuments.$inferSelect> {
+  const logicalDocumentKey = createLogicalDocumentKey(input.logicalDocumentKey);
+  const canonicalUrl = canonicalHttpUrl(input.canonicalUrl);
+  return db.transaction(async (tx) => {
+    const fencedSourceId = await assertDiscoveryWriteFence(tx, input.fence);
+    if (fencedSourceId !== input.sourceId) throw new Error("Discovery write fence belongs to another source.");
+    const [source] = await tx.select().from(sources).where(eq(sources.id, input.sourceId)).limit(1);
+    if (!source || source.accessScopeId !== input.accessScopeId) {
+      throw new Error("Source document ownership does not match the source access scope.");
+    }
+    const [urlOwner] = await tx.select().from(sourceDocuments).where(and(
+      eq(sourceDocuments.accessScopeId, input.accessScopeId),
+      eq(sourceDocuments.canonicalUrl, canonicalUrl),
+    )).limit(1);
+    if (urlOwner && (urlOwner.sourceId !== input.sourceId || urlOwner.logicalDocumentKey !== logicalDocumentKey)) {
+      throw new Error("The canonical URL is already owned by another logical document in this access scope.");
+    }
+    const [inserted] = await tx.insert(sourceDocuments).values({
+      accessScopeId: input.accessScopeId, sourceId: input.sourceId,
+      logicalDocumentKey, canonicalUrl,
+    }).onConflictDoNothing({ target: [sourceDocuments.sourceId, sourceDocuments.logicalDocumentKey] }).returning();
+    const document = inserted ?? (await tx.select().from(sourceDocuments).where(and(
+      eq(sourceDocuments.sourceId, input.sourceId),
+      eq(sourceDocuments.logicalDocumentKey, logicalDocumentKey),
+    )).limit(1))[0];
+    if (!document || document.accessScopeId !== input.accessScopeId || document.canonicalUrl !== canonicalUrl) {
+      throw new Error("Logical document identity conflicts with existing ownership or canonical URL.");
+    }
+    await tx.insert(sourceDocumentUrlAliases).values({
+      sourceDocumentId: document.id, accessScopeId: document.accessScopeId,
+      sourceId: document.sourceId, aliasUrl: canonicalUrl, isCanonical: true,
+    }).onConflictDoNothing({ target: [sourceDocumentUrlAliases.accessScopeId, sourceDocumentUrlAliases.aliasUrl] });
+    return document;
+  });
+}
+
+/** Add a redirect/request alias while enforcing one URL owner per access scope. */
+export async function recordSourceDocumentAlias(
+  db: Database,
+  input: RecordSourceDocumentAliasInput,
+): Promise<void> {
+  const aliasUrl = canonicalHttpUrl(input.aliasUrl);
+  await db.transaction(async (tx) => {
+    const fencedSourceId = await assertDiscoveryWriteFence(tx, input.fence);
+    if (fencedSourceId !== input.sourceId) throw new Error("Discovery write fence belongs to another source.");
+    const [document] = await tx.select().from(sourceDocuments).where(and(
+      eq(sourceDocuments.id, input.sourceDocumentId),
+      eq(sourceDocuments.accessScopeId, input.accessScopeId),
+      eq(sourceDocuments.sourceId, input.sourceId),
+    )).limit(1);
+    if (!document) throw new Error("URL alias ownership does not match the logical document.");
+    const [owner] = await tx.select().from(sourceDocumentUrlAliases).where(and(
+      eq(sourceDocumentUrlAliases.accessScopeId, input.accessScopeId),
+      eq(sourceDocumentUrlAliases.aliasUrl, aliasUrl),
+    )).limit(1);
+    if (owner && owner.sourceDocumentId !== document.id) {
+      throw new Error("URL alias is already owned by another logical document in this access scope.");
+    }
+    await tx.insert(sourceDocumentUrlAliases).values({
+      sourceDocumentId: document.id,
+      accessScopeId: document.accessScopeId,
+      sourceId: document.sourceId,
+      aliasUrl,
+      isCanonical: aliasUrl === document.canonicalUrl,
+    }).onConflictDoNothing({
+      target: [sourceDocumentUrlAliases.accessScopeId, sourceDocumentUrlAliases.aliasUrl],
+    });
   });
 }
 
@@ -197,6 +352,79 @@ export async function recordFetchedDocumentVersion(
   });
 }
 
+/** Atomically records immutable version metadata and its compatible PARSE work under the source lease fence. */
+export async function recordFetchedDocumentVersionAndEnsurePipeline(
+  db: Database,
+  input: RecordFetchedDocumentVersionAndEnsurePipelineInput,
+): Promise<RecordFetchedDocumentVersionResult> {
+  validateArtifactDescriptor(input.artifact);
+  validatePipelineIdentity(input.pipelineIdentity, input.artifact.sha256);
+  const observedAt = input.observedAt ?? new Date();
+  return db.transaction(async (tx) => {
+    const fencedSourceId = await assertDiscoveryWriteFence(tx, input.fence);
+    const [document] = await tx.select().from(sourceDocuments)
+      .where(eq(sourceDocuments.id, input.sourceDocumentId)).limit(1).for("update");
+    if (!document) throw new Error("Source document does not exist.");
+    if (document.sourceId !== fencedSourceId) throw new Error("Discovery write fence belongs to another source.");
+    let [version] = await tx.select().from(documentVersions).where(and(
+      eq(documentVersions.sourceDocumentId, document.id),
+      eq(documentVersions.contentSha256, input.artifact.sha256),
+    )).limit(1);
+    let created = false;
+    if (!version) {
+      await tx.insert(artifacts).values({
+        artifactKey: input.artifact.key, uri: input.artifact.uri,
+        sha256: input.artifact.sha256, byteSize: input.artifact.byteSize,
+        mediaType: input.artifact.mediaType, producerVersion: input.artifact.producerVersion,
+        verifiedAt: observedAt,
+      }).onConflictDoNothing({ target: artifacts.artifactKey });
+      const [storedArtifact] = await tx.select().from(artifacts)
+        .where(eq(artifacts.artifactKey, input.artifact.key)).limit(1);
+      if (!storedArtifact || !artifactMatches(storedArtifact, input.artifact)) {
+        throw new Error("Artifact metadata conflicts with the immutable stored object.");
+      }
+      const [latest] = await tx.select({ sequence: documentVersions.sequence })
+        .from(documentVersions).where(eq(documentVersions.sourceDocumentId, document.id))
+        .orderBy(desc(documentVersions.sequence)).limit(1);
+      [version] = await tx.insert(documentVersions).values({
+        sourceDocumentId: document.id, accessScopeId: document.accessScopeId,
+        sourceId: document.sourceId, sequence: (latest?.sequence ?? 0) + 1,
+        contentSha256: input.artifact.sha256, rawArtifactId: storedArtifact.id,
+        etag: input.etag ?? null, lastModified: input.lastModified ?? null,
+        observedAt, readyAt: observedAt,
+      }).returning();
+      if (!version) throw new Error("Failed to create document version.");
+      const [advanced] = await tx.update(sourceDocuments).set({
+        currentVersionId: version.id, updatedAt: observedAt,
+      }).where(and(
+        eq(sourceDocuments.id, document.id),
+        sql`${sourceDocuments.currentVersionId} IS NOT DISTINCT FROM ${document.currentVersionId}`,
+      )).returning({ id: sourceDocuments.id });
+      if (!advanced) throw new Error("Document version fence changed while creating a version.");
+      created = true;
+    }
+    await ensureParsePipeline(tx, version, input.pipelineIdentity, input.artifact.sha256, observedAt);
+    return { version, created };
+  });
+}
+
+/** Re-enqueue-compatible work for unchanged bytes, including after a crash between earlier writes. */
+export async function ensureDocumentVersionPipelineForDiscovery(
+  db: Database,
+  input: EnsureDocumentVersionPipelineForDiscoveryInput,
+): Promise<void> {
+  validatePipelineIdentity(input.pipelineIdentity, input.inputChecksum);
+  await db.transaction(async (tx) => {
+    const fencedSourceId = await assertDiscoveryWriteFence(tx, input.fence);
+    const [version] = await tx.select().from(documentVersions)
+      .where(and(eq(documentVersions.id, input.documentVersionId), eq(documentVersions.contentSha256, input.inputChecksum)))
+      .limit(1);
+    if (!version) throw new Error("Current document version does not match the unchanged fetch checksum.");
+    if (version.sourceId !== fencedSourceId) throw new Error("Discovery write fence belongs to another source.");
+    await ensureParsePipeline(tx, version, input.pipelineIdentity, input.inputChecksum, new Date());
+  });
+}
+
 /**
  * Explicit pointer fence for later stage completions. Only a strictly newer
  * version belonging to the same logical document can replace expected current.
@@ -255,6 +483,9 @@ export async function recordDocumentObservation(
       throw new Error("Document observation ownership does not match the discovery run source.");
     }
     const { document, run } = ownership;
+    if (run.status !== "succeeded") {
+      throw new Error("Legacy single-document observations require a succeeded discovery run.");
+    }
 
     const [observation] = await tx.insert(documentObservations).values({
       discoveryRunId: run.id,
@@ -276,6 +507,68 @@ export async function recordDocumentObservation(
     }).returning();
     if (!observation) throw new Error("Failed to record document observation.");
     return observation;
+  });
+}
+
+/**
+ * Persist one complete presence set and mark its fenced run successful in the
+ * same transaction. Partial attempts call nothing, so future absence counters
+ * cannot be advanced by a failed run.
+ */
+export async function recordSuccessfulDocumentObservations(
+  db: Database,
+  input: RecordSuccessfulDocumentObservationsInput,
+): Promise<void> {
+  const ids = input.observations.map((observation) => observation.sourceDocumentId);
+  if (new Set(ids).size !== ids.length) throw new Error("Successful discovery contains duplicate document observations.");
+  await db.transaction(async (tx) => {
+    await assertDiscoveryWriteFence(tx, input);
+    const [run] = await tx.select().from(discoveryRuns)
+      .where(eq(discoveryRuns.id, input.discoveryRunId)).limit(1);
+    if (!run) throw new Error("Discovery run does not exist.");
+    for (const observation of input.observations) {
+      const observedUrl = canonicalHttpUrl(observation.observedUrl);
+      const [document] = await tx.select().from(sourceDocuments).where(and(
+        eq(sourceDocuments.id, observation.sourceDocumentId),
+        eq(sourceDocuments.sourceId, run.sourceId),
+      )).limit(1);
+      if (!document) throw new Error("Document observation ownership does not match the discovery run source.");
+      await tx.insert(documentObservations).values({
+        discoveryRunId: run.id,
+        sourceDocumentId: document.id,
+        accessScopeId: document.accessScopeId,
+        sourceId: document.sourceId,
+        observedUrl,
+        etag: observation.etag ?? null,
+        lastModified: observation.lastModified ?? null,
+        observedAt: observation.observedAt ?? new Date(),
+      }).onConflictDoUpdate({
+        target: [documentObservations.discoveryRunId, documentObservations.sourceDocumentId],
+        set: {
+          observedUrl,
+          etag: observation.etag ?? null,
+          lastModified: observation.lastModified ?? null,
+          observedAt: observation.observedAt ?? new Date(),
+        },
+      });
+    }
+    const completedAt = new Date();
+    const [completed] = await tx.update(discoveryRuns).set({
+      status: "succeeded",
+      terminalDisposition: "SUCCEEDED",
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      heartbeatAt: completedAt,
+      completedAt,
+      errorCode: null,
+      errorMessage: null,
+    }).where(and(
+      eq(discoveryRuns.id, input.discoveryRunId),
+      eq(discoveryRuns.status, "running"),
+      eq(discoveryRuns.leaseOwner, input.owner),
+      eq(discoveryRuns.leaseEpoch, input.leaseEpoch),
+    )).returning({ id: discoveryRuns.id });
+    if (!completed) throw new Error("Discovery completion fence became stale.");
   });
 }
 
@@ -369,4 +662,65 @@ function groupedLegacyIssues(
   return [...grouped.entries()]
     .filter(([, identities]) => identities.length > 1)
     .map(([value, legacyDocumentIds]) => ({ kind, value, legacyDocumentIds }));
+}
+
+type DatabaseTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+async function assertDiscoveryWriteFence(tx: DatabaseTransaction, fence: DiscoveryWriteFence): Promise<string> {
+  const [run] = await tx.select({ id: discoveryRuns.id, sourceId: discoveryRuns.sourceId }).from(discoveryRuns).where(and(
+    eq(discoveryRuns.id, fence.discoveryRunId),
+    eq(discoveryRuns.status, "running"),
+    eq(discoveryRuns.leaseOwner, fence.owner),
+    eq(discoveryRuns.leaseEpoch, fence.leaseEpoch),
+  )).limit(1).for("update");
+  if (!run) throw new Error("Discovery write fence is stale.");
+  return run.sourceId;
+}
+
+async function ensureParsePipeline(
+  tx: DatabaseTransaction,
+  version: typeof documentVersions.$inferSelect,
+  identity: PipelineIdentityInput,
+  inputChecksum: string,
+  now: Date,
+): Promise<void> {
+  const [insertedRun] = await tx.insert(pipelineRuns).values({
+    documentVersionId: version.id, accessScopeId: version.accessScopeId, sourceId: version.sourceId,
+    implementationVersion: identity.pipelineImplementationVersion,
+    initialStage: "PARSE", initialStageImplementationVersion: identity.parseImplementationVersion,
+    initialInputChecksum: inputChecksum, initialMaxAttempts: identity.maxAttempts, status: "active",
+  }).onConflictDoNothing({
+    target: [pipelineRuns.documentVersionId, pipelineRuns.implementationVersion],
+  }).returning();
+  const run = insertedRun ?? (await tx.select().from(pipelineRuns).where(and(
+    eq(pipelineRuns.documentVersionId, version.id),
+    eq(pipelineRuns.implementationVersion, identity.pipelineImplementationVersion),
+  )).limit(1))[0];
+  if (!run || run.initialStage !== "PARSE"
+    || run.initialStageImplementationVersion !== identity.parseImplementationVersion
+    || run.initialInputChecksum !== inputChecksum
+    || run.initialMaxAttempts !== identity.maxAttempts) {
+    throw new Error("Existing pipeline run initial PARSE contract does not match fetched version input.");
+  }
+  const [existing] = await tx.select().from(stageAttempts).where(and(
+    eq(stageAttempts.pipelineRunId, run.id), eq(stageAttempts.stage, "PARSE"), eq(stageAttempts.isCurrent, true),
+  )).limit(1);
+  if (existing) return;
+  const [attempt] = await tx.insert(stageAttempts).values({
+    pipelineRunId: run.id, documentVersionId: version.id,
+    accessScopeId: version.accessScopeId, sourceId: version.sourceId,
+    stage: "PARSE", implementationVersion: identity.parseImplementationVersion,
+    inputChecksum, maxAttempts: identity.maxAttempts, nextRunAt: now,
+  }).onConflictDoNothing().returning();
+  if (!attempt) throw new Error("Failed to ensure initial PARSE attempt.");
+}
+
+function validatePipelineIdentity(identity: PipelineIdentityInput, checksum: string): void {
+  if (!identity.pipelineImplementationVersion.trim() || !identity.parseImplementationVersion.trim()) {
+    throw new Error("Pipeline and PARSE implementation versions are required.");
+  }
+  if (!Number.isSafeInteger(identity.maxAttempts) || identity.maxAttempts <= 0) {
+    throw new Error("Pipeline maximum attempts must be positive.");
+  }
+  if (!SHA256_PATTERN.test(checksum)) throw new Error("Pipeline input checksum must be lowercase SHA-256.");
 }

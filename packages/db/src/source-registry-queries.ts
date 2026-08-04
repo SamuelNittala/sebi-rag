@@ -36,12 +36,56 @@ export interface ClaimDueDiscoveryRunInput {
   readonly now?: Date;
 }
 
+export interface LoadDiscoveryExecutionConfigInput {
+  readonly discoveryRunId: string;
+  readonly owner: string;
+  readonly leaseEpoch: number;
+  readonly sourceId: string;
+  readonly configRevisionId: string;
+}
+
 export interface ClaimedDiscoveryRun {
   readonly run: typeof discoveryRuns.$inferSelect;
   readonly source: typeof sources.$inferSelect;
   readonly accessScope: typeof accessScopes.$inferSelect;
   readonly scheduledFor: Date;
   readonly nextDueAt: Date;
+}
+
+/** Resolve acquisition rules from the run's immutable registry snapshot. */
+export async function loadDiscoveryExecutionConfig(
+  db: Database,
+  input: LoadDiscoveryExecutionConfigInput,
+): Promise<{
+  readonly accessScopeId: string;
+  readonly discovery: SourceManifest["discovery"];
+  readonly fetch: SourceManifest["fetch"];
+}> {
+  const [row] = await db.select({
+    run: discoveryRuns,
+    source: sources,
+    scope: accessScopes,
+    revision: sourceRegistryRevisions,
+  }).from(discoveryRuns)
+    .innerJoin(sources, eq(sources.id, discoveryRuns.sourceId))
+    .innerJoin(accessScopes, eq(accessScopes.id, sources.accessScopeId))
+    .innerJoin(sourceRegistryRevisions, eq(sourceRegistryRevisions.id, discoveryRuns.configRevisionId))
+    .where(and(
+      eq(discoveryRuns.id, input.discoveryRunId),
+      eq(discoveryRuns.sourceId, input.sourceId),
+      eq(discoveryRuns.configRevisionId, input.configRevisionId),
+      eq(discoveryRuns.status, "running"),
+      eq(discoveryRuns.leaseOwner, input.owner),
+      eq(discoveryRuns.leaseEpoch, input.leaseEpoch),
+    )).limit(1);
+  if (!row) throw new Error("Discovery execution fence or immutable configuration revision does not match.");
+  const desiredScope = row.revision.desiredState.accessScopes.find((scope) =>
+    scope.accessScopeKey === row.scope.accessScopeKey);
+  const desiredSource = desiredScope?.sources.find((source) => source.sourceKey === row.source.sourceKey);
+  if (!desiredSource || desiredSource.connector !== row.source.connector) {
+    throw new Error("Source is absent or incompatible in the discovery run configuration revision.");
+  }
+  return { accessScopeId: row.scope.id, discovery: desiredSource.discovery, fetch: desiredSource.fetch };
 }
 
 interface PreparedSourceRegistryRevision {

@@ -248,6 +248,10 @@ describe("retry classification", () => {
     expect(policy.classify(coded)).toMatchObject({ classification: "transient", errorCode: "ECONNRESET" });
     expect(policy.classify(http).classification).toBe("transient");
     expect(policy.classify(sdk).classification).toBe("transient");
+    expect(policy.classify(Object.assign(new Error("connector timed out"), {
+      code: "FETCH_TIMEOUT",
+      classification: "transient",
+    }))).toMatchObject({ classification: "transient", errorCode: "FETCH_TIMEOUT" });
     expect(policy.classify(new Error("schema validation failed")).classification).toBe("deterministic");
   });
 });

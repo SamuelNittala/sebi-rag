@@ -87,6 +87,8 @@ export interface DiscoveryWorkerOptions {
     readonly sourceId: string;
     readonly configRevisionId: string;
     readonly scheduledFor: Date;
+    readonly owner: string;
+    readonly leaseEpoch: number;
     readonly signal: AbortSignal;
   }) => Promise<void>;
   readonly retryPolicy: RetryPolicy;
@@ -170,6 +172,8 @@ export class DiscoveryWorker {
         sourceId: work.sourceId,
         configRevisionId: work.configRevisionId,
         scheduledFor: work.scheduledFor,
+        owner: work.leaseOwner,
+        leaseEpoch: work.leaseEpoch,
         signal: controller.signal,
       });
       await this.options.repository.complete(discoveryFence(work));

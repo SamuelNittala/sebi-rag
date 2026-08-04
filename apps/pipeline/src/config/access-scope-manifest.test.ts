@@ -7,6 +7,7 @@ import {
   loadAccessScopeManifests,
   parseAccessScopeManifestYaml,
 } from "./access-scope-manifest.ts";
+import { createLogicalDocumentKey } from "@mf-rag/types";
 
 const temporaryDirectories: string[] = [];
 
@@ -90,6 +91,39 @@ describe("access-scope manifest validation", () => {
 
     expect(() => parseAccessScopeManifestYaml(yaml, "unknown-strategy.yml"))
       .toThrow(/strategy/i);
+  });
+
+  test("requires human-pinned keys for explicit documents", () => {
+    const parsed = parseAccessScopeManifestYaml(validManifest().replace(
+      "      urls: []",
+      "      urls:\n        - key: scheme-information-document\n          url: https://platinumsif.miraeassetmf.co.in/documents/sid.pdf",
+    ));
+    expect(parsed.sources[0]?.discovery).toEqual({
+      strategy: "explicit_urls",
+      urls: [{
+        key: createLogicalDocumentKey("scheme-information-document"),
+        url: "https://platinumsif.miraeassetmf.co.in/documents/sid.pdf",
+      }],
+    });
+
+    const stringOnly = validManifest().replace(
+      "      urls: []",
+      "      urls:\n        - https://platinumsif.miraeassetmf.co.in/documents/sid.pdf",
+    );
+    expect(() => parseAccessScopeManifestYaml(stringOnly)).toThrow(/key|object/i);
+  });
+
+  test("rejects duplicate pinned identities and non-HTTP discovery URLs", () => {
+    const duplicate = validManifest().replace(
+      "      urls: []",
+      "      urls:\n        - key: factsheet\n          url: https://platinumsif.miraeassetmf.co.in/a.pdf\n        - key: factsheet\n          url: https://platinumsif.miraeassetmf.co.in/b.pdf",
+    );
+    expect(() => parseAccessScopeManifestYaml(duplicate)).toThrow(/duplicate pinned document key/i);
+    const ftp = validManifest().replace(
+      "      urls: []",
+      "      urls:\n        - key: factsheet\n          url: ftp://platinumsif.miraeassetmf.co.in/a.pdf",
+    );
+    expect(() => parseAccessScopeManifestYaml(ftp)).toThrow(/HTTP or HTTPS/i);
   });
 
   test.each([
