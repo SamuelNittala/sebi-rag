@@ -5,6 +5,13 @@ import type {
   DesiredSourceRegistry,
   SourceManifest,
 } from "@mf-rag/types";
+import {
+  createAccessScopeKey,
+  createExternalAccessCode,
+  createSourceKey,
+  externalAccessCodeToTenantId,
+  findInlineSecretField,
+} from "@mf-rag/types";
 import { and, asc, eq, inArray, lte, ne, notExists, sql } from "drizzle-orm";
 import { parseExpression } from "cron-parser";
 
@@ -18,8 +25,6 @@ import {
 } from "./schema.ts";
 
 const RECONCILIATION_LOCK = "mf-rag:source-registry-reconciliation:v1";
-const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/;
-const EXTERNAL_CODE_PATTERN = /^\d{1,20}$/;
 
 export interface ReconcileSourceRegistryResult {
   readonly revisionId: string;
@@ -90,18 +95,10 @@ export async function reconcileSourceRegistry(
 
     const reconciledAt = new Date();
     for (const desiredScope of prepared.desiredState.accessScopes) {
-      const [existingScope] = await tx.select({
-        externalCode: accessScopes.externalCode,
-      }).from(accessScopes).where(eq(accessScopes.accessScopeKey, desiredScope.accessScopeKey)).limit(1);
-      if (existingScope && existingScope.externalCode !== desiredScope.externalCode) {
-        throw new Error(
-          `Access scope ${desiredScope.accessScopeKey} cannot change external code from ${existingScope.externalCode} to ${desiredScope.externalCode}.`,
-        );
-      }
       const [scope] = await tx.insert(accessScopes).values({
         accessScopeKey: desiredScope.accessScopeKey,
         externalCode: desiredScope.externalCode,
-        tenantId: desiredScope.tenantId,
+        tenantId: externalAccessCodeToTenantId(desiredScope.externalCode),
         knowledgeDomain: desiredScope.classification.knowledgeDomain,
         sourceCollection: desiredScope.classification.sourceCollection,
         amcSlug: desiredScope.classification.amcSlug,
@@ -111,7 +108,7 @@ export async function reconcileSourceRegistry(
         target: accessScopes.accessScopeKey,
         set: {
           externalCode: desiredScope.externalCode,
-          tenantId: desiredScope.tenantId,
+          tenantId: externalAccessCodeToTenantId(desiredScope.externalCode),
           knowledgeDomain: desiredScope.classification.knowledgeDomain,
           sourceCollection: desiredScope.classification.sourceCollection,
           amcSlug: desiredScope.classification.amcSlug,
@@ -119,8 +116,11 @@ export async function reconcileSourceRegistry(
           configRevisionId: revision.id,
           updatedAt: reconciledAt,
         },
+        setWhere: eq(accessScopes.externalCode, desiredScope.externalCode),
       }).returning();
-      if (!scope) throw new Error(`Failed to reconcile access scope ${desiredScope.accessScopeKey}.`);
+      if (!scope) {
+        throw new Error(`Access scope ${desiredScope.accessScopeKey} cannot change its external code.`);
+      }
       for (const desiredSource of desiredScope.sources) {
         const [source] = await tx.insert(sources).values({
           accessScopeId: scope.id,
@@ -174,13 +174,14 @@ export async function reconcileSourceRegistry(
     }
 
     await tx.update(accessScopes).set({ enabled: false, updatedAt: reconciledAt })
-      .where(ne(accessScopes.configRevisionId, revision.id));
+      .where(and(eq(accessScopes.enabled, true), ne(accessScopes.configRevisionId, revision.id)));
     await tx.update(sources).set({ enabled: false, updatedAt: reconciledAt })
-      .where(ne(sources.configRevisionId, revision.id));
+      .where(and(eq(sources.enabled, true), ne(sources.configRevisionId, revision.id)));
     await tx.execute(sql`
       UPDATE ${sourceSchedules}
       SET enabled = false, updated_at = ${reconciledAt}
-      WHERE source_id IN (
+      WHERE enabled = true
+        AND source_id IN (
         SELECT id FROM ${sources} WHERE enabled = false
       )
     `);
@@ -269,9 +270,8 @@ function validateDesiredRegistry(registry: DesiredSourceRegistry): void {
   const scopeKeys = new Set<string>();
   const externalCodes = new Set<string>();
   for (const scope of registry.accessScopes) {
-    if (!SLUG_PATTERN.test(scope.accessScopeKey)) throw new Error(`Invalid access-scope key: ${scope.accessScopeKey}`);
-    if (!EXTERNAL_CODE_PATTERN.test(scope.externalCode)) throw new Error(`Invalid external code: ${scope.externalCode}`);
-    if (scope.tenantId !== scope.externalCode) throw new Error(`Tenant compatibility code must equal ${scope.externalCode}.`);
+    createAccessScopeKey(scope.accessScopeKey);
+    createExternalAccessCode(scope.externalCode);
     if (scopeKeys.has(scope.accessScopeKey)) throw new Error(`Duplicate access-scope key: ${scope.accessScopeKey}`);
     if (externalCodes.has(scope.externalCode)) throw new Error(`Duplicate external code: ${scope.externalCode}`);
     scopeKeys.add(scope.accessScopeKey);
@@ -279,27 +279,13 @@ function validateDesiredRegistry(registry: DesiredSourceRegistry): void {
 
     const sourceKeys = new Set<string>();
     for (const source of scope.sources) {
-      if (!SLUG_PATTERN.test(source.sourceKey)) throw new Error(`Invalid source key: ${source.sourceKey}`);
+      createSourceKey(source.sourceKey);
       if (sourceKeys.has(source.sourceKey)) throw new Error(`Duplicate source key ${source.sourceKey} in ${scope.accessScopeKey}.`);
       sourceKeys.add(source.sourceKey);
       nextOccurrence(source.schedule.cron, source.schedule.timezone, new Date(0));
-      assertNoInlineSecrets(source);
+      const inlineSecretField = findInlineSecretField(source);
+      if (inlineSecretField) throw new Error(`Inline secret field ${inlineSecretField} is forbidden.`);
     }
-  }
-}
-
-function assertNoInlineSecrets(value: unknown, path: readonly string[] = []): void {
-  if (!value || typeof value !== "object") return;
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => assertNoInlineSecrets(item, [...path, String(index)]));
-    return;
-  }
-  for (const [key, child] of Object.entries(value)) {
-    const normalized = key.replace(/[-_]/g, "").toLowerCase();
-    if (["apikey", "authorization", "bearer", "clientsecret", "cookie", "cookies", "credential", "credentials", "password", "token"].includes(normalized)) {
-      throw new Error(`Inline secret field ${[...path, key].join(".")} is forbidden.`);
-    }
-    assertNoInlineSecrets(child, [...path, key]);
   }
 }
 
@@ -317,7 +303,6 @@ function canonicalScope(scope: AccessScopeManifest): AccessScopeManifest {
     apiVersion: scope.apiVersion,
     accessScopeKey: scope.accessScopeKey,
     externalCode: scope.externalCode,
-    tenantId: scope.tenantId,
     classification: {
       knowledgeDomain: scope.classification.knowledgeDomain,
       sourceCollection: scope.classification.sourceCollection,

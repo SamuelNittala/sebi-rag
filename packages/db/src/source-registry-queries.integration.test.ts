@@ -7,7 +7,6 @@ import {
   createAccessScopeKey,
   createExternalAccessCode,
   createSourceKey,
-  externalAccessCodeToTenantId,
   type DesiredSourceRegistry,
 } from "@mf-rag/types";
 
@@ -28,7 +27,6 @@ function desiredRegistry(sourceKeys: readonly string[] = ["factsheets"]): Desire
       apiVersion: "mf-rag/v1",
       accessScopeKey: createAccessScopeKey("mirae-sif"),
       externalCode,
-      tenantId: externalAccessCodeToTenantId(externalCode),
       classification: {
         knowledgeDomain: "sif",
         sourceCollection: "mirae_sif",

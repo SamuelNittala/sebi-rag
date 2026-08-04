@@ -5,7 +5,8 @@ import {
   createAccessScopeKey,
   createExternalAccessCode,
   createSourceKey,
-  externalAccessCodeToTenantId,
+  findInlineSecretField,
+  sourceConnectorKinds,
   type AccessScopeManifest,
   type DesiredSourceRegistry,
   type SourceDiscoveryConfig,
@@ -71,7 +72,7 @@ const fetchSchema = z.object({
 
 const sourceSchema = z.object({
   key: z.string(),
-  connector: z.literal("website_pdf"),
+  connector: z.enum(sourceConnectorKinds),
   enabled: z.boolean(),
   discovery: discoverySchema,
   schedule: scheduleSchema,
@@ -105,7 +106,13 @@ const manifestSchema = z.object({
   }).strict(),
   classification: z.object({
     knowledgeDomain: z.enum(["mutual_fund", "sif"]),
-    sourceCollection: z.string().regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/),
+    sourceCollection: z.enum([
+      "default_corpus",
+      "mirae_mf",
+      "mirae_sif",
+      "sebi_regulatory",
+      "general_mf_faq",
+    ]),
     amcSlug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable(),
   }).strict(),
   sources: z.array(sourceSchema),
@@ -130,19 +137,6 @@ const manifestSchema = z.object({
 
 type ParsedManifest = z.infer<typeof manifestSchema>;
 
-const FORBIDDEN_INLINE_SECRET_KEYS = new Set([
-  "apikey",
-  "authorization",
-  "bearer",
-  "clientsecret",
-  "cookie",
-  "cookies",
-  "credential",
-  "credentials",
-  "password",
-  "token",
-]);
-
 export function parseAccessScopeManifestYaml(
   yaml: string,
   origin = "access-scope manifest",
@@ -153,7 +147,10 @@ export function parseAccessScopeManifestYaml(
   }
 
   const raw: unknown = document.toJS();
-  assertNoInlineSecrets(raw, origin);
+  const inlineSecretField = findInlineSecretField(raw);
+  if (inlineSecretField) {
+    throw new Error(`${origin}: inline secret field '${inlineSecretField}' is forbidden; use secretRef.`);
+  }
 
   const parsed = manifestSchema.safeParse(raw);
   if (!parsed.success) {
@@ -194,7 +191,6 @@ function toAccessScopeManifest(manifest: ParsedManifest): AccessScopeManifest {
     apiVersion: manifest.apiVersion,
     accessScopeKey: createAccessScopeKey(manifest.metadata.key),
     externalCode,
-    tenantId: externalAccessCodeToTenantId(externalCode),
     classification: manifest.classification,
     sources: manifest.sources.map(toSourceManifest),
   };
@@ -221,25 +217,6 @@ function assertUniqueRegistryIdentities(manifests: readonly AccessScopeManifest[
   const duplicateCode = findDuplicate(manifests.map((manifest) => manifest.externalCode));
   if (duplicateCode) {
     throw new Error(`Duplicate external code: ${duplicateCode}`);
-  }
-}
-
-function assertNoInlineSecrets(value: unknown, origin: string, path: string[] = []): void {
-  if (!value || typeof value !== "object") {
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    value.forEach((entry, index) => assertNoInlineSecrets(entry, origin, [...path, String(index)]));
-    return;
-  }
-
-  for (const [key, child] of Object.entries(value)) {
-    const normalizedKey = key.replace(/[-_]/g, "").toLowerCase();
-    if (FORBIDDEN_INLINE_SECRET_KEYS.has(normalizedKey)) {
-      throw new Error(`${origin}: inline secret field '${[...path, key].join(".")}' is forbidden; use secretRef.`);
-    }
-    assertNoInlineSecrets(child, origin, [...path, key]);
   }
 }
 

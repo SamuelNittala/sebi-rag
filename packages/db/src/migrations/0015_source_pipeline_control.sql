@@ -90,3 +90,5 @@ CREATE UNIQUE INDEX "discovery_runs_source_scheduled_uidx" ON "discovery_runs" U
 CREATE INDEX "discovery_runs_source_created_idx" ON "discovery_runs" USING btree ("source_id", "created_at");
 --> statement-breakpoint
 CREATE INDEX "discovery_runs_status_idx" ON "discovery_runs" USING btree ("status");
+--> statement-breakpoint
+CREATE INDEX "discovery_runs_active_source_idx" ON "discovery_runs" USING btree ("source_id") WHERE "discovery_runs"."status" IN ('pending', 'running');

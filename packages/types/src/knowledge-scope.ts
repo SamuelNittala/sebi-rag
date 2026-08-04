@@ -2,6 +2,7 @@ export type KnowledgeDomain = "mutual_fund" | "sif";
 
 export type SourceCollection =
   | "default_corpus"
+  | "mirae_mf"
   | "mirae_sif"
   | "sebi_regulatory"
   | "general_mf_faq";

@@ -1,4 +1,4 @@
-import type { KnowledgeDomain } from "./knowledge-scope.ts";
+import type { KnowledgeDomain, SourceCollection } from "./knowledge-scope.ts";
 import { createTenantId, type TenantId } from "./tenant-access-scope.ts";
 
 declare const accessScopeKeyBrand: unique symbol;
@@ -101,7 +101,7 @@ export interface SourceManifest {
 
 export interface AccessScopeClassification {
   readonly knowledgeDomain: KnowledgeDomain;
-  readonly sourceCollection: string;
+  readonly sourceCollection: SourceCollection;
   readonly amcSlug: string | null;
 }
 
@@ -109,7 +109,6 @@ export interface AccessScopeManifest {
   readonly apiVersion: "mf-rag/v1";
   readonly accessScopeKey: AccessScopeKey;
   readonly externalCode: ExternalAccessCode;
-  readonly tenantId: TenantId;
   readonly classification: AccessScopeClassification;
   readonly sources: readonly SourceManifest[];
 }
@@ -117,6 +116,43 @@ export interface AccessScopeManifest {
 export interface DesiredSourceRegistry {
   readonly version: 1;
   readonly accessScopes: readonly AccessScopeManifest[];
+}
+
+const FORBIDDEN_INLINE_SECRET_KEYS = new Set([
+  "apikey",
+  "authorization",
+  "bearer",
+  "clientsecret",
+  "cookie",
+  "cookies",
+  "credential",
+  "credentials",
+  "password",
+  "token",
+]);
+
+export function findInlineSecretField(
+  value: unknown,
+  path: readonly string[] = [],
+): string | null {
+  if (!value || typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (const [index, child] of value.entries()) {
+      const found = findInlineSecretField(child, [...path, String(index)]);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = [...path, key];
+    if (FORBIDDEN_INLINE_SECRET_KEYS.has(key.replace(/[-_]/g, "").toLowerCase())) {
+      return childPath.join(".");
+    }
+    const found = findInlineSecretField(child, childPath);
+    if (found) return found;
+  }
+  return null;
 }
 
 function assertPattern(value: string, pattern: RegExp, message: string): void {

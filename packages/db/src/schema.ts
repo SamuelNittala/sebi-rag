@@ -783,6 +783,9 @@ export const discoveryRuns = pgTable(
     uniqueIndex("discovery_runs_source_scheduled_uidx").on(table.sourceId, table.scheduledFor),
     index("discovery_runs_source_created_idx").on(table.sourceId, table.createdAt),
     index("discovery_runs_status_idx").on(table.status),
+    index("discovery_runs_active_source_idx")
+      .on(table.sourceId)
+      .where(sql`${table.status} IN ('pending', 'running')`),
     check("discovery_runs_status_ck", sql`${table.status} IN ('pending', 'running', 'succeeded', 'failed')`),
   ],
 );
