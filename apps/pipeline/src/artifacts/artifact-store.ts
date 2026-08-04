@@ -20,6 +20,8 @@ export interface OrphanArtifact {
 }
 
 export interface ArtifactStore {
+  /** Lightweight readiness probe; it must not expose object names or credentials. */
+  healthCheck(): Promise<void>;
   /** Writes or reuses an immutable object and returns only after integrity verification. */
   put(input: PutArtifactInput): Promise<ArtifactDescriptor>;
   read(descriptor: ArtifactDescriptor): Promise<Uint8Array>;

@@ -21,6 +21,7 @@ import {
 } from "../../../../packages/db/src/review-queries.ts";
 import {
   cutoverScheduledPublicationGeneration,
+  reactivateScheduledPublicationGeneration,
   stageScheduledPublicationGeneration,
 } from "../../../../packages/db/src/scheduled-publication-queries.ts";
 
@@ -323,6 +324,18 @@ integrationDescribe("scheduled reviewed publication", () => {
     await db.update(schema.sources).set({ emergencyFrozenAt: null, emergencyFreezeReason: null })
       .where(eq(schema.sources.id, sourceId));
     expect((await cutoverScheduledPublicationGeneration(db, frozen.review.id, "publisher")).status).toBe("published");
+    expect(await reactivateScheduledPublicationGeneration(db, {
+      sourceDocumentId,
+      currentGenerationId: frozenGeneration.id,
+      targetGenerationId: secondGeneration.id,
+      expectedAccessScopeId: accessScopeId,
+      expectedSourceId: sourceId,
+      actor: "incident-operator",
+      incidentId: "incident-test",
+    })).toEqual({
+      generationId: secondGeneration.id,
+      replacedGenerationId: frozenGeneration.id,
+    });
 
     const partial = await createVersion("e");
     await decide(partial.review.id, false);
@@ -335,7 +348,7 @@ integrationDescribe("scheduled reviewed publication", () => {
     expect((await db.select().from(schema.documentPublicationGenerations).where(and(
       eq(schema.documentPublicationGenerations.sourceDocumentId, sourceDocumentId),
       eq(schema.documentPublicationGenerations.status, "published"),
-    )))[0]?.documentVersionId).toBe(frozen.version.id);
+    )))[0]?.documentVersionId).toBe(second.version.id);
 
     const rejected = await createVersion("f", true);
     await decide(rejected.review.id, false, true);
@@ -347,7 +360,7 @@ integrationDescribe("scheduled reviewed publication", () => {
     expect((await db.select().from(schema.documentPublicationGenerations).where(and(
       eq(schema.documentPublicationGenerations.sourceDocumentId, sourceDocumentId),
       eq(schema.documentPublicationGenerations.status, "published"),
-    )))[0]?.documentVersionId).toBe(frozen.version.id);
+    )))[0]?.documentVersionId).toBe(second.version.id);
     expect(await db.select().from(schema.documents)).toHaveLength(0);
   });
 });

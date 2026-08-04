@@ -1,5 +1,6 @@
 import {
   GetObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -44,6 +45,10 @@ export class S3ArtifactStore implements ArtifactStore {
       endpoint: options.endpoint,
       forcePathStyle: options.forcePathStyle,
     });
+  }
+
+  async healthCheck(): Promise<void> {
+    await this.#client.send(new HeadBucketCommand({ Bucket: this.#bucket }));
   }
 
   async put(input: PutArtifactInput): Promise<ArtifactDescriptor> {

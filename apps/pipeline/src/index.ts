@@ -13,3 +13,8 @@ export * from "./stages/discover-source.ts";
 export * from "./stages/fetch-document.ts";
 export * from "./stages/parse-document.ts";
 export * from "./stages/chunk-inspect-document.ts";
+export * from "./operations/artifact-store-config.ts";
+export * from "./operations/health.ts";
+export * from "./operations/metrics.ts";
+export * from "./operations/metrics-collector.ts";
+export * from "./operations/operator-cli.ts";

@@ -35,6 +35,16 @@ export type ScheduledCutoverResult =
   | { readonly status: "published"; readonly generationId: string }
   | { readonly status: "stale" | "frozen"; readonly generationId: string };
 
+export interface ReactivateScheduledPublicationInput {
+  readonly sourceDocumentId: string;
+  readonly currentGenerationId: string;
+  readonly targetGenerationId: string;
+  readonly expectedAccessScopeId: string;
+  readonly expectedSourceId: string;
+  readonly actor: string;
+  readonly incidentId: string;
+}
+
 function ownershipOf(run: typeof ingestionRuns.$inferSelect): ClassifiedKnowledgeOwnership {
   if (run.visibilityScope === "GLOBAL" && run.tenantId === null
     && run.ownershipManifestId && run.ownershipManifestVersion) {
@@ -287,5 +297,76 @@ export async function cutoverScheduledPublicationGeneration(
       details: { generationId: generation.id, documentVersionId: run.documentVersionId },
     });
     return { status: "published", generationId: generation.id };
+  });
+}
+
+/** Incident-only rollback: atomically swap the published generation for one reviewed predecessor. */
+export async function reactivateScheduledPublicationGeneration(
+  db: Database,
+  input: ReactivateScheduledPublicationInput,
+): Promise<{ readonly generationId: string; readonly replacedGenerationId: string }> {
+  if (!input.actor.trim() || !input.incidentId.trim()) {
+    throw new Error("Prior-generation reactivation requires an actor and incident identifier.");
+  }
+  if (input.currentGenerationId === input.targetGenerationId) {
+    throw new Error("Prior-generation reactivation requires distinct generation identifiers.");
+  }
+  return db.transaction(async (tx) => {
+    const [document] = await tx.select().from(sourceDocuments).where(and(
+      eq(sourceDocuments.id, input.sourceDocumentId),
+      eq(sourceDocuments.accessScopeId, input.expectedAccessScopeId),
+      eq(sourceDocuments.sourceId, input.expectedSourceId),
+    )).limit(1).for("update");
+    if (!document) throw new Error("Publication rollback ownership guard did not match the source document.");
+
+    const generations = await tx.select().from(documentPublicationGenerations).where(and(
+      eq(documentPublicationGenerations.sourceDocumentId, document.id),
+      eq(documentPublicationGenerations.accessScopeId, document.accessScopeId),
+      eq(documentPublicationGenerations.sourceId, document.sourceId),
+    )).for("update");
+    const current = generations.find((generation) => generation.id === input.currentGenerationId);
+    const target = generations.find((generation) => generation.id === input.targetGenerationId);
+    if (!current || current.status !== "published") {
+      throw new Error("Expected incident generation is not the currently published generation.");
+    }
+    if (!target || target.status !== "retired") {
+      throw new Error("Rollback target is not a retired generation for this logical document.");
+    }
+    if (target.visibilityScope !== current.visibilityScope
+      || target.tenantId !== current.tenantId
+      || target.ownershipManifestId !== current.ownershipManifestId
+      || target.ownershipManifestVersion !== current.ownershipManifestVersion) {
+      throw new Error("Rollback target ownership differs from the currently published generation.");
+    }
+    const now = new Date();
+    const [retired] = await tx.update(documentPublicationGenerations).set({
+      status: "retired",
+      retiredAt: now,
+    }).where(and(
+      eq(documentPublicationGenerations.id, current.id),
+      eq(documentPublicationGenerations.status, "published"),
+    )).returning({ id: documentPublicationGenerations.id });
+    const [reactivated] = await tx.update(documentPublicationGenerations).set({
+      status: "published",
+      publishedAt: now,
+      retiredAt: null,
+      staleAt: null,
+    }).where(and(
+      eq(documentPublicationGenerations.id, target.id),
+      eq(documentPublicationGenerations.status, "retired"),
+    )).returning({ id: documentPublicationGenerations.id });
+    if (!retired || !reactivated) throw new Error("Publication rollback lost its generation fence.");
+    await tx.insert(reviewEvents).values({
+      ingestionRunId: target.ingestionRunId,
+      eventType: "scheduled_generation_reactivated",
+      actor: input.actor,
+      details: {
+        incidentId: input.incidentId,
+        sourceDocumentId: document.id,
+        replacedGenerationId: current.id,
+        reactivatedGenerationId: target.id,
+      },
+    });
+    return { generationId: target.id, replacedGenerationId: current.id };
   });
 }

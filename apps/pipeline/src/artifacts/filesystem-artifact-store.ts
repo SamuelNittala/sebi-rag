@@ -1,4 +1,5 @@
-import { link, mkdir, opendir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { access, link, mkdir, opendir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -18,6 +19,11 @@ export class FilesystemArtifactStore implements ArtifactStore {
 
   constructor(root: string) {
     this.#root = resolve(root);
+  }
+
+  async healthCheck(): Promise<void> {
+    await mkdir(this.#root, { recursive: true });
+    await access(this.#root, constants.R_OK | constants.W_OK);
   }
 
   async put(input: PutArtifactInput): Promise<ArtifactDescriptor> {

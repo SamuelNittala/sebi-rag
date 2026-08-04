@@ -49,6 +49,38 @@ docker compose --env-file .env -f docker/docker-compose.dev.yml run --rm \
   '
 ```
 
+Database-backed pipeline tests must use the migrated test service as their
+actual `DATABASE_URL`, because the database package is initialized once per Bun
+process. Destructive fixture files must run serially to avoid truncating one
+another's rows:
+
+```bash
+docker compose --env-file .env -f docker/docker-compose.dev.yml --profile tools run --rm \
+  -e DATABASE_URL=postgresql://postgres:postgres@postgres-test:5432/mf_rag_test \
+  runner test --parallel=1 packages/db/src apps/pipeline/src
+```
+
+## Disabled document-pipeline roles
+
+The local artifact store is a named Docker volume shared by the two workers.
+Start the explicit process roles with claims disabled to smoke health and
+shutdown wiring without fetching any tenant source:
+
+```bash
+PIPELINE_CLAIMS_ENABLED=false docker compose --env-file .env \
+  -f docker/docker-compose.dev.yml --profile pipeline up -d --build --wait \
+  postgres migrate pipeline-scheduler pipeline-discovery-worker pipeline-stage-worker
+
+docker compose --env-file .env -f docker/docker-compose.dev.yml \
+  --profile pipeline ps
+```
+
+Scheduler readiness probes PostgreSQL. Worker readiness probes PostgreSQL and
+real filesystem artifact access. Claims may be enabled only with a reviewed
+immutable-image worker module and the rollout gate in
+[document-pipeline-deployment-checklist.md](document-pipeline-deployment-checklist.md).
+Stopping these roles does not stop MCP retrieval or the review API.
+
 ## Production ownership cutover gate
 
 This is a release procedure, not a local-development command. Run it only from

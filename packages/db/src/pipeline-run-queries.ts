@@ -89,6 +89,10 @@ export interface FailStageAttemptResult {
 export interface RequeueDeadLetterAttemptInput {
   readonly attemptId: string;
   readonly operator: string;
+  readonly expectedInputChecksum: string;
+  readonly expectedAccessScopeId: string;
+  readonly expectedSourceId: string;
+  readonly expectedDocumentVersionId: string;
   readonly now?: Date;
 }
 
@@ -216,10 +220,14 @@ export async function claimStageAttempts(
     const candidates = await tx.select({ attempt: stageAttempts })
       .from(stageAttempts)
       .innerJoin(pipelineRuns, eq(pipelineRuns.id, stageAttempts.pipelineRunId))
+      .innerJoin(sources, eq(sources.id, stageAttempts.sourceId))
+      .innerJoin(accessScopes, eq(accessScopes.id, stageAttempts.accessScopeId))
       .where(and(
         eq(stageAttempts.isCurrent, true),
         eq(pipelineRuns.status, "active"),
         isNull(pipelineRuns.pausedAt),
+        isNull(sources.emergencyFrozenAt),
+        isNull(accessScopes.emergencyFrozenAt),
         or(
           and(
             inArray(stageAttempts.status, ["pending", "retry_wait"]),
@@ -503,6 +511,12 @@ export async function requeueDeadLetterAttempt(
     if (!dead || dead.status !== "dead_letter" || !dead.isCurrent) {
       throw new Error("Only the current dead-letter attempt can be requeued.");
     }
+    if (dead.inputChecksum !== input.expectedInputChecksum
+      || dead.accessScopeId !== input.expectedAccessScopeId
+      || dead.sourceId !== input.expectedSourceId
+      || dead.documentVersionId !== input.expectedDocumentVersionId) {
+      throw new Error("Dead-letter input checksum or immutable ownership changed; requeue rejected.");
+    }
     await tx.update(stageAttempts).set({ isCurrent: false, updatedAt: now })
       .where(and(eq(stageAttempts.id, dead.id), eq(stageAttempts.isCurrent, true)));
     const [requeued] = await tx.insert(stageAttempts).values({
@@ -548,9 +562,11 @@ export async function triggerManualDiscoveryRun(
       .where(eq(sources.id, input.sourceId)).limit(1).for("update");
     if (!source) throw new Error("Source does not exist.");
     if (!source.enabled) throw new Error("Manual discovery cannot run for a disabled source.");
+    if (source.emergencyFrozenAt) throw new Error("Manual discovery cannot run for an emergency-frozen source.");
     const [scope] = await tx.select().from(accessScopes)
       .where(eq(accessScopes.id, source.accessScopeId)).limit(1);
     if (!scope?.enabled) throw new Error("Manual discovery cannot run for a disabled access scope.");
+    if (scope.emergencyFrozenAt) throw new Error("Manual discovery cannot run for an emergency-frozen access scope.");
     const [schedule] = await tx.select().from(sourceSchedules)
       .where(eq(sourceSchedules.sourceId, source.id)).limit(1);
     if (!schedule || schedule.pausedAt) throw new Error("Manual discovery cannot run for a paused source.");
@@ -590,6 +606,8 @@ export async function claimDiscoveryExecutions(
       .where(and(
         eq(sources.enabled, true),
         eq(accessScopes.enabled, true),
+        isNull(sources.emergencyFrozenAt),
+        isNull(accessScopes.emergencyFrozenAt),
         isNull(sourceSchedules.pausedAt),
         or(
           eq(discoveryRuns.status, "pending"),
@@ -714,7 +732,13 @@ export async function releaseDiscoveryExecutionLease(
 
 export async function requeueDeadLetterDiscoveryRun(
   db: Database,
-  input: { readonly discoveryRunId: string; readonly operator: string; readonly now?: Date },
+  input: {
+    readonly discoveryRunId: string;
+    readonly operator: string;
+    readonly expectedSourceId: string;
+    readonly expectedConfigRevisionId: string;
+    readonly now?: Date;
+  },
 ): Promise<typeof discoveryRuns.$inferSelect> {
   assertNonEmpty(input.operator, "Discovery requeue operator");
   const now = input.now ?? new Date();
@@ -722,6 +746,10 @@ export async function requeueDeadLetterDiscoveryRun(
     const [run] = await tx.select().from(discoveryRuns)
       .where(eq(discoveryRuns.id, input.discoveryRunId)).limit(1).for("update");
     if (!run || run.status !== "dead_letter") throw new Error("Only a dead-letter discovery run can be requeued.");
+    if (run.sourceId !== input.expectedSourceId
+      || run.configRevisionId !== input.expectedConfigRevisionId) {
+      throw new Error("Dead-letter discovery ownership or configuration changed; requeue rejected.");
+    }
     const [requeued] = await tx.update(discoveryRuns).set({
       status: "pending",
       maxAttempts: run.attemptCount + 1,
@@ -752,6 +780,34 @@ export async function resumeSourceSchedule(db: Database, sourceId: string, now =
     .where(and(eq(sourceSchedules.sourceId, sourceId), isNotNull(sourceSchedules.pausedAt)))
     .returning({ sourceId: sourceSchedules.sourceId });
   return Boolean(resumed);
+}
+
+export async function setSourceEmergencyFreeze(
+  db: Database,
+  input: { readonly sourceId: string; readonly reason: string | null; readonly now?: Date },
+): Promise<boolean> {
+  if (input.reason !== null) assertNonEmpty(input.reason, "Emergency freeze reason");
+  const now = input.now ?? new Date();
+  const [updated] = await db.update(sources).set({
+    emergencyFrozenAt: input.reason === null ? null : now,
+    emergencyFreezeReason: input.reason,
+    updatedAt: now,
+  }).where(eq(sources.id, input.sourceId)).returning({ id: sources.id });
+  return Boolean(updated);
+}
+
+export async function setAccessScopeEmergencyFreeze(
+  db: Database,
+  input: { readonly accessScopeId: string; readonly reason: string | null; readonly now?: Date },
+): Promise<boolean> {
+  if (input.reason !== null) assertNonEmpty(input.reason, "Emergency freeze reason");
+  const now = input.now ?? new Date();
+  const [updated] = await db.update(accessScopes).set({
+    emergencyFrozenAt: input.reason === null ? null : now,
+    emergencyFreezeReason: input.reason,
+    updatedAt: now,
+  }).where(eq(accessScopes.id, input.accessScopeId)).returning({ id: accessScopes.id });
+  return Boolean(updated);
 }
 
 export async function pausePipelineRun(db: Database, pipelineRunId: string, now = new Date()): Promise<boolean> {

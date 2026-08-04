@@ -30,6 +30,8 @@ import {
   requeueDeadLetterDiscoveryRun,
   resumePipelineRun,
   resumeSourceSchedule,
+  setAccessScopeEmergencyFreeze,
+  setSourceEmergencyFreeze,
   triggerManualDiscoveryRun,
 } from "./pipeline-run-queries.ts";
 import {
@@ -458,7 +460,22 @@ integrationDescribe("fenced pipeline stage runtime", () => {
     expect(failed.disposition).toBe("DEAD_LETTER");
     const dead = (await db.select().from(schema.stageAttempts))[0]!;
 
-    const requeued = await requeueDeadLetterAttempt(db, { attemptId: dead.id, operator: "ops@example.com" });
+    await expect(requeueDeadLetterAttempt(db, {
+      attemptId: dead.id,
+      operator: "ops@example.com",
+      expectedInputChecksum: "f".repeat(64),
+      expectedAccessScopeId: dead.accessScopeId,
+      expectedSourceId: dead.sourceId,
+      expectedDocumentVersionId: dead.documentVersionId,
+    })).rejects.toThrow("checksum or immutable ownership changed");
+    const requeued = await requeueDeadLetterAttempt(db, {
+      attemptId: dead.id,
+      operator: "ops@example.com",
+      expectedInputChecksum: dead.inputChecksum,
+      expectedAccessScopeId: dead.accessScopeId,
+      expectedSourceId: dead.sourceId,
+      expectedDocumentVersionId: dead.documentVersionId,
+    });
     expect(requeued.inputChecksum).toBe(dead.inputChecksum);
     expect(requeued.accessScopeId).toBe(dead.accessScopeId);
     expect(requeued.sourceId).toBe(dead.sourceId);
@@ -531,6 +548,27 @@ integrationDescribe("fenced pipeline stage runtime", () => {
     await db.update(schema.sources).set({ enabled: true }).where(eq(schema.sources.id, source!.id));
     await db.update(schema.accessScopes).set({ enabled: false }).where(eq(schema.accessScopes.id, source!.accessScopeId));
     await expect(triggerManualDiscoveryRun(db, { sourceId: source!.id })).rejects.toThrow("disabled access scope");
+  });
+
+  test("emergency freeze blocks scheduler, manual discovery, discovery claims, and stage claims", async () => {
+    const pending = await createPendingAttempt();
+    const [source] = await db.select().from(schema.sources);
+    const [scope] = await db.select().from(schema.accessScopes);
+    await db.update(schema.sourceSchedules).set({ nextDueAt: new Date("2026-08-01T00:00:00.000Z") });
+
+    expect(await setSourceEmergencyFreeze(db, { sourceId: source!.id, reason: "incident-1" })).toBe(true);
+    expect(await claimStageAttempts(db, { owner: "worker-a", batchSize: 1, leaseDurationMs: 60_000 })).toHaveLength(0);
+    expect(await claimDueDiscoveryRun(db, { now: new Date("2026-08-04T10:30:00.000Z") })).toBeNull();
+    await expect(triggerManualDiscoveryRun(db, { sourceId: source!.id })).rejects.toThrow("emergency-frozen source");
+
+    await setSourceEmergencyFreeze(db, { sourceId: source!.id, reason: null });
+    await setAccessScopeEmergencyFreeze(db, { accessScopeId: scope!.id, reason: "incident-2" });
+    expect(await claimStageAttempts(db, { owner: "worker-b", batchSize: 1, leaseDurationMs: 60_000 })).toHaveLength(0);
+    await expect(triggerManualDiscoveryRun(db, { sourceId: source!.id })).rejects.toThrow("emergency-frozen access scope");
+
+    await setAccessScopeEmergencyFreeze(db, { accessScopeId: scope!.id, reason: null });
+    const [claimed] = await claimStageAttempts(db, { owner: "worker-c", batchSize: 1, leaseDurationMs: 60_000 });
+    expect(claimed?.pipelineRunId).toBe(pending.run.id);
   });
 
   test("discovery execution claims are concurrent-safe and stale owners are fenced", async () => {
@@ -628,7 +666,20 @@ integrationDescribe("fenced pipeline stage runtime", () => {
     const [dead] = await db.select().from(schema.discoveryRuns).where(eq(schema.discoveryRuns.id, run.id));
     expect(dead?.retryHistory).toHaveLength(2);
 
-    const requeued = await requeueDeadLetterDiscoveryRun(db, { discoveryRunId: run.id, operator: "ops@example.com", now });
+    await expect(requeueDeadLetterDiscoveryRun(db, {
+      discoveryRunId: run.id,
+      operator: "ops@example.com",
+      expectedSourceId: run.sourceId,
+      expectedConfigRevisionId: crypto.randomUUID(),
+      now,
+    })).rejects.toThrow("ownership or configuration changed");
+    const requeued = await requeueDeadLetterDiscoveryRun(db, {
+      discoveryRunId: run.id,
+      operator: "ops@example.com",
+      expectedSourceId: run.sourceId,
+      expectedConfigRevisionId: run.configRevisionId,
+      now,
+    });
     expect(requeued.sourceId).toBe(run.sourceId);
     expect(requeued.scheduledFor).toEqual(run.scheduledFor);
     expect(requeued.status).toBe("pending");

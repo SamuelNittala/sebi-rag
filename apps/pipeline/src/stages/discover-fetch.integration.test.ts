@@ -177,6 +177,7 @@ function state(sourceDocumentId: string, bytes: Uint8Array, etag: string, canoni
 }
 function fakeArtifactStore(events: string[]): ArtifactStore {
   return {
+    healthCheck: async () => undefined,
     put: async (input: PutArtifactInput): Promise<ArtifactDescriptor> => {
       events.push("artifact");
       return { key: `raw/${input.sha256}`, uri: `memory://${input.sha256}`, sha256: input.sha256, byteSize: input.byteSize, mediaType: input.mediaType, producerVersion: input.producerVersion };

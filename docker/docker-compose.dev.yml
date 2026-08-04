@@ -25,6 +25,18 @@ x-app-service: &app-service
   networks:
     - mf-rag-dev
 
+x-pipeline-environment: &pipeline-environment
+  DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-mf_rag}
+  NODE_ENV: development
+  PIPELINE_CLAIMS_ENABLED: ${PIPELINE_CLAIMS_ENABLED:-false}
+  PIPELINE_POLL_INTERVAL_MS: ${PIPELINE_POLL_INTERVAL_MS:-5000}
+  PIPELINE_CLAIM_BATCH_SIZE: ${PIPELINE_CLAIM_BATCH_SIZE:-10}
+  PIPELINE_SHUTDOWN_GRACE_MS: ${PIPELINE_SHUTDOWN_GRACE_MS:-30000}
+  PIPELINE_STUCK_AFTER_MS: ${PIPELINE_STUCK_AFTER_MS:-60000}
+  ARTIFACT_STORE: filesystem
+  ARTIFACT_FILESYSTEM_ROOT: /var/lib/mf-rag/artifacts
+  PIPELINE_WORKER_MODULE: ${PIPELINE_WORKER_MODULE:-}
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -222,6 +234,68 @@ services:
       timeout: 5s
       retries: 20
 
+  pipeline-scheduler:
+    <<: *app-service
+    command: ["bun", "run", "apps/pipeline/src/operations/process-role.ts"]
+    environment:
+      <<: *pipeline-environment
+      PIPELINE_ROLE: scheduler
+      PIPELINE_HEALTH_PORT: 3010
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    profiles: ["pipeline"]
+    stop_grace_period: 35s
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3010/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  pipeline-discovery-worker:
+    <<: *app-service
+    command: ["bun", "run", "apps/pipeline/src/operations/process-role.ts"]
+    environment:
+      <<: *pipeline-environment
+      PIPELINE_ROLE: discovery-worker
+      PIPELINE_HEALTH_PORT: 3011
+    volumes:
+      - ..:/app
+      - bun_node_modules:/app/node_modules
+      - pipeline_artifacts:/var/lib/mf-rag/artifacts
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    profiles: ["pipeline"]
+    stop_grace_period: 35s
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3011/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  pipeline-stage-worker:
+    <<: *app-service
+    command: ["bun", "run", "apps/pipeline/src/operations/process-role.ts"]
+    environment:
+      <<: *pipeline-environment
+      PIPELINE_ROLE: stage-worker
+      PIPELINE_HEALTH_PORT: 3011
+    volumes:
+      - ..:/app
+      - bun_node_modules:/app/node_modules
+      - pipeline_artifacts:/var/lib/mf-rag/artifacts
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    profiles: ["pipeline"]
+    stop_grace_period: 35s
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3011/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   runner:
     <<: *app-service
     depends_on:
@@ -242,3 +316,4 @@ volumes:
   ollama_dev_data:
   reranker_dev_data:
   bun_node_modules:
+  pipeline_artifacts:

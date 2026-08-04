@@ -265,6 +265,8 @@ export async function claimDueDiscoveryRun(
         isNull(sourceSchedules.pausedAt),
         eq(sources.enabled, true),
         eq(accessScopes.enabled, true),
+        isNull(sources.emergencyFrozenAt),
+        isNull(accessScopes.emergencyFrozenAt),
         lte(sourceSchedules.nextDueAt, now),
         notExists(
           tx.select({ one: sql`1` }).from(discoveryRuns).where(and(

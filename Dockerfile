@@ -27,6 +27,7 @@ COPY packages/ packages/
 COPY apps/api/ apps/api/
 COPY apps/ingestion/ apps/ingestion/
 COPY apps/mcp-server/ apps/mcp-server/
+COPY apps/scraper/ apps/scraper/
 COPY apps/pipeline/ apps/pipeline/
 COPY config/ config/
 COPY python/ python/
