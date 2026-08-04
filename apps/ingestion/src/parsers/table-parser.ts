@@ -33,6 +33,12 @@ export interface TableExtractionResult {
   error?: string;
 }
 
+export interface TableExtractionOptions {
+  readonly page?: number;
+  readonly signal?: AbortSignal;
+  readonly maxOutputBytes?: number;
+}
+
 /**
  * Get the path to the project root directory.
  */
@@ -87,15 +93,19 @@ function getPythonExecutable(): string {
  */
 export async function extractTables(
   filepath: string,
-  page?: number
+  pageOrOptions: number | TableExtractionOptions = {},
 ): Promise<TableExtractionResult> {
+  const options: TableExtractionOptions = typeof pageOrOptions === "number"
+    ? { page: pageOrOptions }
+    : pageOrOptions;
+  options.signal?.throwIfAborted();
   const scriptPath = getPythonScriptPath();
   const pythonExe = getPythonExecutable();
 
   // Build command arguments
   const args = [pythonExe, scriptPath, filepath];
-  if (page !== undefined) {
-    args.push("--page", page.toString());
+  if (options.page !== undefined) {
+    args.push("--page", options.page.toString());
   }
 
   try {
@@ -105,41 +115,74 @@ export async function extractTables(
       stderr: "pipe",
     });
 
-    // Wait for process to complete
-    const exitCode = await proc.exited;
-
-    // Read stdout and stderr
-    const stdoutText = await new Response(proc.stdout).text();
-    const stderrText = await new Response(proc.stderr).text();
-
-    // Log warnings from stderr (non-fatal)
-    if (stderrText.trim()) {
-      console.warn("[table-parser] Python warnings:", stderrText.trim());
-    }
-
-    // Parse JSON output
-    if (!stdoutText.trim()) {
-      return {
-        tables: [],
-        error: "No output from Python script",
-      };
-    }
+    const abort = () => proc.kill("SIGKILL");
+    options.signal?.addEventListener("abort", abort, { once: true });
 
     try {
-      const result = JSON.parse(stdoutText) as TableExtractionResult;
-      return result;
-    } catch (parseError) {
-      return {
-        tables: [],
-        error: `Failed to parse Python output: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
-      };
+      const maxOutputBytes = options.maxOutputBytes ?? 10_000_000;
+      const [exitCode, stdoutText, stderrText] = await Promise.all([
+        proc.exited,
+        readLimited(proc.stdout, maxOutputBytes, abort),
+        readLimited(proc.stderr, Math.min(maxOutputBytes, 65_536), abort),
+      ]);
+      options.signal?.throwIfAborted();
+
+    // Log warnings from stderr (non-fatal)
+      if (stderrText.trim()) console.warn("[table-parser] Python warnings:", stderrText.trim());
+
+    // Parse JSON output
+      if (exitCode !== 0) return { tables: [], error: `Python extractor exited with code ${exitCode}` };
+      if (!stdoutText.trim()) return { tables: [], error: "No output from Python script" };
+
+      try {
+        return JSON.parse(stdoutText) as TableExtractionResult;
+      } catch (parseError) {
+        return {
+          tables: [],
+          error: `Failed to parse Python output: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        };
+      }
+    } finally {
+      options.signal?.removeEventListener("abort", abort);
     }
   } catch (error) {
+    options.signal?.throwIfAborted();
     return {
       tables: [],
       error: `Failed to execute Python script: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
+}
+
+async function readLimited(
+  stream: ReadableStream<Uint8Array>,
+  maxBytes: number,
+  onLimit: () => void,
+): Promise<string> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        onLimit();
+        throw new Error(`Subprocess output exceeds limit ${maxBytes}.`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const joined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    joined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(joined);
 }
 
 /**

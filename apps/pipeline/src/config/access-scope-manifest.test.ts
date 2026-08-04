@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -126,6 +126,26 @@ describe("access-scope manifest validation", () => {
     expect(() => parseAccessScopeManifestYaml(ftp)).toThrow(/HTTP or HTTPS/i);
   });
 
+  test("rejects configured query strings and secret-bearing identity parameters", () => {
+    const configuredQuery = validManifest().replace(
+      "      urls: []",
+      "      urls:\n        - key: factsheet\n          url: https://platinumsif.miraeassetmf.co.in/a.pdf?token=secret",
+    );
+    expect(() => parseAccessScopeManifestYaml(configuredQuery)).toThrow(/query parameters/i);
+
+    const identitySecret = validManifest()
+      .replace("strategy: explicit_urls\n      urls: []", `strategy: sitemap
+      sitemapUrls:
+        - https://platinumsif.miraeassetmf.co.in/sitemap.xml
+      includePathPrefixes:
+        - /
+      maxDocuments: 10
+      identity:
+        strategy: normalized_path
+        queryParameters: [token]`);
+    expect(() => parseAccessScopeManifestYaml(identitySecret)).toThrow(/secret-bearing query/i);
+  });
+
   test.each([
     ["invalid cron", 'cron: "0 2 * * *"', 'cron: "61 25 * * *"', /cron/i],
     ["invalid timezone", "timezone: Asia/Kolkata", "timezone: Mars/Olympus", /timezone/i],
@@ -159,8 +179,8 @@ describe("access-scope manifest validation", () => {
 
   test("validates every file before returning desired state", async () => {
     const directory = await createTemporaryDirectory();
-    await writeFile(join(directory, "910-valid.yml"), validManifest());
-    await writeFile(join(directory, "117-invalid.yml"), validManifest({
+    await Bun.write(join(directory, "910-valid.yml"), validManifest());
+    await Bun.write(join(directory, "117-invalid.yml"), validManifest({
       externalCode: "117",
       key: "mirae-mf",
     }).replace('cron: "0 2 * * *"', 'cron: "broken"'));
@@ -170,8 +190,8 @@ describe("access-scope manifest validation", () => {
 
   test("rejects duplicate scope keys and external codes across files", async () => {
     const directory = await createTemporaryDirectory();
-    await writeFile(join(directory, "first.yml"), validManifest());
-    await writeFile(join(directory, "second.yml"), validManifest());
+    await Bun.write(join(directory, "first.yml"), validManifest());
+    await Bun.write(join(directory, "second.yml"), validManifest());
 
     await expect(loadAccessScopeManifests(directory)).rejects.toThrow(
       /duplicate access-scope key|duplicate external code/i,

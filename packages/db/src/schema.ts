@@ -512,6 +512,7 @@ export const ingestionRuns = pgTable(
     uniqueIndex("ingestion_runs_version_implementation_uidx")
       .on(
         table.documentVersionId,
+        table.pipelineRunId,
         table.configRevisionId,
         table.parserVersion,
         table.chunkerVersion,

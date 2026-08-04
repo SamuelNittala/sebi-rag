@@ -236,6 +236,11 @@ export function normalizeDocumentUrl(value: string): string {
   const url = new URL(value);
   if (url.protocol !== "http:" && url.protocol !== "https:") throw deterministic("URL_SCHEME_NOT_ALLOWED", "URL must use HTTP or HTTPS.");
   if (url.username || url.password) throw deterministic("URL_CREDENTIALS_FORBIDDEN", "URL must not contain credentials.");
+  const secretParameter = [...url.searchParams.keys()].find((name) =>
+    /^(?:token|access[_-]?token|api[_-]?key|signature|sig|credential|x-amz-.+)$/i.test(name));
+  if (secretParameter) {
+    throw deterministic("URL_SECRET_QUERY_FORBIDDEN", "URL must not contain secret-bearing query parameters.");
+  }
   url.hash = "";
   const parameters = [...url.searchParams.entries()].sort(([leftKey, leftValue], [rightKey, rightValue]) =>
     leftKey.localeCompare(rightKey) || leftValue.localeCompare(rightValue));

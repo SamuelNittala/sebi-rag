@@ -33,6 +33,7 @@ x-pipeline-environment: &pipeline-environment
   PIPELINE_CLAIM_BATCH_SIZE: ${PIPELINE_CLAIM_BATCH_SIZE:-10}
   PIPELINE_SHUTDOWN_GRACE_MS: ${PIPELINE_SHUTDOWN_GRACE_MS:-30000}
   PIPELINE_STUCK_AFTER_MS: ${PIPELINE_STUCK_AFTER_MS:-60000}
+  PIPELINE_METRICS_REFRESH_MS: ${PIPELINE_METRICS_REFRESH_MS:-60000}
   ARTIFACT_STORE: filesystem
   ARTIFACT_FILESYSTEM_ROOT: /var/lib/mf-rag/artifacts
   PIPELINE_WORKER_MODULE: ${PIPELINE_WORKER_MODULE:-file:///app/apps/pipeline/src/operations/worker-runtime.ts}
@@ -50,6 +51,10 @@ x-pipeline-environment: &pipeline-environment
   PIPELINE_LEASE_DURATION_MS: ${PIPELINE_LEASE_DURATION_MS:-120000}
   PIPELINE_HEARTBEAT_INTERVAL_MS: ${PIPELINE_HEARTBEAT_INTERVAL_MS:-30000}
   PIPELINE_MAX_ATTEMPTS: ${PIPELINE_MAX_ATTEMPTS:-3}
+  PIPELINE_PARSE_DEADLINE_MS: ${PIPELINE_PARSE_DEADLINE_MS:-120000}
+  PIPELINE_PARSE_MAX_PAGES: ${PIPELINE_PARSE_MAX_PAGES:-500}
+  PIPELINE_PARSE_MAX_TEXT_CHARS: ${PIPELINE_PARSE_MAX_TEXT_CHARS:-10000000}
+  PIPELINE_TABLE_OUTPUT_MAX_BYTES: ${PIPELINE_TABLE_OUTPUT_MAX_BYTES:-10000000}
   OLLAMA_BASE_URL: http://ollama:11434
   EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
   EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-10}
@@ -305,6 +310,11 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      ollama-model:
+        condition: service_completed_successfully
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 128
     profiles: ["pipeline"]
     stop_grace_period: 35s
     healthcheck:

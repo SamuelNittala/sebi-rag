@@ -1,4 +1,4 @@
-import { access, link, mkdir, opendir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { access, link, mkdir, opendir, stat, unlink, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -54,7 +54,7 @@ export class FilesystemArtifactStore implements ArtifactStore {
   }
 
   async read(descriptor: ArtifactDescriptor): Promise<Uint8Array> {
-    return new Uint8Array(await readFile(this.#pathFor(descriptor.key)));
+    return new Uint8Array(await Bun.file(this.#pathFor(descriptor.key)).arrayBuffer());
   }
 
   async readVerified(descriptor: ArtifactDescriptor): Promise<Uint8Array> {

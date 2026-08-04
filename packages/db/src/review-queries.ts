@@ -485,6 +485,7 @@ export async function stageInspectionReview(
     if (input.documentVersionId) {
       const [compatible] = await tx.select().from(ingestionRuns).where(and(
         eq(ingestionRuns.documentVersionId, input.documentVersionId),
+        eq(ingestionRuns.pipelineRunId, input.pipelineRunId!),
         eq(ingestionRuns.configRevisionId, input.configRevisionId!),
         eq(ingestionRuns.parserVersion, input.parserVersion),
         eq(ingestionRuns.chunkerVersion, input.chunkerVersion),

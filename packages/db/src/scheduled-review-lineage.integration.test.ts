@@ -138,8 +138,8 @@ integrationDescribe("scheduled review lineage", () => {
       await client.close();
       return;
     }
-    await db.delete(schema.ingestionRuns).where(eq(schema.ingestionRuns.pipelineRunId, pipelineRunId));
-    await db.delete(schema.pipelineRuns).where(eq(schema.pipelineRuns.id, pipelineRunId));
+    await db.delete(schema.ingestionRuns).where(eq(schema.ingestionRuns.documentVersionId, versionId));
+    await db.delete(schema.pipelineRuns).where(eq(schema.pipelineRuns.documentVersionId, versionId));
     await db.update(schema.sourceDocuments).set({ currentVersionId: null })
       .where(eq(schema.sourceDocuments.id, sourceDocumentId));
     await db.delete(schema.documentVersions).where(eq(schema.documentVersions.id, versionId));
@@ -203,6 +203,23 @@ integrationDescribe("scheduled review lineage", () => {
       configRevisionId: revisionId,
       tenantId: externalCode,
     });
+    const [releaseRun] = await db.insert(schema.pipelineRuns).values({
+      documentVersionId: versionId,
+      accessScopeId,
+      sourceId,
+      implementationVersion: `pipeline-release-2-${suffix}`,
+      configRevisionId: revisionId,
+      initialStage: "PARSE",
+      initialStageImplementationVersion: "parse-v2",
+      initialInputChecksum: "a".repeat(64),
+      initialMaxAttempts: 3,
+    }).returning();
+    const releaseReview = await stageInspectionReview(db, {
+      ...input,
+      pipelineRunId: releaseRun!.id,
+    });
+    expect(releaseReview.id).not.toBe(first.id);
+    expect(releaseReview.pipelineRunId).toBe(releaseRun!.id);
     await expect(stageInspectionReview(db, {
       ...input,
       pipelineRunId: crypto.randomUUID(),

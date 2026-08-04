@@ -54,6 +54,8 @@ describe("WebsitePdfConnector", () => {
   test("normalizes URL query ordering and removes fragments", () => {
     expect(normalizeDocumentUrl("https://EXAMPLE.com:443/a.pdf?z=2&a=1#page=2"))
       .toBe("https://example.com/a.pdf?a=1&z=2");
+    expect(() => normalizeDocumentUrl("https://example.com/a.pdf?X-Amz-Signature=secret"))
+      .toThrow(/secret-bearing query/i);
   });
 
   test("uses validators, follows allowed redirects, streams and validates PDF bytes", async () => {

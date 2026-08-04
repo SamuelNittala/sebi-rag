@@ -71,6 +71,10 @@ export interface ImmutableWorkerRuntimeConfig {
   readonly leaseDurationMs: number;
   readonly heartbeatIntervalMs: number;
   readonly maxAttempts: number;
+  readonly parseDeadlineMs: number;
+  readonly parseMaxPages: number;
+  readonly parseMaxTextChars: number;
+  readonly tableOutputMaxBytes: number;
 }
 
 export interface WorkerRuntimeInput {
@@ -90,6 +94,7 @@ export interface WorkerCompositionOverrides {
   readonly embedder?: Embedder;
   readonly publisher?: ScheduledDocumentPublisher;
   readonly verifyCurrentConfig?: (database: Database, expectedChecksum: string) => Promise<void>;
+  readonly verifyEmbeddingModel?: (baseUrl: string, model: string) => Promise<void>;
 }
 
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -125,6 +130,10 @@ export function loadImmutableWorkerRuntimeConfig(
     leaseDurationMs: integer(env.PIPELINE_LEASE_DURATION_MS, 120_000, "PIPELINE_LEASE_DURATION_MS"),
     heartbeatIntervalMs: integer(env.PIPELINE_HEARTBEAT_INTERVAL_MS, 30_000, "PIPELINE_HEARTBEAT_INTERVAL_MS"),
     maxAttempts: integer(env.PIPELINE_MAX_ATTEMPTS, 3, "PIPELINE_MAX_ATTEMPTS"),
+    parseDeadlineMs: integer(env.PIPELINE_PARSE_DEADLINE_MS, 120_000, "PIPELINE_PARSE_DEADLINE_MS"),
+    parseMaxPages: integer(env.PIPELINE_PARSE_MAX_PAGES, 500, "PIPELINE_PARSE_MAX_PAGES"),
+    parseMaxTextChars: integer(env.PIPELINE_PARSE_MAX_TEXT_CHARS, 10_000_000, "PIPELINE_PARSE_MAX_TEXT_CHARS"),
+    tableOutputMaxBytes: integer(env.PIPELINE_TABLE_OUTPUT_MAX_BYTES, 10_000_000, "PIPELINE_TABLE_OUTPUT_MAX_BYTES"),
   };
 }
 
@@ -142,7 +151,21 @@ export async function createWorkerRuntime(
   if (input.role === "discovery-worker") {
     return createDiscoveryRuntime(input, config, retryPolicy);
   }
+  await (overrides.verifyEmbeddingModel ?? verifyEmbeddingModelAvailable)(
+    config.embeddingBaseUrl,
+    config.embeddingModel,
+  );
   return createStageRuntime(input, config, retryPolicy, overrides);
+}
+
+export async function verifyEmbeddingModelAvailable(baseUrl: string, model: string): Promise<void> {
+  const response = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(10_000) });
+  if (!response.ok) throw new Error(`Embedding service readiness failed with HTTP ${response.status}.`);
+  const body = await response.json() as { models?: Array<{ name?: string; model?: string }> };
+  const acceptedNames = new Set([model, ...(model.includes(":") ? [] : [`${model}:latest`])]);
+  if (!body.models?.some((entry) => acceptedNames.has(entry.name ?? "") || acceptedNames.has(entry.model ?? ""))) {
+    throw new Error(`Configured embedding model '${model}' is not installed.`);
+  }
 }
 
 async function verifyCurrentConfigChecksum(database: Database, expectedChecksum: string): Promise<void> {
@@ -202,6 +225,10 @@ function createStageRuntime(
     parserVersion: config.parserVersion,
     tableExtractorVersion: config.tableExtractorVersion,
     producerVersion: config.parseArtifactProducerVersion,
+    deadlineMs: config.parseDeadlineMs,
+    maxPages: config.parseMaxPages,
+    maxTextChars: config.parseMaxTextChars,
+    maxTableOutputBytes: config.tableOutputMaxBytes,
   });
   const parse = new ParseDocumentStage({
     repository: createDatabaseParseDocumentRepository(input.database),

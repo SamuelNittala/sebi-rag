@@ -5,9 +5,10 @@ import { basename, join } from "node:path";
 
 import type { ArtifactDescriptor } from "@mf-rag/types";
 
-import { parsePDF, type ParsedPDF } from "../parsers/pdf-parser.ts";
+import type { ParsedPDF, PdfParseLimits } from "../parsers/pdf-parser.ts";
 import {
   extractTables,
+  type TableExtractionOptions,
   type TableExtractionResult,
 } from "../parsers/table-parser.ts";
 
@@ -61,14 +62,18 @@ export interface PdfStageArtifactStore {
 
 export interface ParsePdfStageDependencies {
   readonly artifactStore: PdfStageArtifactStore;
-  readonly parseFile?: (path: string) => Promise<ParsedPDF>;
-  readonly extractTablesFromFile?: (path: string) => Promise<TableExtractionResult>;
+  readonly parseFile?: (path: string, limits: PdfParseLimits, signal: AbortSignal) => Promise<ParsedPDF>;
+  readonly extractTablesFromFile?: (path: string, options: TableExtractionOptions) => Promise<TableExtractionResult>;
 }
 
 export interface ParsePdfStageOptions {
   readonly parserVersion: string;
   readonly tableExtractorVersion: string;
   readonly producerVersion: string;
+  readonly deadlineMs?: number;
+  readonly maxPages?: number;
+  readonly maxTextChars?: number;
+  readonly maxTableOutputBytes?: number;
 }
 
 export interface ParsePdfStageInput {
@@ -96,6 +101,9 @@ export class ParsePdfStage {
     assertCanonical(options.parserVersion, "Parser version");
     assertCanonical(options.tableExtractorVersion, "Table extractor version");
     assertCanonical(options.producerVersion, "Parse artifact producer version");
+    for (const [name, value] of Object.entries(parseLimits(options))) {
+      if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer.`);
+    }
   }
 
   async execute(input: ParsePdfStageInput): Promise<ParsePdfStageResult> {
@@ -110,22 +118,44 @@ export class ParsePdfStage {
     assertBytesMatchDescriptor(rawBytes, input.rawArtifact);
     input.signal?.throwIfAborted();
 
-    const parsed = await withTemporaryPdf(input.filename, rawBytes, async (path) => {
-      const [pdf, tables] = await Promise.all([
-        (this.dependencies.parseFile ?? parsePDF)(path),
-        (this.dependencies.extractTablesFromFile ?? extractTables)(path),
-      ]);
-      return normalizeParseArtifact({
-        documentVersionId: input.documentVersionId,
-        filename: input.filename,
-        canonicalUrl,
-        rawArtifact: input.rawArtifact,
-        parsedPdf: pdf,
-        tableResult: tables,
-        parserVersion: this.options.parserVersion,
-        tableExtractorVersion: this.options.tableExtractorVersion,
+    const limits = parseLimits(this.options);
+    const deadline = AbortSignal.timeout(limits.deadlineMs);
+    const operationController = new AbortController();
+    const operationSignal = AbortSignal.any([
+      operationController.signal,
+      deadline,
+      ...(input.signal ? [input.signal] : []),
+    ]);
+    let parsed: NormalizedPdfParseArtifact;
+    try {
+      parsed = await withTemporaryPdf(input.filename, rawBytes, async (path) => {
+        const [pdf, tables] = await Promise.all([
+          (this.dependencies.parseFile ?? parsePdfIsolated)(path, limits, operationSignal),
+          (this.dependencies.extractTablesFromFile ?? extractTables)(path, {
+            signal: operationSignal,
+            maxOutputBytes: limits.maxTableOutputBytes,
+          }),
+        ]);
+        assertParsedOutputLimits(pdf, tables, limits);
+        return normalizeParseArtifact({
+          documentVersionId: input.documentVersionId,
+          filename: input.filename,
+          canonicalUrl,
+          rawArtifact: input.rawArtifact,
+          parsedPdf: pdf,
+          tableResult: tables,
+          parserVersion: this.options.parserVersion,
+          tableExtractorVersion: this.options.tableExtractorVersion,
+        });
       });
-    });
+    } catch (error) {
+      if (deadline.aborted && !input.signal?.aborted) {
+        throw deterministicParseError("PARSE_DEADLINE_EXCEEDED", `PDF parsing exceeded ${limits.deadlineMs}ms.`);
+      }
+      throw error;
+    } finally {
+      operationController.abort();
+    }
     input.signal?.throwIfAborted();
     const bytes = encodeNormalizedParseArtifact(parsed);
     const sha256 = sha256Hex(bytes);
@@ -139,6 +169,78 @@ export class ParsePdfStage {
     });
     return { artifact, parsed };
   }
+}
+
+interface ResolvedParseLimits extends PdfParseLimits {
+  readonly deadlineMs: number;
+  readonly maxTableOutputBytes: number;
+}
+
+function parseLimits(options: ParsePdfStageOptions): ResolvedParseLimits {
+  return {
+    deadlineMs: options.deadlineMs ?? 120_000,
+    maxPages: options.maxPages ?? 500,
+    maxTextChars: options.maxTextChars ?? 10_000_000,
+    maxTableOutputBytes: options.maxTableOutputBytes ?? 10_000_000,
+  };
+}
+
+function assertParsedOutputLimits(
+  pdf: ParsedPDF,
+  tables: TableExtractionResult,
+  limits: ResolvedParseLimits,
+): void {
+  if (pdf.pageCount > limits.maxPages || pdf.pages.length > limits.maxPages) {
+    throw deterministicParseError("PDF_PAGE_LIMIT_EXCEEDED", `PDF exceeds the ${limits.maxPages}-page limit.`);
+  }
+  const textCharacters = pdf.pages.reduce((total, page) => total + page.text.length, 0);
+  if (textCharacters > limits.maxTextChars) {
+    throw deterministicParseError("PDF_TEXT_LIMIT_EXCEEDED", `PDF text exceeds the ${limits.maxTextChars}-character limit.`);
+  }
+  const tableOutputBytes = new TextEncoder().encode(JSON.stringify(tables.tables)).byteLength;
+  if (tableOutputBytes > limits.maxTableOutputBytes) {
+    throw deterministicParseError("PDF_TABLE_LIMIT_EXCEEDED", `PDF table output exceeds the ${limits.maxTableOutputBytes}-byte limit.`);
+  }
+}
+
+async function parsePdfIsolated(
+  path: string,
+  limits: PdfParseLimits,
+  signal: AbortSignal,
+): Promise<ParsedPDF> {
+  signal.throwIfAborted();
+  const worker = new Worker(new URL("../parsers/pdf-parser-worker.ts", import.meta.url).href, { type: "module" });
+  return new Promise((resolve, reject) => {
+    const finish = () => {
+      signal.removeEventListener("abort", abort);
+      worker.terminate();
+    };
+    const abort = () => {
+      finish();
+      reject(signal.reason);
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    worker.onmessage = (event: MessageEvent<{
+      ok: boolean;
+      value?: ParsedPDF;
+      error?: { message: string; code?: string; classification?: string };
+    }>) => {
+      finish();
+      if (event.data.ok && event.data.value) resolve(event.data.value);
+      else reject(Object.assign(
+        new Error(event.data.error?.message ?? "Isolated PDF parser failed."),
+        event.data.error?.code ? {
+          code: event.data.error.code,
+          classification: event.data.error.classification,
+        } : {},
+      ));
+    };
+    worker.onerror = (event) => {
+      finish();
+      reject(new Error(event.message || "Isolated PDF parser worker failed."));
+    };
+    worker.postMessage({ filepath: path, limits });
+  });
 }
 
 export function normalizeParseArtifact(input: {

@@ -180,4 +180,53 @@ describe("ParsePdfStage", () => {
       canonicalUrl: "https://example.com/empty.pdf",
     })).rejects.toMatchObject({ code: "EMPTY_PARSED_CONTENT", classification: "deterministic" });
   });
+
+  test("aborts work at the parse deadline and rejects bounded output violations", async () => {
+    const store = new MemoryArtifactStore(rawBytes);
+    const timed = new ParsePdfStage({
+      artifactStore: store,
+      parseFile: async (_path, _limits, signal) => new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      }),
+      extractTablesFromFile: async () => ({ tables: [] }),
+    }, {
+      parserVersion: "unpdf-v1",
+      tableExtractorVersion: "pdfplumber-v1",
+      producerVersion: "parse-stage-v1",
+      deadlineMs: 10,
+      maxPages: 1,
+      maxTextChars: 10,
+      maxTableOutputBytes: 10,
+    });
+    await expect(timed.execute({
+      documentVersionId: "version-1",
+      rawArtifact: rawArtifact(),
+      filename: "slow.pdf",
+      canonicalUrl: "https://example.com/slow.pdf",
+    })).rejects.toMatchObject({ code: "PARSE_DEADLINE_EXCEEDED", classification: "deterministic" });
+
+    const oversized = new ParsePdfStage({
+      artifactStore: store,
+      parseFile: async (path) => ({
+        filename: "large.pdf", filepath: path, pageCount: 2,
+        pages: [
+          { pageNumber: 1, text: "one", hasTable: false },
+          { pageNumber: 2, text: "two", hasTable: false },
+        ],
+        rawText: "one two",
+      }),
+      extractTablesFromFile: async () => ({ tables: [] }),
+    }, {
+      parserVersion: "unpdf-v1",
+      tableExtractorVersion: "pdfplumber-v1",
+      producerVersion: "parse-stage-v1",
+      maxPages: 1,
+    });
+    await expect(oversized.execute({
+      documentVersionId: "version-1",
+      rawArtifact: rawArtifact(),
+      filename: "large.pdf",
+      canonicalUrl: "https://example.com/large.pdf",
+    })).rejects.toMatchObject({ code: "PDF_PAGE_LIMIT_EXCEEDED", classification: "deterministic" });
+  });
 });

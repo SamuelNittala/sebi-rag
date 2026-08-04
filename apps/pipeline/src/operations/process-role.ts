@@ -46,6 +46,8 @@ export async function runPipelineProcess(
     : null;
   console.log(structuredPipelineLog("info", "process.started", { correlationId }, { role, claims_enabled: claimsEnabled }));
   let stopping = false;
+  let lastMetricsRefresh = 0;
+  const metricsRefreshMs = positiveInteger(env.PIPELINE_METRICS_REFRESH_MS, 60_000);
   const shutdown = async (signal: string) => {
     if (stopping) return;
     stopping = true;
@@ -63,7 +65,10 @@ export async function runPipelineProcess(
     while (!stopping) {
       if (runtime?.kind === "scheduler") await runtime.scheduler.tick();
       if (runtime?.kind === "worker") await runtime.worker.runOnce();
-      await refreshPipelineMetrics(db, metrics);
+      if (Date.now() - lastMetricsRefresh >= metricsRefreshMs) {
+        await refreshPipelineMetrics(db, metrics);
+        lastMetricsRefresh = Date.now();
+      }
       health.markLoopProgress();
       await Bun.sleep(positiveInteger(env.PIPELINE_POLL_INTERVAL_MS, 5_000));
     }

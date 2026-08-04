@@ -162,6 +162,10 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
         },
       },
     ]);
+    await packageClient`
+      DELETE FROM chunk_search_documents
+      WHERE chunk_id IN (SELECT id FROM chunks WHERE text = 'scope proof global')
+    `;
     await vectorClient.upsertHtmlChunks(ownership.map((owner, index) => ({
       id: crypto.randomUUID(),
       vector,
@@ -376,12 +380,13 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
   });
 
   test.each([
-    ["910", tenantA, ["910", "910", "global"], ["910", "global"]],
-    ["117", tenantB, ["117", "117", "global"], ["117", "global"]],
+    ["910", tenantA, ["910", "910", "global"], ["910", "910"], ["910", "global"]],
+    ["117", tenantB, ["117", "117", "global"], ["117", "117"], ["117", "global"]],
   ])("returns GLOBAL plus %s across dense and lexical PDF/HTML paths", async (
     _label,
     accessScope,
-    expectedPdf,
+    expectedDensePdf,
+    expectedLexicalPdf,
     expectedHtml,
   ) => {
     const { VectorClient } = await import("./pgvector.ts");
@@ -396,9 +401,9 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
     ]);
 
     expect(pdfDense.map((row) => row.payload.text.split(" ").at(-1)).sort())
-      .toEqual(expectedPdf);
+      .toEqual(expectedDensePdf);
     expect(pdfLexical.map((row) => row.payload.text.split(" ").at(-1)).sort())
-      .toEqual(expectedPdf);
+      .toEqual(expectedLexicalPdf);
     expect(htmlDense.map((row) => row.payload.text.split(" ").at(-1)).sort())
       .toEqual(expectedHtml);
     expect(htmlLexical.map((row) => row.payload.text.split(" ").at(-1)).sort())
@@ -484,5 +489,14 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
     await expect(new VectorClient().searchLexical("scope proof", {
       accessScope: { tenantId: "" } as unknown as TenantAccessScope,
     })).rejects.toThrow("Tenant access scope is required");
+  });
+
+  test("fails closed when legacy deletion APIs target the scheduled corpus", async () => {
+    const { VectorClient } = await import("./pgvector.ts");
+    const vectorClient = new VectorClient();
+    await expect(vectorClient.deleteByDocumentId(scheduled117DocumentId))
+      .rejects.toThrow(/audited generation lifecycle/i);
+    await expect(vectorClient.deleteCollection())
+      .rejects.toThrow(/audited generation lifecycle/i);
   });
 });

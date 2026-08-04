@@ -39,6 +39,11 @@ export interface ParsedPDF {
   rawText: string;
 }
 
+export interface PdfParseLimits {
+  readonly maxPages: number;
+  readonly maxTextChars: number;
+}
+
 /**
  * Header/footer patterns to remove from extracted text
  */
@@ -196,7 +201,10 @@ function cleanText(text: string): string {
  * @returns ParsedPDF object with extracted text and metadata
  * @throws Error if file doesn't exist or is invalid/corrupted
  */
-export async function parsePDF(filepath: string): Promise<ParsedPDF> {
+export async function parsePDF(
+  filepath: string,
+  limits: PdfParseLimits = { maxPages: 500, maxTextChars: 10_000_000 },
+): Promise<ParsedPDF> {
   // Read the file
   const file = Bun.file(filepath);
   const exists = await file.exists();
@@ -221,6 +229,9 @@ export async function parsePDF(filepath: string): Promise<ParsedPDF> {
   }
 
   const totalPages = pdf.numPages;
+  if (totalPages > limits.maxPages) {
+    throw boundedPdfError("PDF_PAGE_LIMIT_EXCEEDED", `PDF page count ${totalPages} exceeds limit ${limits.maxPages}.`);
+  }
   const filename = basename(filepath);
 
   // Extract text page by page using unpdf's extractText with mergePages: false
@@ -228,6 +239,10 @@ export async function parsePDF(filepath: string): Promise<ParsedPDF> {
 
   // Ensure we have an array of strings
   const textArray = Array.isArray(pageTexts) ? pageTexts : [pageTexts];
+  const extractedCharacters = textArray.reduce((total, text) => total + text.length, 0);
+  if (extractedCharacters > limits.maxTextChars) {
+    throw boundedPdfError("PDF_TEXT_LIMIT_EXCEEDED", `PDF extracted text exceeds limit ${limits.maxTextChars}.`);
+  }
 
   // Process each page
   const pages: ParsedPage[] = [];
@@ -267,4 +282,8 @@ export async function parsePDF(filepath: string): Promise<ParsedPDF> {
     pages,
     rawText,
   };
+}
+
+function boundedPdfError(code: string, message: string): Error {
+  return Object.assign(new Error(message), { code, classification: "deterministic" as const });
 }

@@ -7,6 +7,7 @@ import { validateWorkerModuleUrl } from "./process-role.ts";
 import {
   createWorkerRuntime,
   loadImmutableWorkerRuntimeConfig,
+  verifyEmbeddingModelAvailable,
 } from "./worker-runtime.ts";
 
 const checksum = (value: string) => value.repeat(64);
@@ -53,11 +54,13 @@ describe("immutable pipeline worker composition", () => {
     const database = {} as Database;
     const artifactStore = {} as ArtifactStore;
     const verifyCurrentConfig = async () => {};
+    const verifyEmbeddingModel = async () => {};
     const discovery = await createWorkerRuntime({ role: "discovery-worker", database, artifactStore }, environment(), {
       verifyCurrentConfig,
     });
     const stage = await createWorkerRuntime({ role: "stage-worker", database, artifactStore }, environment(), {
       verifyCurrentConfig,
+      verifyEmbeddingModel,
       publisher: {
         publish: async () => ({ generationId: crypto.randomUUID(), outputChecksum: checksum("c") }),
       },
@@ -77,5 +80,19 @@ describe("immutable pipeline worker composition", () => {
       .toThrow(/query/);
     expect(() => validateWorkerModuleUrl("https://example.test/worker.ts"))
       .toThrow(/local file URL/);
+  });
+
+  test("requires the exact configured embedding model before stage claims", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: () => Response.json({ models: [{ name: "bge-m3:latest" }] }),
+    });
+    try {
+      await expect(verifyEmbeddingModelAvailable(server.url.href, "bge-m3")).resolves.toBeUndefined();
+      await expect(verifyEmbeddingModelAvailable(server.url.href, "other-model"))
+        .rejects.toThrow(/not installed/i);
+    } finally {
+      server.stop(true);
+    }
   });
 });

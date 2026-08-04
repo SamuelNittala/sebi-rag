@@ -62,7 +62,7 @@ const publishedPdfCorpusCte = sql`
       c.amc_slug, c.retrieval_metadata, c.visibility_scope, c.tenant_id,
       csd.search_tokens
     FROM chunks c
-    JOIN chunk_search_documents csd ON csd.chunk_id = c.id
+    LEFT JOIN chunk_search_documents csd ON csd.chunk_id = c.id
     WHERE c.publication_status = 'published'
 
     UNION ALL
@@ -97,7 +97,7 @@ const publishedPdfCorpusCte = sql`
       pc.retrieval_metadata, pc.visibility_scope, pc.tenant_id,
       pcs.search_tokens
     FROM document_publication_chunks pc
-    JOIN document_publication_chunk_search_documents pcs ON pcs.chunk_id = pc.id
+    LEFT JOIN document_publication_chunk_search_documents pcs ON pcs.chunk_id = pc.id
     JOIN document_publication_generations pg ON pg.id = pc.generation_id
     JOIN source_documents sd ON sd.id = pg.source_document_id
     JOIN access_scopes scope ON scope.id = pg.access_scope_id
@@ -451,7 +451,7 @@ export class VectorClient {
       candidate_corpus AS (
         SELECT search_tokens
         FROM published_pdf_chunks
-        WHERE true ${accessCondition} ${conditions}
+        WHERE search_tokens IS NOT NULL ${accessCondition} ${conditions}
       ),
       corpus_stats AS (
         SELECT
@@ -477,7 +477,7 @@ export class VectorClient {
           cardinality(search_tokens)::double precision
             AS document_length
         FROM published_pdf_chunks
-        WHERE true ${accessCondition} ${conditions}
+        WHERE search_tokens IS NOT NULL ${accessCondition} ${conditions}
           AND search_tokens && ${tokenArray}::text[]
       ),
       document_terms AS (
@@ -660,6 +660,16 @@ export class VectorClient {
    * @returns Number of chunks deleted
    */
   async deleteByDocumentId(documentId: string): Promise<number> {
+    const scheduled = await db.execute(sql`
+      SELECT 1
+      FROM document_publication_generations
+      WHERE source_document_id = ${documentId}::uuid
+        AND status IN ('staged', 'published')
+      LIMIT 1
+    `) as Array<{ "?column?": number }>;
+    if (scheduled.length > 0) {
+      throw new Error("Scheduled publications must be retracted through the audited generation lifecycle.");
+    }
     // Count chunks first
     const countResult = await db
       .select({ count: count() })
@@ -707,6 +717,15 @@ export class VectorClient {
    * Use with caution - this removes all data.
    */
   async deleteCollection(): Promise<boolean> {
+    const scheduled = await db.execute(sql`
+      SELECT 1
+      FROM document_publication_generations
+      WHERE status IN ('staged', 'published')
+      LIMIT 1
+    `) as Array<{ "?column?": number }>;
+    if (scheduled.length > 0) {
+      throw new Error("Scheduled publications must be retracted through the audited generation lifecycle.");
+    }
     await db.delete(chunks);
     return true;
   }

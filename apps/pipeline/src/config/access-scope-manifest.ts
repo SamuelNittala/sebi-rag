@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -33,6 +33,12 @@ const safeUrlSchema = z.string().url().superRefine((value, context) => {
       message: "URLs must not contain inline credentials.",
     });
   }
+  if (url.search) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Configured discovery URLs must not contain query parameters; discover tokenized URLs at runtime.",
+    });
+  }
 });
 
 const explicitUrlsSchema = z.object({
@@ -50,7 +56,14 @@ const explicitUrlsSchema = z.object({
 
 const normalizedPathIdentitySchema = z.object({
   strategy: z.literal("normalized_path"),
-  queryParameters: z.array(z.string().regex(/^[A-Za-z0-9._~-]+$/)).max(20).default([]),
+  queryParameters: z.array(z.string().regex(/^[A-Za-z0-9._~-]+$/).superRefine((value, context) => {
+    if (/^(?:token|access[_-]?token|api[_-]?key|signature|sig|credential|x-amz-.+)$/i.test(value)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Secret-bearing query parameters must not participate in document identity.",
+      });
+    }
+  })).max(20).default([]),
 }).strict();
 
 const sitemapSchema = z.object({
@@ -204,7 +217,7 @@ export async function loadAccessScopeManifests(
     const filePath = directory instanceof URL
       ? new URL(fileName, ensureTrailingSlash(directory))
       : join(directory, fileName);
-    const yaml = await readFile(filePath, "utf8");
+    const yaml = await Bun.file(filePath).text();
     return parseAccessScopeManifestYaml(yaml, fileName);
   }));
 
