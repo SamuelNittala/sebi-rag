@@ -9,6 +9,7 @@
     "./queries": "./src/queries.ts",
     "./review-queries": "./src/review-queries.ts",
     "./source-registry-queries": "./src/source-registry-queries.ts",
+    "./document-version-queries": "./src/document-version-queries.ts",
     "./client": "./src/client.ts"
   },
   "scripts": {

@@ -14,6 +14,8 @@ import {
   real,
   customType,
   check,
+  foreignKey,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import type {
@@ -113,6 +115,9 @@ export const documents = pgTable(
     chunkCount: integer("chunk_count"),
     status: varchar("status", { length: 20 }).default("pending").notNull().$type<DocumentStatus>(),
     errorMessage: text("error_message"),
+    /** Additive compatibility link for scheduled pipeline writes. Legacy rows remain null. */
+    documentVersionId: uuid("document_version_id")
+      .references((): AnyPgColumn => documentVersions.id, { onDelete: "set null" }),
     ...ownershipColumns(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
@@ -343,6 +348,9 @@ export const htmlDocuments = pgTable(
     chunkCount: integer("chunk_count"),
     status: varchar("status", { length: 20 }).default("pending").notNull().$type<DocumentStatus>(),
     errorMessage: text("error_message"),
+    /** Additive compatibility link for scheduled pipeline writes. Legacy rows remain null. */
+    documentVersionId: uuid("document_version_id")
+      .references((): AnyPgColumn => documentVersions.id, { onDelete: "set null" }),
     ...ownershipColumns(),
     scrapedAt: timestamp("scraped_at", { mode: "date" }).notNull(),
     ingestedAt: timestamp("ingested_at", { mode: "date" }),
@@ -463,6 +471,9 @@ export const ingestionRuns = pgTable(
     reviewer: varchar("reviewer", { length: 255 }),
     reviewNote: text("review_note"),
     reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    /** Required by the scheduled pipeline; nullable for legacy/manual review runs. */
+    documentVersionId: uuid("document_version_id")
+      .references((): AnyPgColumn => documentVersions.id, { onDelete: "set null" }),
     ...ownershipColumns(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
@@ -738,6 +749,7 @@ export const sources = pgTable(
   },
   (table) => [
     uniqueIndex("sources_scope_key_uidx").on(table.accessScopeId, table.sourceKey),
+    uniqueIndex("sources_id_scope_uidx").on(table.id, table.accessScopeId),
     index("sources_enabled_idx").on(table.enabled),
   ],
 );
@@ -787,6 +799,161 @@ export const discoveryRuns = pgTable(
       .on(table.sourceId)
       .where(sql`${table.status} IN ('pending', 'running')`),
     check("discovery_runs_status_ck", sql`${table.status} IN ('pending', 'running', 'succeeded', 'failed')`),
+  ],
+);
+
+/** Immutable, content-addressed objects verified before their metadata is recorded. */
+export const artifacts = pgTable(
+  "artifacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    artifactKey: varchar("artifact_key", { length: 1000 }).notNull(),
+    uri: varchar("uri", { length: 2000 }).notNull(),
+    sha256: varchar("sha256", { length: 64 }).notNull(),
+    byteSize: integer("byte_size").notNull(),
+    mediaType: varchar("media_type", { length: 255 }).notNull(),
+    producerVersion: varchar("producer_version", { length: 255 }).notNull(),
+    verifiedAt: timestamp("verified_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("artifacts_key_uidx").on(table.artifactKey),
+    uniqueIndex("artifacts_uri_uidx").on(table.uri),
+    index("artifacts_sha256_idx").on(table.sha256),
+    check("artifacts_sha256_ck", sql`${table.sha256} ~ '^[0-9a-f]{64}$'`),
+    check("artifacts_byte_size_ck", sql`${table.byteSize} >= 0`),
+  ],
+);
+
+/** Stable identity for a document within one owning access scope and source. */
+export const sourceDocuments = pgTable(
+  "source_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accessScopeId: uuid("access_scope_id")
+      .notNull()
+      .references(() => accessScopes.id, { onDelete: "restrict" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "restrict" }),
+    logicalDocumentKey: varchar("logical_document_key", { length: 500 }).notNull(),
+    canonicalUrl: varchar("canonical_url", { length: 2000 }).notNull(),
+    currentVersionId: uuid("current_version_id")
+      .references((): AnyPgColumn => documentVersions.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("source_documents_source_key_uidx").on(table.sourceId, table.logicalDocumentKey),
+    uniqueIndex("source_documents_scope_url_uidx").on(table.accessScopeId, table.canonicalUrl),
+    uniqueIndex("source_documents_id_source_scope_uidx").on(table.id, table.sourceId, table.accessScopeId),
+    index("source_documents_current_version_idx").on(table.currentVersionId),
+    foreignKey({
+      name: "source_documents_source_scope_fk",
+      columns: [table.sourceId, table.accessScopeId],
+      foreignColumns: [sources.id, sources.accessScopeId],
+    }).onDelete("restrict"),
+  ],
+);
+
+/** Immutable bytes and fetch provenance for one owned logical document version. */
+export const documentVersions = pgTable(
+  "document_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceDocumentId: uuid("source_document_id")
+      .notNull()
+      .references(() => sourceDocuments.id, { onDelete: "restrict" }),
+    accessScopeId: uuid("access_scope_id")
+      .notNull()
+      .references(() => accessScopes.id, { onDelete: "restrict" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "restrict" }),
+    sequence: integer("sequence").notNull(),
+    contentSha256: varchar("content_sha256", { length: 64 }).notNull(),
+    rawArtifactId: uuid("raw_artifact_id")
+      .notNull()
+      .references(() => artifacts.id, { onDelete: "restrict" }),
+    etag: varchar("etag", { length: 1000 }),
+    lastModified: varchar("last_modified", { length: 1000 }),
+    observedAt: timestamp("observed_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    readyAt: timestamp("ready_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("document_versions_document_hash_uidx").on(table.sourceDocumentId, table.contentSha256),
+    uniqueIndex("document_versions_document_sequence_uidx").on(table.sourceDocumentId, table.sequence),
+    index("document_versions_scope_source_idx").on(table.accessScopeId, table.sourceId),
+    check("document_versions_sequence_ck", sql`${table.sequence} > 0`),
+    check("document_versions_sha256_ck", sql`${table.contentSha256} ~ '^[0-9a-f]{64}$'`),
+    foreignKey({
+      name: "document_versions_document_owner_fk",
+      columns: [table.sourceDocumentId, table.sourceId, table.accessScopeId],
+      foreignColumns: [sourceDocuments.id, sourceDocuments.sourceId, sourceDocuments.accessScopeId],
+    }).onDelete("restrict"),
+  ],
+);
+
+/** Canonical and redirect aliases; one URL can have only one owner in an access scope. */
+export const sourceDocumentUrlAliases = pgTable(
+  "source_document_url_aliases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceDocumentId: uuid("source_document_id")
+      .notNull()
+      .references(() => sourceDocuments.id, { onDelete: "cascade" }),
+    accessScopeId: uuid("access_scope_id")
+      .notNull()
+      .references(() => accessScopes.id, { onDelete: "restrict" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "restrict" }),
+    aliasUrl: varchar("alias_url", { length: 2000 }).notNull(),
+    isCanonical: boolean("is_canonical").default(false).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("source_document_aliases_scope_url_uidx").on(table.accessScopeId, table.aliasUrl),
+    index("source_document_aliases_document_idx").on(table.sourceDocumentId),
+    foreignKey({
+      name: "source_document_aliases_document_owner_fk",
+      columns: [table.sourceDocumentId, table.sourceId, table.accessScopeId],
+      foreignColumns: [sourceDocuments.id, sourceDocuments.sourceId, sourceDocuments.accessScopeId],
+    }).onDelete("cascade"),
+  ],
+);
+
+/** Idempotent per-run presence/validator observation; unchanged fetches stop here. */
+export const documentObservations = pgTable(
+  "document_observations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    discoveryRunId: uuid("discovery_run_id")
+      .notNull()
+      .references(() => discoveryRuns.id, { onDelete: "restrict" }),
+    sourceDocumentId: uuid("source_document_id")
+      .notNull()
+      .references(() => sourceDocuments.id, { onDelete: "restrict" }),
+    accessScopeId: uuid("access_scope_id")
+      .notNull()
+      .references(() => accessScopes.id, { onDelete: "restrict" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "restrict" }),
+    observedUrl: varchar("observed_url", { length: 2000 }).notNull(),
+    etag: varchar("etag", { length: 1000 }),
+    lastModified: varchar("last_modified", { length: 1000 }),
+    observedAt: timestamp("observed_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("document_observations_run_document_uidx").on(table.discoveryRunId, table.sourceDocumentId),
+    index("document_observations_source_observed_idx").on(table.sourceId, table.observedAt),
+    foreignKey({
+      name: "document_observations_document_owner_fk",
+      columns: [table.sourceDocumentId, table.sourceId, table.accessScopeId],
+      foreignColumns: [sourceDocuments.id, sourceDocuments.sourceId, sourceDocuments.accessScopeId],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -878,5 +1045,15 @@ export type Source = typeof sources.$inferSelect;
 export type NewSource = typeof sources.$inferInsert;
 export type SourceSchedule = typeof sourceSchedules.$inferSelect;
 export type NewSourceSchedule = typeof sourceSchedules.$inferInsert;
+export type Artifact = typeof artifacts.$inferSelect;
+export type NewArtifact = typeof artifacts.$inferInsert;
+export type SourceDocument = typeof sourceDocuments.$inferSelect;
+export type NewSourceDocument = typeof sourceDocuments.$inferInsert;
+export type DocumentVersion = typeof documentVersions.$inferSelect;
+export type NewDocumentVersion = typeof documentVersions.$inferInsert;
+export type SourceDocumentUrlAlias = typeof sourceDocumentUrlAliases.$inferSelect;
+export type NewSourceDocumentUrlAlias = typeof sourceDocumentUrlAliases.$inferInsert;
+export type DocumentObservation = typeof documentObservations.$inferSelect;
+export type NewDocumentObservation = typeof documentObservations.$inferInsert;
 export type DiscoveryRun = typeof discoveryRuns.$inferSelect;
 export type NewDiscoveryRun = typeof discoveryRuns.$inferInsert;

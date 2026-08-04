@@ -21,6 +21,15 @@ export type PipelineStage = (typeof pipelineStages)[number];
 export const stageOutcomes = ["SUCCEEDED", "FAILED", "WAITING_REVIEW"] as const;
 export type StageOutcome = (typeof stageOutcomes)[number];
 
+export interface ArtifactDescriptor {
+  readonly key: string;
+  readonly uri: string;
+  readonly sha256: string;
+  readonly byteSize: number;
+  readonly mediaType: string;
+  readonly producerVersion: string;
+}
+
 export interface PipelineStageResult {
   readonly stageAttemptId: StageAttemptId;
   readonly pipelineRunId: PipelineRunId;
