@@ -1,0 +1,77 @@
+import { describe, expect, test } from "bun:test";
+import {
+  createAuthorizedTenantAccessScope,
+  createTenantAccessScope,
+  isOwnershipVisible,
+  type KnowledgeOwnership,
+  type TenantAccessScope,
+} from "./index.ts";
+
+const tenantOwnership = (tenantId: string): KnowledgeOwnership => ({
+  visibilityScope: "TENANT",
+  tenantId,
+  ownershipManifestId: "tenant-access-scope-test",
+  ownershipManifestVersion: 1,
+});
+
+describe("tenant access scope", () => {
+  test("creates an exact tenant scope for an AMC", () => {
+    const accessScope = createTenantAccessScope("176");
+
+    expect(accessScope.kind).toBe("tenant");
+    expect(accessScope.tenantId).toBe("176");
+  });
+
+  test("keeps raw RTA input scoped to the exact RTA tenant", () => {
+    const accessScope = createTenantAccessScope("RTA");
+
+    expect(accessScope.kind).toBe("tenant");
+    expect(accessScope.tenantId).toBe("RTA");
+    expect(isOwnershipVisible(tenantOwnership("176"), accessScope)).toBe(false);
+  });
+
+  test("allows authorized RTA to see classified ownership from every tenant", () => {
+    const rtaScope = createAuthorizedTenantAccessScope("RTA");
+    const globalOwnership: KnowledgeOwnership = {
+      visibilityScope: "GLOBAL",
+      tenantId: null,
+      ownershipManifestId: "tenant-access-scope-test",
+      ownershipManifestVersion: 1,
+    };
+    const unclassifiedOwnership: KnowledgeOwnership = {
+      visibilityScope: "UNCLASSIFIED",
+      tenantId: null,
+      ownershipManifestId: null,
+      ownershipManifestVersion: null,
+    };
+
+    expect(isOwnershipVisible(globalOwnership, rtaScope)).toBe(true);
+    expect(isOwnershipVisible(tenantOwnership("176"), rtaScope)).toBe(true);
+    expect(isOwnershipVisible(tenantOwnership("910"), rtaScope)).toBe(true);
+    expect(isOwnershipVisible(unclassifiedOwnership, rtaScope)).toBe(false);
+  });
+
+  test("keeps ordinary AMC scopes isolated", () => {
+    const amcScope = createAuthorizedTenantAccessScope("176");
+
+    expect(isOwnershipVisible(tenantOwnership("176"), amcScope)).toBe(true);
+    expect(isOwnershipVisible(tenantOwnership("910"), amcScope)).toBe(false);
+  });
+
+  test("keeps near-miss rta scoped to the exact lowercase tenant", () => {
+    const accessScope = createAuthorizedTenantAccessScope("rta");
+
+    expect(accessScope.kind).toBe("tenant");
+    expect(accessScope.tenantId).toBe("rta");
+    expect(isOwnershipVisible(tenantOwnership("RTA"), accessScope)).toBe(false);
+  });
+
+  test("accepts legacy exact-tenant scopes without a kind discriminator", () => {
+    const legacyScope: TenantAccessScope = {
+      tenantId: createTenantAccessScope("176").tenantId,
+    };
+
+    expect(isOwnershipVisible(tenantOwnership("176"), legacyScope)).toBe(true);
+    expect(isOwnershipVisible(tenantOwnership("910"), legacyScope)).toBe(false);
+  });
+});

@@ -180,7 +180,7 @@ See [deployment docs](docs/) for details.
 | `RERANK_CANDIDATE_LIMIT` | `20` | Maximum fused chunks sent to the reranker |
 | `ENABLE_RATE_LIMITING` | `false` | Enable API key limits |
 | `MF_RAG_API_KEY` | required | Local server-side bearer credential; never commit or reuse in production |
-| `AMC_SCOPE` | required | One canonical server-side tenant scope |
+| `AMC_SCOPE` | required | One canonical server-side tenant scope; for MCP retrieval only, reserved `RTA` retrieves every published `GLOBAL` or `TENANT` chunk when the credential has an `RTA` grant |
 | `REVIEW_USERNAME` | - | Basic-auth username for the internal `/review` UI |
 | `REVIEW_PASSWORD` | - | Basic-auth password for the internal `/review` UI |
 

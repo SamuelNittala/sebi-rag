@@ -37,6 +37,9 @@ function tenantAccessCondition(accessScope: TenantAccessScope) {
   if (!accessScope?.tenantId) {
     throw new Error("Tenant access scope is required");
   }
+  if (accessScope.kind === "all-tenants") {
+    return sql`AND visibility_scope IN ('GLOBAL', 'TENANT')`;
+  }
   return sql`AND (
     visibility_scope = 'GLOBAL'
     OR (visibility_scope = 'TENANT' AND tenant_id = ${accessScope.tenantId})

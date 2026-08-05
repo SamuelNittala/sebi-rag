@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
+  createAuthorizedTenantAccessScope,
   createTenantAccessScope,
   type TenantAccessScope,
 } from "@mf-rag/types";
@@ -8,6 +9,7 @@ const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const integrationDescribe = testDatabaseUrl ? describe : describe.skip;
 const tenantA = createTenantAccessScope("tenant-a");
 const tenantB = createTenantAccessScope("tenant-b");
+const rta = createAuthorizedTenantAccessScope("RTA");
 
 integrationDescribe("tenant-scoped vector retrieval", () => {
   let packageClient: typeof import("@mf-rag/db/client")["client"];
@@ -123,11 +125,11 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
         vector,
         payload: {
           text: "scope proof staged tenant-a",
-          chunk_index: 5,
+          chunk_index: 4,
           total_chunks: 6,
           document_id: pdfDocumentId,
           document_filename: "tenant-scope.pdf",
-          page_numbers: [6],
+          page_numbers: [5],
           fund_name: "Staged Fund",
           amc_name: "",
           scheme_type: "",
@@ -147,25 +149,78 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
           ownership_manifest_version: 1,
         },
       },
-    ]);
-    await vectorClient.upsertHtmlChunks(ownership.map((owner, index) => ({
-      id: crypto.randomUUID(),
-      vector,
-      payload: {
-        text: `scope proof html ${owner.label}`,
-        chunk_index: index,
-        total_chunks: ownership.length,
-        document_id: htmlDocumentId,
-        document_title: owner.label,
-        source_url: `https://example.test/${owner.label}`,
-        content_category: "education",
-        knowledge_domain: "sif",
-        source_collection: "mirae_sif",
-        section_heading: null,
-        has_table: false,
-        ...owner,
+      {
+        id: crypto.randomUUID(),
+        vector,
+        payload: {
+          text: "scope proof retired tenant-b",
+          chunk_index: 5,
+          total_chunks: 6,
+          document_id: pdfDocumentId,
+          document_filename: "tenant-scope.pdf",
+          page_numbers: [6],
+          fund_name: "Retired Fund",
+          amc_name: "",
+          scheme_type: "",
+          scheme_category: "",
+          doc_type: "SID",
+          document_date: "2026-07-30",
+          has_table: false,
+          section_header: null,
+          sebi_scheme_id: "",
+          sebi_url: "",
+          knowledge_domain: "sif",
+          source_collection: "mirae_sif",
+          publication_status: "retired",
+          visibility_scope: "TENANT",
+          tenant_id: "tenant-b",
+          ownership_manifest_id: "scope-fixture",
+          ownership_manifest_version: 1,
+        },
       },
-    })));
+    ]);
+    await vectorClient.upsertHtmlChunks([
+      ...ownership.map((owner, index) => ({
+        id: crypto.randomUUID(),
+        vector,
+        payload: {
+          text: `scope proof html ${owner.label}`,
+          chunk_index: index,
+          total_chunks: ownership.length + 2,
+          document_id: htmlDocumentId,
+          document_title: owner.label,
+          source_url: `https://example.test/${owner.label}`,
+          content_category: "education",
+          knowledge_domain: "sif",
+          source_collection: "mirae_sif",
+          section_heading: null,
+          has_table: false,
+          ...owner,
+        },
+      })),
+      ...(["staged", "retired"] as const).map((publicationStatus, index) => ({
+        id: crypto.randomUUID(),
+        vector,
+        payload: {
+          text: `scope proof html ${publicationStatus} tenant-${index === 0 ? "a" : "b"}`,
+          chunk_index: ownership.length + index,
+          total_chunks: ownership.length + 2,
+          document_id: htmlDocumentId,
+          document_title: `${publicationStatus} tenant`,
+          source_url: `https://example.test/${publicationStatus}`,
+          content_category: "education",
+          knowledge_domain: "sif",
+          source_collection: "mirae_sif",
+          section_heading: null,
+          has_table: false,
+          publication_status: publicationStatus,
+          visibility_scope: "TENANT" as const,
+          tenant_id: index === 0 ? "tenant-a" : "tenant-b",
+          ownership_manifest_id: "scope-fixture",
+          ownership_manifest_version: 1,
+        },
+      })),
+    ]);
   });
 
   afterAll(async () => {
@@ -175,6 +230,7 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
   test.each([
     ["tenant-a", tenantA, ["global", "tenant-a"]],
     ["tenant-b", tenantB, ["global", "tenant-b"]],
+    ["RTA", rta, ["global", "tenant-a", "tenant-b"]],
   ])("returns GLOBAL plus %s across dense and lexical PDF/HTML paths", async (
     _label,
     accessScope,
@@ -199,6 +255,9 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
       .toEqual(expected);
     expect(htmlLexical.map((row) => row.payload.text.split(" ").at(-1)).sort())
       .toEqual(expected);
+    for (const row of [pdfDense, pdfLexical, htmlDense, htmlLexical].flat()) {
+      expect(row.payload.text).not.toMatch(/staged|retired|unclassified/);
+    }
   });
 
   test("applies the same scope to listing, counts, and direct citation lookup", async () => {
@@ -209,8 +268,16 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
     const schemes = await vectorClient.getUniqueFundNames(tenantA);
     const pdfInfo = await vectorClient.getCollectionInfo(tenantA);
     const htmlInfo = await vectorClient.getHtmlCollectionInfo(tenantA);
+    const rtaSchemes = await vectorClient.getUniqueFundNames(rta);
+    const rtaPdfInfo = await vectorClient.getCollectionInfo(rta);
+    const rtaHtmlInfo = await vectorClient.getHtmlCollectionInfo(rta);
     const otherTenantCitation = await vectorClient.searchSimilar(vector, {
       accessScope: tenantA,
+      filters: { document_id: pdfDocumentId, amc_name: "tenant-b" },
+      limit: 10,
+    });
+    const rtaOtherTenantCitation = await vectorClient.searchSimilar(vector, {
+      accessScope: rta,
       filters: { document_id: pdfDocumentId, amc_name: "tenant-b" },
       limit: 10,
     });
@@ -219,11 +286,21 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
     expect(pdfInfo.points_count).toBe(2);
     expect(htmlInfo.points_count).toBe(2);
     expect(otherTenantCitation).toEqual([]);
+    expect(rtaSchemes).toEqual([
+      "Alpha Exclusive",
+      "Beta Exclusive",
+      "Shared Common",
+    ]);
+    expect(rtaPdfInfo.points_count).toBe(3);
+    expect(rtaHtmlInfo.points_count).toBe(3);
+    expect(rtaOtherTenantCitation).toHaveLength(1);
+    expect(rtaOtherTenantCitation[0]?.payload.amc_name).toBe("tenant-b");
   });
 
   test.each([
     ["tenant-a", tenantA],
     ["tenant-b", tenantB],
+    ["RTA", rta],
   ])("approximate dense search matches exact filtered recall for %s", async (
     _label,
     accessScope,
@@ -239,13 +316,17 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
         SELECT id
         FROM chunks
         WHERE publication_status = 'published'
-          AND (
-            visibility_scope = 'GLOBAL'
-            OR (
-              visibility_scope = 'TENANT'
-              AND tenant_id = ${accessScope.tenantId}
+          AND CASE
+            WHEN ${accessScope.kind} = 'all-tenants'
+              THEN visibility_scope IN ('GLOBAL', 'TENANT')
+            ELSE (
+              visibility_scope = 'GLOBAL'
+              OR (
+                visibility_scope = 'TENANT'
+                AND tenant_id = ${accessScope.tenantId}
+              )
             )
-          )
+          END
         ORDER BY embedding <=> ${vectorValue}::vector, id
         LIMIT 20
       `;

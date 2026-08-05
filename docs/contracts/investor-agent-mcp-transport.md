@@ -14,12 +14,15 @@ Every HTTP request to `/mcp` must send:
 Both values must come from protected deployment configuration. Investor or
 model input must not select, replace, or forward the scope header. A key may
 have several grants, but each deployment must inject exactly one configured
-scope per request.
+scope per request. `RTA` is the reserved regulator scope: after exact credential
+authorization, it creates an explicit all-tenants repository capability.
 
 Missing, repeated, comma-joined, malformed, or unauthorized scope values fail
 before tool dispatch. There is no compatibility request without a scope and no
-tool argument that can broaden the authorized `GLOBAL` plus matching-tenant
-repository capability.
+tool argument that can broaden the authorized repository capability. Ordinary
+AMC scopes retrieve `GLOBAL` plus their matching tenant. The authorized `RTA`
+scope retrieves published `GLOBAL` and `TENANT` rows across all tenants. Both
+modes exclude staged, retired, and `UNCLASSIFIED` rows.
 
 The additive `topic` input maps `general_mutual_fund` to published
 `mutual_fund/general_mf_faq` evidence. `sif` preserves explicit SIF routing.

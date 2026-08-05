@@ -13,7 +13,7 @@ const authorized: CredentialAuthorizer = {
     if (credential !== "mf_test_secret") {
       return { decision: "invalid_credential" };
     }
-    if (tenantId !== "tenant-a" && tenantId !== "tenant-b") {
+    if (tenantId !== "tenant-a" && tenantId !== "tenant-b" && tenantId !== "RTA") {
       return { decision: "unauthorized_scope" };
     }
     return { decision: "authorized", keyId: "key-internal-id" };
@@ -71,8 +71,69 @@ describe("createHttpRequestContext", () => {
       correlationId: expect.any(String),
       keyId: "key-internal-id",
       tenantId: "tenant-a",
+      accessScope: {
+        kind: "tenant",
+        tenantId: "tenant-a",
+      },
     });
     expect(Object.isFrozen(context)).toBe(true);
+  });
+
+  test("creates an all-tenants repository scope after RTA authorization", async () => {
+    const context = await createHttpRequestContext(
+      request({
+        Authorization: "Bearer mf_test_secret",
+        "X-AMC-Scope": "RTA",
+      }),
+      { authorizer: authorized, allowedOrigins: new Set() },
+    );
+
+    expect(context.tenantId).toBe("RTA");
+    expect(context.accessScope.kind).toBe("all-tenants");
+    expect(context.accessScope.tenantId).toBe("RTA");
+  });
+
+  test("does not create a context when RTA is not granted to the credential", async () => {
+    const tenantOnlyAuthorizer: CredentialAuthorizer = {
+      async authorize(_credential, tenantId) {
+        if (tenantId === "RTA") {
+          return { decision: "unauthorized_scope" };
+        }
+        return { decision: "authorized", keyId: "tenant-only-key" };
+      },
+    };
+
+    await expectContextError(
+      createHttpRequestContext(
+        request({
+          Authorization: "Bearer mf_test_secret",
+          "X-AMC-Scope": "RTA",
+        }),
+        { authorizer: tenantOnlyAuthorizer, allowedOrigins: new Set() },
+      ),
+      403,
+      "scope_forbidden",
+    );
+  });
+
+  test("keeps near-miss rta as an exact tenant after authorization", async () => {
+    const lowercaseRtaAuthorizer: CredentialAuthorizer = {
+      async authorize(_credential, tenantId) {
+        return tenantId === "rta"
+          ? { decision: "authorized", keyId: "lowercase-rta-key" }
+          : { decision: "unauthorized_scope" };
+      },
+    };
+    const context = await createHttpRequestContext(
+      request({
+        Authorization: "Bearer mf_test_secret",
+        "X-AMC-Scope": "rta",
+      }),
+      { authorizer: lowercaseRtaAuthorizer, allowedOrigins: new Set() },
+    );
+
+    expect(context.accessScope.kind).toBe("tenant");
+    expect(context.accessScope.tenantId).toBe("rta");
   });
 
   test.each([
