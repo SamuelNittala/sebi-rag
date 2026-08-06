@@ -19,7 +19,7 @@ export type TenantAccessScope = Readonly<
 const TENANT_ID_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,98}[A-Za-z0-9])?$/;
 const AUTHORIZED_RTA_SCOPE = "RTA";
 const RTA_AMC_TENANT_IDS = Object.freeze(
-  ["101", "128", "183", "185", "RMF"].map(createTenantId),
+  ["101", "128", "176", "183", "185", "RMF"].map(createTenantId),
 );
 
 export function createTenantId(value: string): TenantId {

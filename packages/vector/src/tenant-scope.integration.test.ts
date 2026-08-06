@@ -75,7 +75,7 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
         ownership_manifest_id: "scope-fixture",
         ownership_manifest_version: 1,
       },
-      ...["101", "128", "183", "185", "RMF", "176", "RTA"].map((tenantId) => ({
+      ...["101", "128", "176", "183", "185", "RMF", "910", "RTA"].map((tenantId) => ({
         label: tenantId,
         visibility_scope: "TENANT" as const,
         tenant_id: tenantId,
@@ -239,7 +239,7 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
   test.each([
     ["tenant-a", tenantA, ["global", "tenant-a"]],
     ["tenant-b", tenantB, ["global", "tenant-b"]],
-    ["RTA", rta, ["global", "101", "128", "183", "185", "RMF"]],
+    ["RTA", rta, ["global", "101", "128", "176", "183", "185", "RMF"]],
   ])("returns GLOBAL plus %s across dense and lexical PDF/HTML paths", async (
     _label,
     accessScope,
@@ -298,7 +298,7 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
     });
     const rtaExcludedTenantCitation = await vectorClient.searchSimilar(vector, {
       accessScope: rta,
-      filters: { document_id: pdfDocumentId, amc_name: "176" },
+      filters: { document_id: pdfDocumentId, amc_name: "910" },
       limit: 10,
     });
 
@@ -309,13 +309,14 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
     expect(rtaSchemes).toEqual([
       "Fund 101",
       "Fund 128",
+      "Fund 176",
       "Fund 183",
       "Fund 185",
       "Fund RMF",
       "Shared Common",
     ]);
-    expect(rtaPdfInfo.points_count).toBe(6);
-    expect(rtaHtmlInfo.points_count).toBe(6);
+    expect(rtaPdfInfo.points_count).toBe(7);
+    expect(rtaHtmlInfo.points_count).toBe(7);
     expect(rtaOtherTenantCitation).toHaveLength(1);
     expect(rtaOtherTenantCitation[0]?.payload.amc_name).toBe("185");
     expect(rtaAxisTenantCitation).toHaveLength(1);

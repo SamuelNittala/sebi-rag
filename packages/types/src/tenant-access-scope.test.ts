@@ -54,17 +54,17 @@ describe("tenant access scope", () => {
     }).toEqual({
       kind: "tenant-set",
       tenantId: "RTA",
-      tenantIds: ["101", "128", "183", "185", "RMF"],
+      tenantIds: ["101", "128", "176", "183", "185", "RMF"],
     });
     expect(Object.isFrozen(rtaScope)).toBe(true);
     expect(Object.isFrozen(
       rtaScope.kind === "tenant-set" && rtaScope.tenantIds,
     )).toBe(true);
     expect(isOwnershipVisible(globalOwnership, rtaScope)).toBe(true);
-    for (const tenantId of ["101", "128", "183", "185", "RMF"]) {
+    for (const tenantId of ["101", "128", "176", "183", "185", "RMF"]) {
       expect(isOwnershipVisible(tenantOwnership(tenantId), rtaScope)).toBe(true);
     }
-    expect(isOwnershipVisible(tenantOwnership("176"), rtaScope)).toBe(false);
+    expect(isOwnershipVisible(tenantOwnership("910"), rtaScope)).toBe(false);
     expect(isOwnershipVisible(tenantOwnership("RTA"), rtaScope)).toBe(false);
     expect(isOwnershipVisible(unclassifiedOwnership, rtaScope)).toBe(false);
   });
