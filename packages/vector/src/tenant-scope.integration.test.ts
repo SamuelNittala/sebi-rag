@@ -75,6 +75,13 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
         ownership_manifest_id: "scope-fixture",
         ownership_manifest_version: 1,
       },
+      ...["101", "183", "185", "RMF", "176", "RTA"].map((tenantId) => ({
+        label: tenantId,
+        visibility_scope: "TENANT" as const,
+        tenant_id: tenantId,
+        ownership_manifest_id: "scope-fixture",
+        ownership_manifest_version: 1,
+      })),
       {
         label: "unclassified",
         visibility_scope: "UNCLASSIFIED" as const,
@@ -103,7 +110,9 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
               ? "Beta Exclusive"
               : owner.label === "global"
                 ? "Shared Common"
-                : "",
+                : owner.visibility_scope === "TENANT"
+                  ? `Fund ${owner.label}`
+                  : "",
           amc_name: owner.label,
           scheme_type: "",
           scheme_category: "",
@@ -113,8 +122,8 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
           section_header: null,
           sebi_scheme_id: "",
           sebi_url: "",
-          knowledge_domain: "sif",
-          source_collection: "mirae_sif",
+          knowledge_domain: "sif" as const,
+          source_collection: "mirae_sif" as const,
           ...owner,
         },
       },
@@ -190,9 +199,9 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
           document_id: htmlDocumentId,
           document_title: owner.label,
           source_url: `https://example.test/${owner.label}`,
-          content_category: "education",
-          knowledge_domain: "sif",
-          source_collection: "mirae_sif",
+          content_category: "education" as const,
+          knowledge_domain: "sif" as const,
+          source_collection: "mirae_sif" as const,
           section_heading: null,
           has_table: false,
           ...owner,
@@ -208,9 +217,9 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
           document_id: htmlDocumentId,
           document_title: `${publicationStatus} tenant`,
           source_url: `https://example.test/${publicationStatus}`,
-          content_category: "education",
-          knowledge_domain: "sif",
-          source_collection: "mirae_sif",
+          content_category: "education" as const,
+          knowledge_domain: "sif" as const,
+          source_collection: "mirae_sif" as const,
           section_heading: null,
           has_table: false,
           publication_status: publicationStatus,
@@ -230,7 +239,7 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
   test.each([
     ["tenant-a", tenantA, ["global", "tenant-a"]],
     ["tenant-b", tenantB, ["global", "tenant-b"]],
-    ["RTA", rta, ["global", "tenant-a", "tenant-b"]],
+    ["RTA", rta, ["global", "101", "183", "185", "RMF"]],
   ])("returns GLOBAL plus %s across dense and lexical PDF/HTML paths", async (
     _label,
     accessScope,
@@ -247,14 +256,15 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
       vectorClient.searchHtmlLexical("scope proof", { accessScope, limit: 20 }),
     ]);
 
+    const sortedExpected = [...expected].sort();
     expect(pdfDense.map((row) => row.payload.text.split(" ").at(-1)).sort())
-      .toEqual(expected);
+      .toEqual(sortedExpected);
     expect(pdfLexical.map((row) => row.payload.text.split(" ").at(-1)).sort())
-      .toEqual(expected);
+      .toEqual(sortedExpected);
     expect(htmlDense.map((row) => row.payload.text.split(" ").at(-1)).sort())
-      .toEqual(expected);
+      .toEqual(sortedExpected);
     expect(htmlLexical.map((row) => row.payload.text.split(" ").at(-1)).sort())
-      .toEqual(expected);
+      .toEqual(sortedExpected);
     for (const row of [pdfDense, pdfLexical, htmlDense, htmlLexical].flat()) {
       expect(row.payload.text).not.toMatch(/staged|retired|unclassified/);
     }
@@ -278,7 +288,12 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
     });
     const rtaOtherTenantCitation = await vectorClient.searchSimilar(vector, {
       accessScope: rta,
-      filters: { document_id: pdfDocumentId, amc_name: "tenant-b" },
+      filters: { document_id: pdfDocumentId, amc_name: "185" },
+      limit: 10,
+    });
+    const rtaExcludedTenantCitation = await vectorClient.searchSimilar(vector, {
+      accessScope: rta,
+      filters: { document_id: pdfDocumentId, amc_name: "176" },
       limit: 10,
     });
 
@@ -287,14 +302,17 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
     expect(htmlInfo.points_count).toBe(2);
     expect(otherTenantCitation).toEqual([]);
     expect(rtaSchemes).toEqual([
-      "Alpha Exclusive",
-      "Beta Exclusive",
+      "Fund 101",
+      "Fund 183",
+      "Fund 185",
+      "Fund RMF",
       "Shared Common",
     ]);
-    expect(rtaPdfInfo.points_count).toBe(3);
-    expect(rtaHtmlInfo.points_count).toBe(3);
+    expect(rtaPdfInfo.points_count).toBe(5);
+    expect(rtaHtmlInfo.points_count).toBe(5);
     expect(rtaOtherTenantCitation).toHaveLength(1);
-    expect(rtaOtherTenantCitation[0]?.payload.amc_name).toBe("tenant-b");
+    expect(rtaOtherTenantCitation[0]?.payload.amc_name).toBe("185");
+    expect(rtaExcludedTenantCitation).toEqual([]);
   });
 
   test.each([
@@ -309,6 +327,9 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
     const vector = new Array(1024).fill(0);
     vector[0] = 1;
     const vectorValue = `[${vector.join(",")}]`;
+    const tenantIds = accessScope.kind === "tenant-set"
+      ? `{${accessScope.tenantIds.join(",")}}`
+      : "{}";
     const exact = await packageClient.begin(async (transaction) => {
       await transaction`SET LOCAL enable_indexscan = off`;
       await transaction`SET LOCAL enable_bitmapscan = off`;
@@ -317,8 +338,14 @@ integrationDescribe("tenant-scoped vector retrieval", () => {
         FROM chunks
         WHERE publication_status = 'published'
           AND CASE
-            WHEN ${accessScope.kind} = 'all-tenants'
-              THEN visibility_scope IN ('GLOBAL', 'TENANT')
+            WHEN ${accessScope.kind} = 'tenant-set'
+              THEN (
+                visibility_scope = 'GLOBAL'
+                OR (
+                  visibility_scope = 'TENANT'
+                  AND tenant_id = ANY(${tenantIds}::text[])
+                )
+              )
             ELSE (
               visibility_scope = 'GLOBAL'
               OR (

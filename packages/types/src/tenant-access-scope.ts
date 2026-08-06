@@ -10,13 +10,17 @@ export type TenantAccessScope = Readonly<
       tenantId: TenantId;
     }
   | {
-      kind: "all-tenants";
+      kind: "tenant-set";
       tenantId: TenantId;
+      tenantIds: readonly TenantId[];
     }
 >;
 
 const TENANT_ID_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,98}[A-Za-z0-9])?$/;
-const ALL_TENANTS_AMC_SCOPE = "RTA";
+const KFIN_RTA_SCOPE = "RTA";
+const KFIN_AMC_TENANT_IDS = Object.freeze(
+  ["101", "183", "185", "RMF"].map(createTenantId),
+);
 
 export function createTenantId(value: string): TenantId {
   if (!TENANT_ID_PATTERN.test(value)) {
@@ -41,12 +45,13 @@ export function createAuthorizedTenantAccessScope(
   tenantId: string,
 ): TenantAccessScope {
   const tenantScope = createTenantAccessScope(tenantId);
-  if (tenantScope.tenantId !== ALL_TENANTS_AMC_SCOPE) {
+  if (tenantScope.tenantId !== KFIN_RTA_SCOPE) {
     return tenantScope;
   }
   return Object.freeze({
-    kind: "all-tenants",
+    kind: "tenant-set",
     tenantId: tenantScope.tenantId,
+    tenantIds: KFIN_AMC_TENANT_IDS,
   });
 }
 
@@ -60,8 +65,10 @@ export function isOwnershipVisible(
   if (ownership.visibilityScope === "UNCLASSIFIED") {
     return false;
   }
-  if (accessScope.kind === "all-tenants") {
-    return true;
+  if (accessScope.kind === "tenant-set") {
+    return accessScope.tenantIds.some(
+      (tenantId) => tenantId === ownership.tenantId,
+    );
   }
   return ownership.tenantId === accessScope.tenantId;
 }

@@ -30,7 +30,7 @@ describe("tenant access scope", () => {
     expect(isOwnershipVisible(tenantOwnership("176"), accessScope)).toBe(false);
   });
 
-  test("allows authorized RTA to see classified ownership from every tenant", () => {
+  test("expands authorized RTA to only the KFIN AMC tenant set", () => {
     const rtaScope = createAuthorizedTenantAccessScope("RTA");
     const globalOwnership: KnowledgeOwnership = {
       visibilityScope: "GLOBAL",
@@ -45,9 +45,27 @@ describe("tenant access scope", () => {
       ownershipManifestVersion: null,
     };
 
+    expect({
+      ...rtaScope,
+      tenantId: String(rtaScope.tenantId),
+      tenantIds: rtaScope.kind === "tenant-set"
+        ? rtaScope.tenantIds.map(String)
+        : undefined,
+    }).toEqual({
+      kind: "tenant-set",
+      tenantId: "RTA",
+      tenantIds: ["101", "183", "185", "RMF"],
+    });
+    expect(Object.isFrozen(rtaScope)).toBe(true);
+    expect(Object.isFrozen(
+      rtaScope.kind === "tenant-set" && rtaScope.tenantIds,
+    )).toBe(true);
     expect(isOwnershipVisible(globalOwnership, rtaScope)).toBe(true);
-    expect(isOwnershipVisible(tenantOwnership("176"), rtaScope)).toBe(true);
-    expect(isOwnershipVisible(tenantOwnership("910"), rtaScope)).toBe(true);
+    for (const tenantId of ["101", "183", "185", "RMF"]) {
+      expect(isOwnershipVisible(tenantOwnership(tenantId), rtaScope)).toBe(true);
+    }
+    expect(isOwnershipVisible(tenantOwnership("176"), rtaScope)).toBe(false);
+    expect(isOwnershipVisible(tenantOwnership("RTA"), rtaScope)).toBe(false);
     expect(isOwnershipVisible(unclassifiedOwnership, rtaScope)).toBe(false);
   });
 

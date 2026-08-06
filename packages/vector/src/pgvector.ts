@@ -37,8 +37,15 @@ function tenantAccessCondition(accessScope: TenantAccessScope) {
   if (!accessScope?.tenantId) {
     throw new Error("Tenant access scope is required");
   }
-  if (accessScope.kind === "all-tenants") {
-    return sql`AND visibility_scope IN ('GLOBAL', 'TENANT')`;
+  if (accessScope.kind === "tenant-set") {
+    const tenantIds = postgresTextArray([...accessScope.tenantIds]);
+    return sql`AND (
+      visibility_scope = 'GLOBAL'
+      OR (
+        visibility_scope = 'TENANT'
+        AND tenant_id = ANY(${tenantIds}::text[])
+      )
+    )`;
   }
   return sql`AND (
     visibility_scope = 'GLOBAL'

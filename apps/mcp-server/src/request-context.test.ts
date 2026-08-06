@@ -79,7 +79,7 @@ describe("createHttpRequestContext", () => {
     expect(Object.isFrozen(context)).toBe(true);
   });
 
-  test("creates an all-tenants repository scope after RTA authorization", async () => {
+  test("creates the KFIN AMC tenant set only after RTA authorization", async () => {
     const context = await createHttpRequestContext(
       request({
         Authorization: "Bearer mf_test_secret",
@@ -89,8 +89,17 @@ describe("createHttpRequestContext", () => {
     );
 
     expect(context.tenantId).toBe("RTA");
-    expect(context.accessScope.kind).toBe("all-tenants");
-    expect(context.accessScope.tenantId).toBe("RTA");
+    expect({
+      ...context.accessScope,
+      tenantId: String(context.accessScope.tenantId),
+      tenantIds: context.accessScope.kind === "tenant-set"
+        ? context.accessScope.tenantIds.map(String)
+        : undefined,
+    }).toEqual({
+      kind: "tenant-set",
+      tenantId: "RTA",
+      tenantIds: ["101", "183", "185", "RMF"],
+    });
   });
 
   test("does not create a context when RTA is not granted to the credential", async () => {
