@@ -17,9 +17,9 @@ export type TenantAccessScope = Readonly<
 >;
 
 const TENANT_ID_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,98}[A-Za-z0-9])?$/;
-const KFIN_RTA_SCOPE = "RTA";
-const KFIN_AMC_TENANT_IDS = Object.freeze(
-  ["101", "183", "185", "RMF"].map(createTenantId),
+const AUTHORIZED_RTA_SCOPE = "RTA";
+const RTA_AMC_TENANT_IDS = Object.freeze(
+  ["101", "128", "183", "185", "RMF"].map(createTenantId),
 );
 
 export function createTenantId(value: string): TenantId {
@@ -45,13 +45,13 @@ export function createAuthorizedTenantAccessScope(
   tenantId: string,
 ): TenantAccessScope {
   const tenantScope = createTenantAccessScope(tenantId);
-  if (tenantScope.tenantId !== KFIN_RTA_SCOPE) {
+  if (tenantScope.tenantId !== AUTHORIZED_RTA_SCOPE) {
     return tenantScope;
   }
   return Object.freeze({
     kind: "tenant-set",
     tenantId: tenantScope.tenantId,
-    tenantIds: KFIN_AMC_TENANT_IDS,
+    tenantIds: RTA_AMC_TENANT_IDS,
   });
 }
 

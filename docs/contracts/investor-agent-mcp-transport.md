@@ -15,16 +15,16 @@ Both values must come from protected deployment configuration. Investor or
 model input must not select, replace, or forward the scope header. A key may
 have several grants, but each deployment must inject exactly one configured
 scope per request. `RTA` is the reserved regulator scope: after exact credential
-authorization, it creates an explicit KFIN AMC-set repository capability for
-tenant IDs `101`, `183`, `185`, and `RMF`.
+authorization, it creates an explicit AMC-set repository capability for tenant
+IDs `101`, `128`, `183`, `185`, and `RMF`.
 
 Missing, repeated, comma-joined, malformed, or unauthorized scope values fail
 before tool dispatch. There is no compatibility request without a scope and no
 tool argument that can broaden the authorized repository capability. Ordinary
 AMC scopes retrieve `GLOBAL` plus their matching tenant. The authorized `RTA`
 scope retrieves published `GLOBAL` rows plus `TENANT` rows owned by `101`,
-`183`, `185`, or `RMF`. It does not retrieve rows owned by any other AMC or by
-the synthetic `RTA` tenant. Both modes exclude staged, retired, and
+`128`, `183`, `185`, or `RMF`. It does not retrieve rows owned by any other AMC
+or by the synthetic `RTA` tenant. Both modes exclude staged, retired, and
 `UNCLASSIFIED` rows.
 
 The additive `topic` input maps `general_mutual_fund` to published

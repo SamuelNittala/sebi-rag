@@ -79,7 +79,7 @@ describe("createHttpRequestContext", () => {
     expect(Object.isFrozen(context)).toBe(true);
   });
 
-  test("creates the KFIN AMC tenant set only after RTA authorization", async () => {
+  test("creates the configured AMC tenant set only after RTA authorization", async () => {
     const context = await createHttpRequestContext(
       request({
         Authorization: "Bearer mf_test_secret",
@@ -98,7 +98,7 @@ describe("createHttpRequestContext", () => {
     }).toEqual({
       kind: "tenant-set",
       tenantId: "RTA",
-      tenantIds: ["101", "183", "185", "RMF"],
+      tenantIds: ["101", "128", "183", "185", "RMF"],
     });
   });
 
