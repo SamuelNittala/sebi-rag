@@ -160,6 +160,7 @@ function createDiscoveryRuntime(
   retryPolicy: RetryPolicy,
 ): WorkerRuntime {
   const repository = createDatabaseDiscoverySourceRepository(input.database);
+  const shortChecksum = config.configChecksum.slice(0, 12);
   const fetch = new FetchDocumentStage({
     repository,
     artifactStore: input.artifactStore,
@@ -168,7 +169,7 @@ function createDiscoveryRuntime(
       parseImplementationVersion: deriveStageImplementationVersion({ configChecksum: config.configChecksum }),
       maxAttempts: config.maxAttempts,
     },
-    artifactProducerVersion: config.configChecksum,
+    artifactProducerVersion: shortChecksum,
   });
   const discover = new DiscoverSourceStage({
     repository,
@@ -198,9 +199,9 @@ function createStageRuntime(
   overrides: WorkerCompositionOverrides,
 ): WorkerRuntime {
   const parseAdapter = new ParsePdfStage({ artifactStore: input.artifactStore }, {
-    parserVersion: config.configChecksum,
-    tableExtractorVersion: config.configChecksum,
-    producerVersion: config.configChecksum,
+    parserVersion: config.configChecksum.slice(0, 12),
+    tableExtractorVersion: config.configChecksum.slice(0, 12),
+    producerVersion: config.configChecksum.slice(0, 12),
     deadlineMs: config.parseDeadlineMs,
     maxPages: config.parseMaxPages,
     maxTextChars: config.parseMaxTextChars,
