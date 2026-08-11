@@ -15,16 +15,7 @@ const checksum = (value: string) => value.repeat(64);
 function environment(): Record<string, string> {
   return {
     PIPELINE_WORKER_ID: "worker-fixture-1",
-    PIPELINE_RELEASE_DIGEST: `sha256:${checksum("a")}`,
     PIPELINE_CONFIG_CHECKSUM: checksum("b"),
-    PIPELINE_PARSER_VERSION: "pdf-parser-v1",
-    PIPELINE_TABLE_EXTRACTOR_VERSION: "table-parser-v1",
-    PIPELINE_FETCH_ARTIFACT_VERSION: "fetch-artifact-v1",
-    PIPELINE_PARSE_ARTIFACT_VERSION: "parse-artifact-v1",
-    PIPELINE_PARSE_COMPONENT_VERSION: "parse-component-v1",
-    PIPELINE_CHUNK_COMPONENT_VERSION: "chunk-component-v1",
-    PIPELINE_REVIEW_COMPONENT_VERSION: "review-component-v1",
-    PIPELINE_PUBLISH_COMPONENT_VERSION: "publish-component-v1",
     PIPELINE_LEASE_DURATION_MS: "120000",
     PIPELINE_HEARTBEAT_INTERVAL_MS: "30000",
     PIPELINE_MAX_ATTEMPTS: "3",
@@ -36,14 +27,14 @@ function environment(): Record<string, string> {
 }
 
 describe("immutable pipeline worker composition", () => {
-  test("fails closed on missing or mutable release/config/model identity", () => {
-    const env = environment();
-    delete env.PIPELINE_RELEASE_DIGEST;
-    expect(() => loadImmutableWorkerRuntimeConfig(env)).toThrow("PIPELINE_RELEASE_DIGEST");
+  test("fails closed on missing config checksum or embedding model", () => {
+    const missingChecksum = environment();
+    delete missingChecksum.PIPELINE_CONFIG_CHECKSUM;
+    expect(() => loadImmutableWorkerRuntimeConfig(missingChecksum)).toThrow("PIPELINE_CONFIG_CHECKSUM");
 
-    const mutable = environment();
-    mutable.PIPELINE_RELEASE_DIGEST = "latest";
-    expect(() => loadImmutableWorkerRuntimeConfig(mutable)).toThrow("immutable");
+    const invalidChecksum = environment();
+    invalidChecksum.PIPELINE_CONFIG_CHECKSUM = "not-a-sha256";
+    expect(() => loadImmutableWorkerRuntimeConfig(invalidChecksum)).toThrow("SHA-256");
 
     const missingModel = environment();
     delete missingModel.EMBEDDING_MODEL;

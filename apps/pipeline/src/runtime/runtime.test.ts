@@ -14,15 +14,10 @@ import {
 } from "./retry-policy.ts";
 
 const checksum = (character: string) => character.repeat(64);
-const RELEASE_IDENTITY = `sha256:${checksum("a")}`;
 const parseIdentity = {
-  releaseIdentity: RELEASE_IDENTITY,
-  componentVersion: "parse-v1",
   configChecksum: checksum("b"),
 };
 const chunkIdentity = {
-  releaseIdentity: RELEASE_IDENTITY,
-  componentVersion: "chunk-v1",
   configChecksum: checksum("c"),
 };
 const PARSE_IMPLEMENTATION = deriveStageImplementationVersion(parseIdentity);
@@ -257,13 +252,11 @@ describe("retry classification", () => {
 });
 
 describe("stage implementation identity", () => {
-  test("release, component, and configuration drift derive different compatibility identities", () => {
+  test("configuration drift derives a different compatibility identity", () => {
     const baseline = deriveStageImplementationVersion(parseIdentity);
-    expect(deriveStageImplementationVersion({ ...parseIdentity, releaseIdentity: `sha256:${checksum("d")}` })).not.toBe(baseline);
-    expect(deriveStageImplementationVersion({ ...parseIdentity, componentVersion: "parse-v2" })).not.toBe(baseline);
-    expect(deriveStageImplementationVersion({ ...parseIdentity, configChecksum: checksum("e") })).not.toBe(baseline);
+    expect(deriveStageImplementationVersion({ configChecksum: checksum("e") })).not.toBe(baseline);
     expect(baseline).toMatch(/^stage-v1:[0-9a-f]{64}$/);
-    expect(() => deriveStageImplementationVersion({ ...parseIdentity, releaseIdentity: "latest" })).toThrow("immutable sha256");
+    expect(() => deriveStageImplementationVersion({ configChecksum: "not-a-sha256" })).toThrow("SHA-256");
   });
 });
 

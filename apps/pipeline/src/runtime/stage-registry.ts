@@ -2,7 +2,6 @@ import { documentPipelineStages, type DocumentPipelineStage } from "@mf-rag/type
 import { createHash } from "node:crypto";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
-const IMMUTABLE_RELEASE_PATTERN = /^sha256:[0-9a-f]{64}$/;
 
 export interface StageHandlerContext {
   readonly pipelineRunId: string;
@@ -19,8 +18,6 @@ export interface StageHandlerResult {
 }
 
 export interface StageImplementationIdentityInput {
-  readonly releaseIdentity: string;
-  readonly componentVersion: string;
   readonly configChecksum: string;
 }
 
@@ -34,19 +31,13 @@ export interface StageRegistration extends Omit<StageRegistrationInput, "impleme
   readonly implementationVersion: string;
 }
 
-/** Compatibility changes automatically when release code, component, or config changes. */
+/** Compatibility changes automatically when configuration changes. */
 export function deriveStageImplementationVersion(input: StageImplementationIdentityInput): string {
-  if (!IMMUTABLE_RELEASE_PATTERN.test(input.releaseIdentity)) {
-    throw new Error("Release identity must be an immutable sha256:<64 lowercase hex> digest.");
-  }
-  assertCanonicalComponent(input.componentVersion, "Component version");
   if (!SHA256_PATTERN.test(input.configChecksum)) {
     throw new Error("Stage configuration checksum must be a lowercase SHA-256 value.");
   }
   const digest = createHash("sha256").update(JSON.stringify([
     "mf-rag-stage-implementation-v1",
-    input.releaseIdentity,
-    input.componentVersion,
     input.configChecksum,
   ])).digest("hex");
   return `stage-v1:${digest}`;
@@ -80,11 +71,5 @@ export class StageRegistry {
     const nextStage = documentPipelineStages[position + 1];
     if (!nextStage) return null;
     return this.get(nextStage);
-  }
-}
-
-function assertCanonicalComponent(value: string, label: string): void {
-  if (!value.trim() || value !== value.trim() || value.length > 255 || /[\u0000-\u001f\u007f]/.test(value)) {
-    throw new Error(`${label} must be a canonical non-empty value of at most 255 characters.`);
   }
 }

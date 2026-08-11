@@ -54,16 +54,7 @@ type WorkerRole = "discovery-worker" | "stage-worker";
 
 export interface ImmutableWorkerRuntimeConfig {
   readonly owner: string;
-  readonly releaseDigest: string;
   readonly configChecksum: string;
-  readonly parserVersion: string;
-  readonly tableExtractorVersion: string;
-  readonly parseArtifactProducerVersion: string;
-  readonly fetchArtifactProducerVersion: string;
-  readonly parseComponentVersion: string;
-  readonly chunkComponentVersion: string;
-  readonly reviewComponentVersion: string;
-  readonly publishComponentVersion: string;
   readonly embeddingBaseUrl: string;
   readonly embeddingModel: string;
   readonly embeddingBatchSize: number;
@@ -98,31 +89,17 @@ export interface WorkerCompositionOverrides {
 }
 
 const SHA256 = /^[0-9a-f]{64}$/;
-const RELEASE_DIGEST = /^sha256:[0-9a-f]{64}$/;
 
 export function loadImmutableWorkerRuntimeConfig(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): ImmutableWorkerRuntimeConfig {
-  const releaseDigest = required(env.PIPELINE_RELEASE_DIGEST, "PIPELINE_RELEASE_DIGEST");
-  if (!RELEASE_DIGEST.test(releaseDigest)) {
-    throw new Error("PIPELINE_RELEASE_DIGEST must be an immutable sha256:<64 lowercase hex> digest.");
-  }
   const configChecksum = required(env.PIPELINE_CONFIG_CHECKSUM, "PIPELINE_CONFIG_CHECKSUM");
   if (!SHA256.test(configChecksum)) {
     throw new Error("PIPELINE_CONFIG_CHECKSUM must be the current lowercase SHA-256 configuration checksum.");
   }
   return {
     owner: required(env.PIPELINE_WORKER_ID, "PIPELINE_WORKER_ID"),
-    releaseDigest,
     configChecksum,
-    parserVersion: required(env.PIPELINE_PARSER_VERSION, "PIPELINE_PARSER_VERSION"),
-    tableExtractorVersion: required(env.PIPELINE_TABLE_EXTRACTOR_VERSION, "PIPELINE_TABLE_EXTRACTOR_VERSION"),
-    parseArtifactProducerVersion: required(env.PIPELINE_PARSE_ARTIFACT_VERSION, "PIPELINE_PARSE_ARTIFACT_VERSION"),
-    fetchArtifactProducerVersion: required(env.PIPELINE_FETCH_ARTIFACT_VERSION, "PIPELINE_FETCH_ARTIFACT_VERSION"),
-    parseComponentVersion: required(env.PIPELINE_PARSE_COMPONENT_VERSION, "PIPELINE_PARSE_COMPONENT_VERSION"),
-    chunkComponentVersion: required(env.PIPELINE_CHUNK_COMPONENT_VERSION, "PIPELINE_CHUNK_COMPONENT_VERSION"),
-    reviewComponentVersion: required(env.PIPELINE_REVIEW_COMPONENT_VERSION, "PIPELINE_REVIEW_COMPONENT_VERSION"),
-    publishComponentVersion: required(env.PIPELINE_PUBLISH_COMPONENT_VERSION, "PIPELINE_PUBLISH_COMPONENT_VERSION"),
     embeddingBaseUrl: canonicalUrl(required(env.OLLAMA_BASE_URL, "OLLAMA_BASE_URL")),
     embeddingModel: required(env.EMBEDDING_MODEL, "EMBEDDING_MODEL"),
     embeddingBatchSize: integer(env.EMBEDDING_BATCH_SIZE, 10, "EMBEDDING_BATCH_SIZE"),
@@ -183,16 +160,15 @@ function createDiscoveryRuntime(
   retryPolicy: RetryPolicy,
 ): WorkerRuntime {
   const repository = createDatabaseDiscoverySourceRepository(input.database);
-  const parseIdentity = identity(config, config.parseComponentVersion);
   const fetch = new FetchDocumentStage({
     repository,
     artifactStore: input.artifactStore,
     pipelineIdentity: {
       pipelineImplementationVersion: pipelineImplementationVersion(config),
-      parseImplementationVersion: deriveStageImplementationVersion(parseIdentity),
+      parseImplementationVersion: deriveStageImplementationVersion({ configChecksum: config.configChecksum }),
       maxAttempts: config.maxAttempts,
     },
-    artifactProducerVersion: config.fetchArtifactProducerVersion,
+    artifactProducerVersion: config.configChecksum,
   });
   const discover = new DiscoverSourceStage({
     repository,
@@ -222,9 +198,9 @@ function createStageRuntime(
   overrides: WorkerCompositionOverrides,
 ): WorkerRuntime {
   const parseAdapter = new ParsePdfStage({ artifactStore: input.artifactStore }, {
-    parserVersion: config.parserVersion,
-    tableExtractorVersion: config.tableExtractorVersion,
-    producerVersion: config.parseArtifactProducerVersion,
+    parserVersion: config.configChecksum,
+    tableExtractorVersion: config.configChecksum,
+    producerVersion: config.configChecksum,
     deadlineMs: config.parseDeadlineMs,
     maxPages: config.parseMaxPages,
     maxTextChars: config.parseMaxTextChars,
@@ -259,10 +235,10 @@ function createStageRuntime(
     publisher,
   });
   const registry = new StageRegistry([
-    { stage: "PARSE", implementationIdentity: identity(config, config.parseComponentVersion), handler: (context) => parse.execute(context) },
-    { stage: "CHUNK_AND_INSPECT", implementationIdentity: identity(config, config.chunkComponentVersion), handler: (context) => chunk.execute(context) },
-    { stage: "REVIEW_DECISION", implementationIdentity: identity(config, config.reviewComponentVersion), handler: (context) => review.execute(context) },
-    { stage: "EMBED_AND_PUBLISH", implementationIdentity: identity(config, config.publishComponentVersion), handler: (context) => publish.execute(context) },
+    { stage: "PARSE", implementationIdentity: { configChecksum: config.configChecksum }, handler: (context) => parse.execute(context) },
+    { stage: "CHUNK_AND_INSPECT", implementationIdentity: { configChecksum: config.configChecksum }, handler: (context) => chunk.execute(context) },
+    { stage: "REVIEW_DECISION", implementationIdentity: { configChecksum: config.configChecksum }, handler: (context) => review.execute(context) },
+    { stage: "EMBED_AND_PUBLISH", implementationIdentity: { configChecksum: config.configChecksum }, handler: (context) => publish.execute(context) },
   ]);
   const worker = new StageWorker({
     owner: config.owner,
@@ -317,22 +293,8 @@ function createScheduledPublisher(database: Database, embedder: Embedder): Sched
   };
 }
 
-function identity(
-  config: ImmutableWorkerRuntimeConfig,
-  componentVersion: string,
-): StageImplementationIdentityInput {
-  return {
-    releaseIdentity: config.releaseDigest,
-    componentVersion,
-    configChecksum: config.configChecksum,
-  };
-}
-
 function pipelineImplementationVersion(config: ImmutableWorkerRuntimeConfig): string {
-  return `pipeline-v1:${createHash("sha256").update(JSON.stringify([
-    config.releaseDigest,
-    config.configChecksum,
-  ])).digest("hex")}`;
+  return `pipeline-v1:${createHash("sha256").update(config.configChecksum).digest("hex")}`;
 }
 
 function required(value: string | undefined, name: string): string {

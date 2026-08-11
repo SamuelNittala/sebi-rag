@@ -69,6 +69,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.864.0",
+        "@mf-rag/core": "workspace:*",
         "@mf-rag/db": "workspace:*",
         "@mf-rag/types": "workspace:*",
         "cron-parser": "^4.9.0",
