@@ -29,6 +29,7 @@ describe("access-scope manifest validation", () => {
       key: String(scope.accessScopeKey),
     }))).toEqual([
       { externalCode: "117", key: "mirae-mf" },
+      { externalCode: "128", key: "axis-mf" },
       { externalCode: "910", key: "mirae-sif" },
     ]);
     expect(desiredState.accessScopes.every((scope) => (
@@ -63,6 +64,23 @@ describe("access-scope manifest validation", () => {
       "/api/sif-dynamic-get",
       "/wp-content/uploads/",
     ]);
+
+    const axisMf = desiredState.accessScopes.find((scope) => String(scope.externalCode) === "128");
+    expect(axisMf?.classification).toEqual({
+      knowledgeDomain: "mutual_fund",
+      sourceCollection: "axis_mf",
+      amcSlug: "axis",
+    });
+    expect(axisMf?.sources[0]?.discovery).toEqual({
+      strategy: "sebi_sid_scraper",
+      mfId: "3",
+      maxSchemes: 100,
+      maxDocuments: 100,
+      minimumDocuments: 50,
+    });
+    expect(axisMf?.sources[0]?.fetch.allowedHosts).toEqual(["www.sebi.gov.in"]);
+    expect(axisMf?.sources[0]?.fetch.allowedPathPrefixes).toEqual(["/sebi_data/", "/sebiweb/"]);
+    expect(Object.isFrozen(axisMf?.sources)).toBe(true);
   });
 
   test("accepts a manifest-driven Mirae SIF catalogue watcher without pinned documents", () => {
@@ -122,6 +140,65 @@ describe("access-scope manifest validation", () => {
           endpoint: ter
           url: https://example.com/ter`,
     ))).toThrow(/url|unrecognized/i);
+  });
+
+  test("accepts a valid sebi_sid_scraper discovery config", () => {
+    const yaml = validManifest().replace(
+      "strategy: explicit_urls\n      urls: []",
+      `strategy: sebi_sid_scraper
+      mfId: "3"
+      maxSchemes: 100
+      maxDocuments: 100
+      minimumDocuments: 50`,
+    );
+
+    expect(parseAccessScopeManifestYaml(yaml).sources[0]?.discovery).toEqual({
+      strategy: "sebi_sid_scraper",
+      mfId: "3",
+      maxSchemes: 100,
+      maxDocuments: 100,
+      minimumDocuments: 50,
+    });
+  });
+
+  test("rejects a non-numeric mfId for sebi_sid_scraper", () => {
+    const yaml = validManifest().replace(
+      "strategy: explicit_urls\n      urls: []",
+      `strategy: sebi_sid_scraper
+      mfId: "abc"
+      maxSchemes: 100
+      maxDocuments: 100
+      minimumDocuments: 50`,
+    );
+
+    expect(() => parseAccessScopeManifestYaml(yaml)).toThrow(/mfId/i);
+  });
+
+  test("rejects minimumDocuments exceeding maxDocuments for sebi_sid_scraper", () => {
+    const yaml = validManifest().replace(
+      "strategy: explicit_urls\n      urls: []",
+      `strategy: sebi_sid_scraper
+      mfId: "3"
+      maxSchemes: 100
+      maxDocuments: 50
+      minimumDocuments: 51`,
+    );
+
+    expect(() => parseAccessScopeManifestYaml(yaml)).toThrow(/minimumDocuments.*maxDocuments/i);
+  });
+
+  test("rejects extra unknown fields on sebi_sid_scraper (strict mode)", () => {
+    const yaml = validManifest().replace(
+      "strategy: explicit_urls\n      urls: []",
+      `strategy: sebi_sid_scraper
+      mfId: "3"
+      maxSchemes: 100
+      maxDocuments: 100
+      minimumDocuments: 50
+      unknownField: oops`,
+    );
+
+    expect(() => parseAccessScopeManifestYaml(yaml)).toThrow(/unknownField|unrecognized/i);
   });
 
   test("rejects an organization slug as the external access code", () => {

@@ -20,6 +20,7 @@ import {
   type SourceFetchResult,
 } from "./source-connector.ts";
 import { discoverMiraeSifDownloadCatalog } from "./mirae-sif-download-catalog.ts";
+import { discoverSebiSidScraper } from "./sebi-sid-scraper.ts";
 
 const PDF_SIGNATURE = new TextEncoder().encode("%PDF-");
 const DEFAULT_HEADERS = { "user-agent": "mf-rag-document-pipeline/1.0" } as const;
@@ -64,6 +65,13 @@ export class WebsitePdfConnector implements SourceConnector {
         return this.#discoverCrawl(config, signal);
       case "mirae_sif_download_catalog":
         return discoverMiraeSifDownloadCatalog(
+          config,
+          (url, accept, requestSignal) => this.#fetchText(url, accept, requestSignal),
+          (url) => this.#assertAllowed(url),
+          signal,
+        );
+      case "sebi_sid_scraper":
+        return discoverSebiSidScraper(
           config,
           (url, accept, requestSignal) => this.#fetchText(url, accept, requestSignal),
           (url) => this.#assertAllowed(url),

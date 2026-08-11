@@ -5,7 +5,8 @@ export type SourceCollection =
   | "mirae_mf"
   | "mirae_sif"
   | "sebi_regulatory"
-  | "general_mf_faq";
+  | "general_mf_faq"
+  | "axis_mf";
 
 export interface KnowledgeScope {
   knowledgeDomain: KnowledgeDomain;

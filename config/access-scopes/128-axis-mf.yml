@@ -1,0 +1,41 @@
+apiVersion: mf-rag/v1
+kind: AccessScope
+metadata:
+  key: axis-mf
+  externalCode: "128"
+ownership:
+  visibilityScope: TENANT
+  tenantId: "128"
+classification:
+  knowledgeDomain: mutual_fund
+  sourceCollection: axis_mf
+  amcSlug: axis
+sources:
+  - key: axis-mf-sebi-sids
+    connector: website_pdf
+    enabled: false
+    discovery:
+      # Discovers SID PDFs for Axis Mutual Fund from SEBI's scheme database.
+      # externalCode 128 is MFCentral's AMC code; mfId 3 is SEBI's internal
+      # fund identifier used in their URL structure — these are different ID systems.
+      strategy: sebi_sid_scraper
+      mfId: "3"
+      maxSchemes: 100
+      maxDocuments: 100
+      # Axis had ~80 active schemes as of 2026-08-11; set conservatively.
+      minimumDocuments: 50
+    schedule:
+      enabled: false
+      cron: "0 4 * * *"
+      timezone: Asia/Kolkata
+    fetch:
+      allowedHosts:
+        - www.sebi.gov.in
+      allowedPathPrefixes:
+        - /sebi_data/
+        - /sebiweb/
+      maxBytes: 26214400
+      timeoutMs: 30000
+      maxRedirects: 3
+    review:
+      policy: risk_based

@@ -51,6 +51,7 @@ export const discoveryStrategies = [
   "sitemap",
   "constrained_crawl",
   "mirae_sif_download_catalog",
+  "sebi_sid_scraper",
 ] as const;
 export type DiscoveryStrategy = (typeof discoveryStrategies)[number];
 
@@ -103,6 +104,15 @@ export type SourceDiscoveryConfig =
       readonly pageSize: number;
       /** Total catalogue API requests allowed in one complete discovery run. */
       readonly maxPages: number;
+      readonly maxDocuments: number;
+      /** Fail closed when discovery returns fewer documents than this reviewed baseline. */
+      readonly minimumDocuments: number;
+    }
+  | {
+      /** Discovers SID PDFs for an AMC from SEBI's mutual fund database. */
+      readonly strategy: "sebi_sid_scraper";
+      readonly mfId: string;
+      readonly maxSchemes: number;
       readonly maxDocuments: number;
       /** Fail closed when discovery returns fewer documents than this reviewed baseline. */
       readonly minimumDocuments: number;

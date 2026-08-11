@@ -99,11 +99,20 @@ const miraeSifDownloadCatalogSchema = z.object({
   minimumDocuments: z.number().int().min(1).max(10_000),
 }).strict();
 
+const sebiSidScraperSchema = z.object({
+  strategy: z.literal("sebi_sid_scraper"),
+  mfId: z.string().regex(/^\d+$/, "SEBI mfId must be numeric"),
+  maxSchemes: z.number().int().min(1).max(10_000),
+  maxDocuments: z.number().int().min(1).max(10_000),
+  minimumDocuments: z.number().int().min(1).max(10_000),
+}).strict();
+
 const discoverySchema = z.discriminatedUnion("strategy", [
   explicitUrlsSchema,
   sitemapSchema,
   constrainedCrawlSchema,
   miraeSifDownloadCatalogSchema,
+  sebiSidScraperSchema,
 ]);
 
 const scheduleSchema = z.object({
@@ -157,6 +166,15 @@ const sourceSchema = z.object({
       });
     }
   }
+  if (source.discovery.strategy === "sebi_sid_scraper") {
+    if (source.discovery.minimumDocuments > source.discovery.maxDocuments) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "minimumDocuments must not exceed maxDocuments.",
+        path: ["discovery", "minimumDocuments"],
+      });
+    }
+  }
   if (!source.enabled) {
     return;
   }
@@ -188,6 +206,7 @@ const manifestSchema = z.object({
       "mirae_sif",
       "sebi_regulatory",
       "general_mf_faq",
+      "axis_mf",
     ]),
     amcSlug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable(),
   }).strict(),
@@ -322,6 +341,8 @@ function discoveryTargets(discovery: SourceDiscoveryConfig): readonly string[] {
       return discovery.startUrls;
     case "mirae_sif_download_catalog":
       return [discovery.catalogUrl];
+    case "sebi_sid_scraper":
+      return [`https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doGetFundDetails=yes&type=2&mfId=${discovery.mfId}`];
   }
 }
 
