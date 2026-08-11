@@ -1,167 +1,174 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1769934745975,
-      "tag": "0000_remarkable_angel",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1769944732115,
-      "tag": "0001_gorgeous_fenris",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1769961600000,
-      "tag": "0002_pgvector_chunks",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1770134400000,
-      "tag": "0003_rate_limiting",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1774182770153,
-      "tag": "0004_optimal_major_mapleleaf",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1784111944199,
-      "tag": "0005_mirae_sif_scope",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1784207528383,
-      "tag": "0006_glorious_cobalt_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1784212358444,
-      "tag": "0007_short_the_hunter",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1784217376938,
-      "tag": "0008_loud_black_widow",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1784278671306,
-      "tag": "0009_careful_tigra",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1784285129895,
-      "tag": "0010_quick_vision",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1785415979928,
-      "tag": "0011_tenant_ownership_expand",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1785423600000,
-      "tag": "0012_api_key_fingerprint_contract",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1785427200000,
-      "tag": "0013_generic_pdf_faq_contract",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1785513600000,
-      "tag": "0014_faq_bm25_sync",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1785790800000,
-      "tag": "0015_source_pipeline_control",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1785877200000,
-      "tag": "0016_document_version_artifacts",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1785963600000,
-      "tag": "0017_pipeline_stage_runtime",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1786046400000,
-      "tag": "0018_parse_review_lineage",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1786132800000,
-      "tag": "0019_risk_review_publication",
-      "breakpoints": true
-    },
-    {
-      "idx": 20,
-      "version": "7",
-      "when": 1786219200000,
-      "tag": "0020_source_document_missing_state",
-      "breakpoints": true
-    },
-    {
-      "idx": 21,
-      "version": "7",
-      "when": 1786305600000,
-      "tag": "0021_scheduled_retrieval_indexes",
-      "breakpoints": true
-    },
-    {
-      "idx": 22,
-      "version": "7",
-      "when": 1786392000000,
-      "tag": "0022_review_pipeline_lineage",
-      "breakpoints": true
-    }
-  ]
+    "version": "7",
+    "dialect": "postgresql",
+    "entries": [
+        {
+            "idx": 0,
+            "version": "7",
+            "when": 1769934745975,
+            "tag": "0000_remarkable_angel",
+            "breakpoints": true
+        },
+        {
+            "idx": 1,
+            "version": "7",
+            "when": 1769944732115,
+            "tag": "0001_gorgeous_fenris",
+            "breakpoints": true
+        },
+        {
+            "idx": 2,
+            "version": "7",
+            "when": 1769961600000,
+            "tag": "0002_pgvector_chunks",
+            "breakpoints": true
+        },
+        {
+            "idx": 3,
+            "version": "7",
+            "when": 1770134400000,
+            "tag": "0003_rate_limiting",
+            "breakpoints": true
+        },
+        {
+            "idx": 4,
+            "version": "7",
+            "when": 1774182770153,
+            "tag": "0004_optimal_major_mapleleaf",
+            "breakpoints": true
+        },
+        {
+            "idx": 5,
+            "version": "7",
+            "when": 1784111944199,
+            "tag": "0005_mirae_sif_scope",
+            "breakpoints": true
+        },
+        {
+            "idx": 6,
+            "version": "7",
+            "when": 1784207528383,
+            "tag": "0006_glorious_cobalt_man",
+            "breakpoints": true
+        },
+        {
+            "idx": 7,
+            "version": "7",
+            "when": 1784212358444,
+            "tag": "0007_short_the_hunter",
+            "breakpoints": true
+        },
+        {
+            "idx": 8,
+            "version": "7",
+            "when": 1784217376938,
+            "tag": "0008_loud_black_widow",
+            "breakpoints": true
+        },
+        {
+            "idx": 9,
+            "version": "7",
+            "when": 1784278671306,
+            "tag": "0009_careful_tigra",
+            "breakpoints": true
+        },
+        {
+            "idx": 10,
+            "version": "7",
+            "when": 1784285129895,
+            "tag": "0010_quick_vision",
+            "breakpoints": true
+        },
+        {
+            "idx": 11,
+            "version": "7",
+            "when": 1785415979928,
+            "tag": "0011_tenant_ownership_expand",
+            "breakpoints": true
+        },
+        {
+            "idx": 12,
+            "version": "7",
+            "when": 1785423600000,
+            "tag": "0012_api_key_fingerprint_contract",
+            "breakpoints": true
+        },
+        {
+            "idx": 13,
+            "version": "7",
+            "when": 1785427200000,
+            "tag": "0013_generic_pdf_faq_contract",
+            "breakpoints": true
+        },
+        {
+            "idx": 14,
+            "version": "7",
+            "when": 1785513600000,
+            "tag": "0014_faq_bm25_sync",
+            "breakpoints": true
+        },
+        {
+            "idx": 15,
+            "version": "7",
+            "when": 1785790800000,
+            "tag": "0015_source_pipeline_control",
+            "breakpoints": true
+        },
+        {
+            "idx": 16,
+            "version": "7",
+            "when": 1785877200000,
+            "tag": "0016_document_version_artifacts",
+            "breakpoints": true
+        },
+        {
+            "idx": 17,
+            "version": "7",
+            "when": 1785963600000,
+            "tag": "0017_pipeline_stage_runtime",
+            "breakpoints": true
+        },
+        {
+            "idx": 18,
+            "version": "7",
+            "when": 1786046400000,
+            "tag": "0018_parse_review_lineage",
+            "breakpoints": true
+        },
+        {
+            "idx": 19,
+            "version": "7",
+            "when": 1786132800000,
+            "tag": "0019_risk_review_publication",
+            "breakpoints": true
+        },
+        {
+            "idx": 20,
+            "version": "7",
+            "when": 1786219200000,
+            "tag": "0020_source_document_missing_state",
+            "breakpoints": true
+        },
+        {
+            "idx": 21,
+            "version": "7",
+            "when": 1786305600000,
+            "tag": "0021_scheduled_retrieval_indexes",
+            "breakpoints": true
+        },
+        {
+            "idx": 22,
+            "version": "7",
+            "when": 1786392000000,
+            "tag": "0022_review_pipeline_lineage",
+            "breakpoints": true
+        },
+        {
+            "idx": 23,
+            "version": "7",
+            "when": 1786478400000,
+            "tag": "0023_widen_version_columns",
+            "breakpoints": true
+        }
+    ]
 }

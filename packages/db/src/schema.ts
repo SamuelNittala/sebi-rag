@@ -475,9 +475,9 @@ export const ingestionRuns = pgTable(
     sourceName: varchar("source_name", { length: 500 }).notNull(),
     sourceLocation: varchar("source_location", { length: 1000 }),
     fileHash: varchar("file_hash", { length: 64 }).notNull(),
-    parserVersion: varchar("parser_version", { length: 50 }).notNull(),
-    chunkerVersion: varchar("chunker_version", { length: 50 }).notNull(),
-    inspectorVersion: varchar("inspector_version", { length: 50 }).notNull(),
+    parserVersion: varchar("parser_version", { length: 200 }).notNull(),
+    chunkerVersion: varchar("chunker_version", { length: 200 }).notNull(),
+    inspectorVersion: varchar("inspector_version", { length: 200 }).notNull(),
     status: varchar("status", { length: 30 }).notNull().$type<ReviewRunStatus>(),
     candidateChunkCount: integer("candidate_chunk_count").default(0).notNull(),
     inspectedChunkCount: integer("inspected_chunk_count").default(0).notNull(),
@@ -1218,9 +1218,9 @@ export const documentPublicationGenerations = pgTable(
       .references(() => sourceRegistryRevisions.id, { onDelete: "restrict" }),
     riskPolicyVersion: varchar("risk_policy_version", { length: 100 }).notNull(),
     riskDecisionActor: varchar("risk_decision_actor", { length: 255 }).notNull(),
-    parserVersion: varchar("parser_version", { length: 50 }).notNull(),
-    chunkerVersion: varchar("chunker_version", { length: 50 }).notNull(),
-    inspectorVersion: varchar("inspector_version", { length: 50 }).notNull(),
+    parserVersion: varchar("parser_version", { length: 200 }).notNull(),
+    chunkerVersion: varchar("chunker_version", { length: 200 }).notNull(),
+    inspectorVersion: varchar("inspector_version", { length: 200 }).notNull(),
     status: varchar("status", { length: 20 })
       .default("staged")
       .notNull()
