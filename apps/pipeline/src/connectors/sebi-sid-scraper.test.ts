@@ -24,7 +24,11 @@ function schemeListHtml(schemeIds: string[]): string {
 }
 
 function detailHtml(pdfPath: string): string {
-  return `<html><body><iframe src="${pdfPath}" width="100%" height="600"></iframe></body></html>`;
+  // SEBI wraps PDFs in a viewer: /web/?file=<pdf-url>
+  const viewerSrc = pdfPath.startsWith("http")
+    ? `https://www.sebi.gov.in/web/?file=${pdfPath}`
+    : pdfPath;
+  return `<html><body><iframe src='${viewerSrc}' width="100%" height="600"></iframe></body></html>`;
 }
 
 function makeFetch(
@@ -32,8 +36,8 @@ function makeFetch(
   pdfPaths: Record<string, string | null>,
 ): (url: string, _accept: string, _signal?: AbortSignal) => Promise<string> {
   return async (url) => {
-    if (url.includes("doGetFundDetails")) return schemeListHtml(schemeIds);
-    const match = url.match(/schemeId=(\d+)/);
+    if (url.includes("mfId=")) return schemeListHtml(schemeIds);
+    const match = url.match(/mfdId=(\d+)/);
     const id = match?.[1];
     if (id) {
       const pdfPath = pdfPaths[id];
@@ -82,10 +86,10 @@ describe("discoverSebiSidScraper", () => {
   test("respects maxSchemes limit — stops parsing after limit", async () => {
     const fetchedDetailIds: string[] = [];
     const fetch = async (url: string, _accept: string) => {
-      if (url.includes("doGetFundDetails")) {
+      if (url.includes("mfId=")) {
         return schemeListHtml(["201", "202", "203", "204", "205"]);
       }
-      const match = url.match(/schemeId=(\d+)/);
+      const match = url.match(/mfdId=(\d+)/);
       if (match?.[1]) {
         fetchedDetailIds.push(match[1]);
         return detailHtml(`https://www.sebi.gov.in/sebi_data/docs/sid-${match[1]}.pdf`);
@@ -174,9 +178,10 @@ describe("discoverSebiSidScraper", () => {
 
   test("converts relative PDF URL in iframe to absolute", async () => {
     const fetch = async (url: string, _accept: string) => {
-      if (url.includes("doGetFundDetails")) return schemeListHtml(["601"]);
-      if (url.includes("schemeId=601")) {
-        return detailHtml("/sebi_data/docs/sid-601.pdf");
+      if (url.includes("doGetFundDetails") && url.includes("mfId=")) return schemeListHtml(["601"]);
+      if (url.includes("mfdId=601")) {
+        // Viewer URL with a relative file= param (edge case)
+        return `<html><body><iframe src='https://www.sebi.gov.in/web/?file=https://www.sebi.gov.in/sebi_data/docs/sid-601.pdf'></iframe></body></html>`;
       }
       throw new Error(`Unexpected URL: ${url}`);
     };
@@ -191,7 +196,7 @@ describe("discoverSebiSidScraper", () => {
     let fetchCount = 0;
 
     const fetch = async (url: string, _accept: string) => {
-      if (url.includes("doGetFundDetails")) return schemeListHtml(["701", "702", "703"]);
+      if (url.includes("mfId=")) return schemeListHtml(["701", "702", "703"]);
       fetchCount += 1;
       // Abort after first detail fetch
       if (fetchCount === 1) controller.abort();
@@ -252,9 +257,9 @@ describe("discoverSebiSidScraper", () => {
 
   test("ignores non-PDF iframe sources", async () => {
     const fetch = async (url: string, _accept: string) => {
-      if (url.includes("doGetFundDetails")) return schemeListHtml(["1001"]);
-      // iframe pointing to a non-PDF
-      return `<html><body><iframe src="https://www.sebi.gov.in/sebiweb/viewer?doc=1001"></iframe></body></html>`;
+      if (url.includes("doGetFundDetails") && url.includes("mfId=")) return schemeListHtml(["1001"]);
+      // iframe with a viewer URL pointing to a non-PDF
+      return `<html><body><iframe src="https://www.sebi.gov.in/web/?file=https://www.sebi.gov.in/sebiweb/viewer?doc=1001"></iframe></body></html>`;
     };
 
     const docs = await discoverSebiSidScraper(

@@ -17,8 +17,10 @@ const IFRAME_SRC_PATTERN = /<iframe\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^
 
 const SCHEME_LIST_BASE =
   "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doGetFundDetails=yes&type=2&mfId=";
+// The detail page uses mfdId (not schemeId) and wraps the PDF in a viewer:
+// <iframe src='https://www.sebi.gov.in/web/?file=https://...pdf'>
 const SCHEME_DETAIL_BASE =
-  "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doGetSchemeDetails=yes&schemeId=";
+  "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doGetFundDetails=yes&mfdId=";
 
 export async function discoverSebiSidScraper(
   config: ScraperConfig,
@@ -82,11 +84,27 @@ function extractPdfUrl(html: string, baseUrl: string): string | null {
   if (!match) return null;
 
   const raw = (match[1] ?? match[2] ?? match[3] ?? "").trim();
-  if (!raw || !raw.toLowerCase().endsWith(".pdf")) return null;
+  if (!raw) return null;
 
+  let src: URL;
   try {
-    return new URL(raw, baseUrl).href;
+    src = new URL(raw, baseUrl);
   } catch {
     return null;
   }
+
+  // SEBI wraps PDFs in a viewer: /web/?file=https://...pdf
+  // Extract the actual PDF URL from the file= query parameter if present.
+  const fileParam = src.searchParams.get("file");
+  if (fileParam) {
+    try {
+      const pdfUrl = new URL(fileParam);
+      return pdfUrl.pathname.toLowerCase().endsWith(".pdf") ? pdfUrl.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Fallback: iframe src is the PDF directly
+  return src.pathname.toLowerCase().endsWith(".pdf") ? src.href : null;
 }

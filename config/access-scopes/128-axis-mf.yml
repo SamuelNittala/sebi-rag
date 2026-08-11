@@ -34,6 +34,7 @@ sources:
       allowedPathPrefixes:
         - /sebi_data/
         - /sebiweb/
+        - /web/
       maxBytes: 26214400
       timeoutMs: 30000
       maxRedirects: 3
