@@ -32,9 +32,13 @@ describe("access-scope manifest validation", () => {
       { externalCode: "128", key: "axis-mf" },
       { externalCode: "910", key: "mirae-sif" },
     ]);
-    expect(desiredState.accessScopes.every((scope) => (
+    // 117 and 910 remain disabled; 128 (axis) ships with scheduling enabled.
+    const disabledScopes = desiredState.accessScopes.filter((s) => String(s.externalCode) !== "128");
+    expect(disabledScopes.every((scope) => (
       scope.sources.every((source) => !source.enabled && !source.schedule.enabled)
     ))).toBe(true);
+    const axisScope = desiredState.accessScopes.find((s) => String(s.externalCode) === "128");
+    expect(axisScope?.sources.every((source) => source.enabled && source.schedule.enabled)).toBe(true);
     expect(Object.isFrozen(desiredState)).toBe(true);
     expect(Object.isFrozen(desiredState.accessScopes)).toBe(true);
     expect(Object.isFrozen(desiredState.accessScopes[0]?.sources)).toBe(true);

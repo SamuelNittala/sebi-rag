@@ -13,7 +13,7 @@ classification:
 sources:
   - key: axis-mf-sebi-sids
     connector: website_pdf
-    enabled: false
+    enabled: true
     discovery:
       # Discovers SID PDFs for Axis Mutual Fund from SEBI's scheme database.
       # externalCode 128 is MFCentral's AMC code; mfId 3 is SEBI's internal
@@ -25,7 +25,7 @@ sources:
       # Axis had ~80 active schemes as of 2026-08-11; set conservatively.
       minimumDocuments: 50
     schedule:
-      enabled: false
+      enabled: true
       cron: "0 4 * * *"
       timezone: Asia/Kolkata
     fetch:
