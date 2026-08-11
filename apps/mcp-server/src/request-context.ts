@@ -1,5 +1,7 @@
 import {
+  createAuthorizedTenantAccessScope,
   createTenantId,
+  type TenantAccessScope,
   type TenantId,
 } from "@mf-rag/types";
 
@@ -28,6 +30,7 @@ export interface RequestContext {
   readonly keyId: string;
   readonly keyTier?: string;
   readonly tenantId: TenantId;
+  readonly accessScope: TenantAccessScope;
 }
 
 export function securityLogRecord(
@@ -123,6 +126,7 @@ async function authorizeContext(
     keyId: result.keyId,
     ...(result.keyTier && { keyTier: result.keyTier }),
     tenantId,
+    accessScope: createAuthorizedTenantAccessScope(tenantId),
   });
 }
 

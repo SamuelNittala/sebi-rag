@@ -313,7 +313,7 @@ const handleToolCall: ToolCallHandler = async (context, request) => {
 
   try {
     await checkRateLimits(context);
-    const accessScope = Object.freeze({ tenantId: context.tenantId });
+    const accessScope = context.accessScope;
 
     switch (name) {
       case "query_mutual_funds": {
