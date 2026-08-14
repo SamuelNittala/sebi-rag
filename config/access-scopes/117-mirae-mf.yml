@@ -11,31 +11,30 @@ classification:
   sourceCollection: mirae_mf
   amcSlug: mirae-asset
 sources:
-  - key: mirae-mf-public-pdfs
+  - key: mirae-mf-sebi-sids
     connector: website_pdf
-    enabled: false
+    enabled: true
     discovery:
-      # Stable public factsheet landing root; individual dated PDF URLs are not pinned.
-      strategy: constrained_crawl
-      startUrls:
-        - https://www.miraeassetmf.co.in/downloads/factsheet
-      allowedPathPrefixes:
-        - /downloads/factsheet
-      maxDepth: 2
-      maxPages: 100
-      maxDocuments: 250
-      identity:
-        strategy: normalized_path
-        queryParameters: []
+      # Discovers SID PDFs for Axis Mutual Fund from SEBI's scheme database.
+      # externalCode 128 is MFCentral's AMC code; mfId 3 is SEBI's internal
+      # fund identifier used in their URL structure — these are different ID systems.
+      strategy: sebi_sid_scraper
+      mfId: "37"
+      maxSchemes: 100
+      maxDocuments: 100
+      # Axis had ~80 active schemes as of 2026-08-11; set conservatively.
+      minimumDocuments: 50
     schedule:
-      enabled: false
-      cron: "0 3 * * *"
+      enabled: true
+      cron: "0 4 * * *"
       timezone: Asia/Kolkata
     fetch:
       allowedHosts:
-        - www.miraeassetmf.co.in
+        - www.sebi.gov.in
       allowedPathPrefixes:
-        - /
+        - /sebi_data/
+        - /sebiweb/
+        - /web/
       maxBytes: 26214400
       timeoutMs: 30000
       maxRedirects: 3
