@@ -91,7 +91,13 @@ const publishedPdfCorpusCte = sql`
       pc.has_table, pc.section_header,
       pc.retrieval_metadata ->> 'sebiSchemeId' AS sebi_scheme_id,
       pc.retrieval_metadata ->> 'sebiUrl' AS sebi_url,
-      COALESCE(pc.retrieval_metadata ->> 'documentKind', 'generic_pdf') AS document_kind,
+      COALESCE(
+        NULLIF(pc.retrieval_metadata ->> 'documentKind', ''),
+        CASE
+          WHEN pc.retrieval_metadata ->> 'documentScope' IN ('strategy', 'scheme') THEN 'scheme'
+          ELSE 'generic_pdf'
+        END
+      ) AS document_kind,
       pc.retrieval_metadata ->> 'documentTitle' AS document_title,
       pc.retrieval_metadata ->> 'publisher' AS publisher,
       COALESCE(pc.retrieval_metadata ->> 'sourceUrl', sd.canonical_url) AS source_url,

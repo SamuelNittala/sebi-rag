@@ -4,10 +4,12 @@ import { createHash } from "node:crypto";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { and, eq } from "drizzle-orm";
 import {
+  createTenantAccessScope,
   createAccessScopeKey,
   createExternalAccessCode,
   createLogicalDocumentKey,
   createSourceKey,
+  type CandidateChunkMetadata,
   type DesiredSourceRegistry,
 } from "@mf-rag/types";
 
@@ -118,7 +120,16 @@ integrationDescribe("scheduled reviewed publication", () => {
   afterEach(resetDatabase);
   afterAll(async () => client.close());
 
-  async function createVersion(hex: string, warning = false) {
+  const defaultMetadata: CandidateChunkMetadata = {
+    documentScope: "amc",
+    documentType: "Factsheet",
+  };
+
+  async function createVersion(
+    hex: string,
+    warning = false,
+    metadata: CandidateChunkMetadata = defaultMetadata,
+  ) {
     const sha256 = hex.repeat(64);
     const [artifact] = await db.insert(schema.artifacts).values({
       artifactKey: `raw/${sha256}`,
@@ -198,7 +209,7 @@ integrationDescribe("scheduled reviewed publication", () => {
         tokenCount: 3,
         hasTable: false,
         sectionHeader: null,
-        metadata: { documentScope: "amc", documentType: "Factsheet" },
+        metadata,
         contentHash: createHash("sha256").update(`candidate-${hex}`).digest("hex"),
       }],
     });
@@ -234,7 +245,10 @@ integrationDescribe("scheduled reviewed publication", () => {
     });
   }
 
-  async function stageGeneration(runId: string) {
+  async function stageGeneration(
+    runId: string,
+    metadata: CandidateChunkMetadata = defaultMetadata,
+  ) {
     await updateReviewRunStatus(db, runId, "approved", "embedding", "publisher");
     const generation = await stageScheduledPublicationGeneration(db, {
       ingestionRunId: runId,
@@ -246,7 +260,7 @@ integrationDescribe("scheduled reviewed publication", () => {
         pageNumbers: [1],
         sectionHeader: null,
         hasTable: false,
-        metadata: { documentScope: "amc", documentType: "Factsheet" },
+        metadata,
       }],
     });
     return generation;
@@ -362,5 +376,64 @@ integrationDescribe("scheduled reviewed publication", () => {
       eq(schema.documentPublicationGenerations.status, "published"),
     )))[0]?.documentVersionId).toBe(second.version.id);
     expect(await db.select().from(schema.documents)).toHaveLength(0);
+  });
+
+  test("classifies scheduled publications from their metadata", async () => {
+    const cases = [
+      [
+        "7",
+        {
+          documentScope: "strategy",
+          documentType: "SID",
+          fundName: "Mirae Asset Test Fund",
+        },
+        "scheme",
+      ],
+      [
+        "8",
+        {
+          documentScope: "regulatory",
+          documentType: "FAQ",
+          documentKind: "FAQ",
+        },
+        "FAQ",
+      ],
+      [
+        "9",
+        {
+          documentScope: "regulatory",
+          documentType: "Circular",
+        },
+        "generic_pdf",
+      ],
+    ] satisfies Array<[string, CandidateChunkMetadata, "scheme" | "FAQ" | "generic_pdf"]>;
+
+    for (const [index, [hex, metadata, expectedKind]] of cases.entries()) {
+      const first = await createVersion(hex, false, metadata);
+      await decide(first.review.id, index === 0);
+      if (index === 0) {
+        const approval = await approveReviewRun(
+          db,
+          first.review.id,
+          "reviewer",
+          "Approved classification fixture",
+        );
+        expect(approval.approved).toBe(true);
+      }
+      const generation = await stageGeneration(first.review.id, metadata);
+      await updateReviewRunStatus(db, first.review.id, "embedding", "staged", "publisher");
+      expect(await cutoverScheduledPublicationGeneration(db, first.review.id, "publisher"))
+        .toEqual({ status: "published", generationId: generation.id });
+
+      const { VectorClient } = await import("../../../../packages/vector/src/pgvector.ts");
+      const vector = new Array(1024).fill(0.1);
+      const results = await new VectorClient().searchSimilar(vector, {
+        accessScope: createTenantAccessScope(externalCode),
+        limit: 10,
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.payload.document_kind).toBe(expectedKind);
+    }
   });
 });
