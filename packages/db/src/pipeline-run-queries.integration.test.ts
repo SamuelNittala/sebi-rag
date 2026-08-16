@@ -26,6 +26,7 @@ import {
   heartbeatDiscoveryExecution,
   reuseCompatibleStageSuccess,
   requeueDeadLetterAttempt,
+  requeueTerminalAttempt,
   releaseStageAttemptLease,
   requeueDeadLetterDiscoveryRun,
   resumePipelineRun,
@@ -481,6 +482,39 @@ integrationDescribe("fenced pipeline stage runtime", () => {
     expect(requeued.sourceId).toBe(dead.sourceId);
     expect(requeued.documentVersionId).toBe(dead.documentVersionId);
     expect(requeued.leaseEpoch).toBeGreaterThan(dead.leaseEpoch);
+  });
+
+  test("operator requeue recovers a current deterministic failure with immutable lineage", async () => {
+    const pending = await createPendingAttempt();
+    const [claimed] = await claimStageAttempts(db, {
+      owner: "worker-a",
+      batchSize: 1,
+      leaseDurationMs: 60_000,
+    });
+    const failed = await failStageAttempt(db, {
+      attemptId: claimed!.id,
+      owner: "worker-a",
+      leaseEpoch: claimed!.leaseEpoch,
+      errorCode: "REVIEW_NOT_APPROVED",
+      errorMessage: "resumable review state was interrupted",
+      classification: "deterministic",
+    });
+    expect(failed.disposition).toBe("DETERMINISTIC_FAILURE");
+
+    const requeued = await requeueTerminalAttempt(db, {
+      attemptId: claimed!.id,
+      operator: "ops@example.com",
+      expectedInputChecksum: claimed!.inputChecksum,
+      expectedAccessScopeId: claimed!.accessScopeId,
+      expectedSourceId: claimed!.sourceId,
+      expectedDocumentVersionId: claimed!.documentVersionId,
+    });
+    expect(requeued.requeuedFromAttemptId).toBe(claimed!.id);
+    expect(requeued.inputChecksum).toBe(claimed!.inputChecksum);
+    expect(requeued.attemptNumber).toBe(claimed!.attemptNumber + 1);
+    expect((await db.select().from(schema.pipelineRuns).where(
+      eq(schema.pipelineRuns.id, pending.run.id),
+    ))[0]?.status).toBe("active");
   });
 
   test("pause, resume, cancel-before-start, and graceful lease release are fenced", async () => {

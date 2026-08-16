@@ -269,7 +269,7 @@ export async function publishApprovedReviewRun(
   const database = options.database ?? db;
   const detail = await getReviewRunDetail(database, runId);
   if (!detail) throw new Error("Review run not found.");
-  if (detail.run.status !== "approved" && detail.run.status !== "failed") {
+  if (!["approved", "embedding", "staged", "failed"].includes(detail.run.status)) {
     throw new Error("Review run must be approved before embedding.");
   }
   if (detail.candidates.length !== detail.run.candidateChunkCount) {

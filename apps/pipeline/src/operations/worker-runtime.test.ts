@@ -15,7 +15,16 @@ const checksum = (value: string) => value.repeat(64);
 function environment(): Record<string, string> {
   return {
     PIPELINE_WORKER_ID: "worker-fixture-1",
+    PIPELINE_RELEASE_DIGEST: `sha256:${checksum("a")}`,
     PIPELINE_CONFIG_CHECKSUM: checksum("b"),
+    PIPELINE_PARSER_VERSION: "parser-v1",
+    PIPELINE_TABLE_EXTRACTOR_VERSION: "tables-v1",
+    PIPELINE_FETCH_ARTIFACT_VERSION: "fetch-artifact-v1",
+    PIPELINE_PARSE_ARTIFACT_VERSION: "parse-artifact-v1",
+    PIPELINE_PARSE_COMPONENT_VERSION: "parse-component-v1",
+    PIPELINE_CHUNK_COMPONENT_VERSION: "chunk-component-v1",
+    PIPELINE_REVIEW_COMPONENT_VERSION: "review-component-v1",
+    PIPELINE_PUBLISH_COMPONENT_VERSION: "publish-component-v1",
     PIPELINE_LEASE_DURATION_MS: "120000",
     PIPELINE_HEARTBEAT_INTERVAL_MS: "30000",
     PIPELINE_MAX_ATTEMPTS: "3",
@@ -27,7 +36,7 @@ function environment(): Record<string, string> {
 }
 
 describe("immutable pipeline worker composition", () => {
-  test("fails closed on missing config checksum or embedding model", () => {
+  test("fails closed on missing immutable identity or embedding model", () => {
     const missingChecksum = environment();
     delete missingChecksum.PIPELINE_CONFIG_CHECKSUM;
     expect(() => loadImmutableWorkerRuntimeConfig(missingChecksum)).toThrow("PIPELINE_CONFIG_CHECKSUM");
@@ -35,6 +44,18 @@ describe("immutable pipeline worker composition", () => {
     const invalidChecksum = environment();
     invalidChecksum.PIPELINE_CONFIG_CHECKSUM = "not-a-sha256";
     expect(() => loadImmutableWorkerRuntimeConfig(invalidChecksum)).toThrow("SHA-256");
+
+    const missingRelease = environment();
+    delete missingRelease.PIPELINE_RELEASE_DIGEST;
+    expect(() => loadImmutableWorkerRuntimeConfig(missingRelease)).toThrow("PIPELINE_RELEASE_DIGEST");
+
+    const invalidRelease = environment();
+    invalidRelease.PIPELINE_RELEASE_DIGEST = "latest";
+    expect(() => loadImmutableWorkerRuntimeConfig(invalidRelease)).toThrow("sha256");
+
+    const missingChunkVersion = environment();
+    delete missingChunkVersion.PIPELINE_CHUNK_COMPONENT_VERSION;
+    expect(() => loadImmutableWorkerRuntimeConfig(missingChunkVersion)).toThrow("PIPELINE_CHUNK_COMPONENT_VERSION");
 
     const missingModel = environment();
     delete missingModel.EMBEDDING_MODEL;

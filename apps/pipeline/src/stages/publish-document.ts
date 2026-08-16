@@ -49,7 +49,7 @@ export function createDatabasePublishDocumentRepository(db: Database): PublishDo
       if (!match?.[1]) throw deterministicError("RISK_DECISION_NOT_FOUND", "No compatible risk decision exists for publication.");
       const [run] = await db.select({ status: ingestionRuns.status }).from(ingestionRuns)
         .where(eq(ingestionRuns.id, match[1])).limit(1);
-      if (run?.status !== "approved" && run?.status !== "failed") {
+      if (!run || !["approved", "embedding", "staged", "failed"].includes(run.status)) {
         throw deterministicError("REVIEW_NOT_APPROVED", "Exact scheduled review approval is required before publication.");
       }
       return match[1];

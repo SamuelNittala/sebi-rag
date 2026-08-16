@@ -152,8 +152,8 @@ export async function updateReviewCandidateMetadata(
     const [run] = await tx.select().from(ingestionRuns)
       .where(eq(ingestionRuns.id, input.ingestionRunId));
     if (!run) throw new Error("Review run not found.");
-    if (run.reviewPurpose !== "metadata" || run.status !== "review_ready") {
-      throw new Error("Only a review-ready metadata run can be edited.");
+    if (run.status !== "review_ready" || !["content", "metadata"].includes(run.reviewPurpose)) {
+      throw new Error("Only a review-ready content or metadata run can be edited.");
     }
     const [candidate] = await tx.select().from(chunkCandidates).where(and(
       eq(chunkCandidates.id, input.candidateId),
@@ -162,6 +162,19 @@ export async function updateReviewCandidateMetadata(
     if (!candidate) throw new Error("Chunk candidate not found.");
     if (candidate.contentHash !== input.expectedContentHash) {
       throw new Error("Chunk changed after this page was loaded.");
+    }
+    const openCandidateFlags = await tx.select().from(chunkFlags).where(and(
+      eq(chunkFlags.ingestionRunId, input.ingestionRunId),
+      eq(chunkFlags.chunkCandidateId, input.candidateId),
+      eq(chunkFlags.status, "open"),
+    ));
+    if (run.reviewPurpose === "content") {
+      if (openCandidateFlags.some((flag) => flag.ruleCode !== "REQUIRED_METADATA_MISSING")) {
+        throw new Error("Content-review metadata edits cannot resolve non-metadata findings.");
+      }
+      if (input.metadata.documentScope === "unknown") {
+        throw new Error("Content-review metadata edits must resolve the unknown document scope.");
+      }
     }
     const [updated] = await tx.update(chunkCandidates).set({ metadata: input.metadata }).where(and(
       eq(chunkCandidates.id, input.candidateId),
@@ -174,6 +187,9 @@ export async function updateReviewCandidateMetadata(
       WHERE ${chunkCandidates.id} = ${input.candidateId}
         AND jsonb_typeof(${chunkCandidates.metadata}) = 'string'
     `);
+    const metadataFlagCondition = run.reviewPurpose === "content"
+      ? eq(chunkFlags.ruleCode, "REQUIRED_METADATA_MISSING")
+      : undefined;
     await tx.update(chunkFlags).set({
       status: "resolved",
       reviewer: input.editor,
@@ -183,6 +199,7 @@ export async function updateReviewCandidateMetadata(
       eq(chunkFlags.ingestionRunId, input.ingestionRunId),
       eq(chunkFlags.chunkCandidateId, input.candidateId),
       eq(chunkFlags.status, "open"),
+      metadataFlagCondition,
     ));
     const openFlags = await tx.select().from(chunkFlags).where(and(
       eq(chunkFlags.ingestionRunId, input.ingestionRunId),

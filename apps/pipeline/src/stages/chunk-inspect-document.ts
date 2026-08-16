@@ -11,6 +11,7 @@ import {
   type Database,
 } from "@mf-rag/db";
 import type { ArtifactDescriptor, KnowledgeScope } from "@mf-rag/types";
+import type { PdfCitationMetadata } from "../../../ingestion/src/stages/chunk-inspect-stage.ts";
 
 import type {
   StageHandlerContext,
@@ -38,6 +39,7 @@ export interface ChunkInspectDocumentAdapter {
     readonly parsedArtifact: ArtifactDescriptor;
     readonly expectedParsedChecksum: string;
     readonly trustedContext: TrustedContext;
+    readonly citationMetadata?: PdfCitationMetadata;
     readonly signal?: AbortSignal;
   }): Promise<{ readonly reviewRunId: string; readonly outputChecksum: string }>;
 }
@@ -47,6 +49,7 @@ export interface ChunkInspectDocumentRepository {
     readonly sourceDocumentId: string;
     readonly parsedArtifact: ArtifactDescriptor;
     readonly trustedContext: TrustedContext;
+    readonly citationMetadata?: PdfCitationMetadata;
   }>;
 }
 
@@ -66,6 +69,7 @@ export class ChunkInspectDocumentStage {
       parsedArtifact: input.parsedArtifact,
       expectedParsedChecksum: context.inputChecksum,
       trustedContext: input.trustedContext,
+      citationMetadata: input.citationMetadata,
       signal: context.signal,
     });
     return { outputRef: `review:${result.reviewRunId}`, outputChecksum: result.outputChecksum };
@@ -125,9 +129,21 @@ export function createDatabaseChunkInspectDocumentRepository(db: Database): Chun
           configRevisionChecksum: lineage.revision.checksum,
           classification: desiredScope.classification,
         },
+        citationMetadata: citationMetadataForSourceDocument(
+          lineage.document.logicalDocumentKey,
+          lineage.document.canonicalUrl,
+        ),
       };
     },
   };
+}
+
+export function citationMetadataForSourceDocument(
+  logicalDocumentKey: string,
+  canonicalUrl: string,
+): PdfCitationMetadata | undefined {
+  const match = logicalDocumentKey.match(/^sebi-sid:(\d+)$/);
+  return match?.[1] ? { sebiSchemeId: match[1], sebiUrl: canonicalUrl } : undefined;
 }
 
 /** Fixed-order registrations for the two independently deployable U6 workers. */

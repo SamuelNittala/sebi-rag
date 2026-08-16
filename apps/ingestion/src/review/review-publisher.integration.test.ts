@@ -46,7 +46,7 @@ integrationDescribe("approved review publisher", () => {
       ) RETURNING id
     `;
     const candidateId = crypto.randomUUID();
-    const { approveReviewRun, stageInspectionReview } = await import("@mf-rag/db");
+    const { approveReviewRun, stageInspectionReview, updateReviewRunStatus } = await import("@mf-rag/db");
     const run = await stageInspectionReview(database, {
       sourceType: "pdf",
       sourceDocumentId: document!.id as string,
@@ -96,6 +96,7 @@ integrationDescribe("approved review publisher", () => {
     `;
     expect(unpublished[0]?.count).toBe(0);
     await approveReviewRun(database, run.id, "reviewer@example.com", "Verified");
+    await updateReviewRunStatus(database, run.id, "approved", "embedding", "interrupted-publisher");
 
     const embeddedTexts: string[] = [];
     const embedder: Embedder = {

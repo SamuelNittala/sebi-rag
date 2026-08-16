@@ -9,6 +9,7 @@ import {
   approveReviewRun,
   getReviewRunDetail,
   stageInspectionReview,
+  updateReviewCandidateMetadata,
 } from "./review-queries.ts";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -57,17 +58,28 @@ integrationDescribe("manual candidate editing", () => {
         candidateChunkCount: 2,
         inspectedChunkCount: 2,
         criticalCount: 1,
-        warningCount: 0,
+        warningCount: 1,
         blockingCount: 1,
-        findings: [{
-          candidateId: currentId,
-          chunkIndex: 1,
-          ruleCode: "CROSS_CHUNK_ROW_CONTINUATION",
-          severity: "critical",
-          blocksApproval: true,
-          message: "Boundary split.",
-          evidence: {},
-        }],
+        findings: [
+          {
+            candidateId: previousId,
+            chunkIndex: 0,
+            ruleCode: "REQUIRED_METADATA_MISSING",
+            severity: "warning",
+            blocksApproval: false,
+            message: "Document scope is unknown.",
+            evidence: { field: "documentScope" },
+          },
+          {
+            candidateId: currentId,
+            chunkIndex: 1,
+            ruleCode: "CROSS_CHUNK_ROW_CONTINUATION",
+            severity: "critical",
+            blocksApproval: true,
+            message: "Boundary split.",
+            evidence: {},
+          },
+        ],
       },
       candidates: [
         {
@@ -78,7 +90,7 @@ integrationDescribe("manual candidate editing", () => {
           tokenCount: 8,
           hasTable: false,
           sectionHeader: null,
-          metadata: { documentScope: "amc", documentType: "SAI" },
+          metadata: { documentScope: "unknown", documentType: "SAI" },
           contentHash: "2".repeat(64),
         },
         {
@@ -103,6 +115,25 @@ integrationDescribe("manual candidate editing", () => {
 
   afterAll(async () => {
     await client.close();
+  });
+
+  test("repairs required metadata in a content review without resolving structural findings", async () => {
+    const detail = await getReviewRunDetail(db, runId);
+    const candidate = detail!.candidates.find((item) => item.id === previousCandidateId)!;
+    await updateReviewCandidateMetadata(db, {
+      ingestionRunId: runId,
+      candidateId: candidate.id,
+      expectedContentHash: candidate.contentHash,
+      metadata: { ...candidate.metadata, documentScope: "amc", fundName: "Mirae Asset Test Fund" },
+      editor: "reviewer@example.com",
+      note: "Resolved the document scope from the verified source title.",
+    });
+
+    const refreshed = await getReviewRunDetail(db, runId);
+    expect(refreshed?.flags.find((flag) => flag.ruleCode === "REQUIRED_METADATA_MISSING")?.status).toBe("resolved");
+    expect(refreshed?.flags.find((flag) => flag.ruleCode === "CROSS_CHUNK_ROW_CONTINUATION")?.status).toBe("open");
+    expect(refreshed?.run.warningCount).toBe(0);
+    expect(refreshed?.run.blockingCount).toBe(1);
   });
 
   test("stores the revision and atomically replaces findings after full reinspection", async () => {

@@ -78,7 +78,7 @@ const SECTION_BOUNDARY_PATTERNS: RegExp[] = [
   // Part I, Part II, etc.
   /^Part\s+[IVXLCDM]+\b/im,
   // Numbered sections: 1., 2., A., B. (must be at start of line after newline)
-  /(?:^|\n)([1-9]\d*\.\s+\S)/,
+  /(?:^|\n)([1-9]\d{0,2}\.\s+\S)/,
   /(?:^|\n)([A-Z]\.\s+\S)/,
   // Roman-numbered subsections: VIII. Subscription, IX. Redemption, etc.
   /(?:^|\n)([IVXLCDM]+\.\s+\S)/,
@@ -167,7 +167,7 @@ function extractSectionHeader(text: string): string | null {
   }
 
   // Check for numbered sections (1., 2., etc.)
-  if (/^[1-9]\d*\.\s+\S/.test(firstLine)) {
+  if (/^[1-9]\d{0,2}\.\s+\S/.test(firstLine)) {
     return firstLine;
   }
 
@@ -716,8 +716,64 @@ export function semanticChunk(
   const MIN_CHUNK_LENGTH = 150;
   const mergedChunks: Chunk[] = [];
 
+  const isHeadingOnly = (chunk: Chunk): boolean => Boolean(
+    chunk.sectionHeader
+      && normalizeHeading(chunk.text).toLowerCase()
+        === normalizeHeading(chunk.sectionHeader).toLowerCase()
+  );
+
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
+
+    if (isHeadingOnly(chunk) && !chunk.hasTable) {
+      const immediateNext = chunks[i + 1];
+      if (immediateNext?.hasTable) {
+        const candidateText = `${chunk.text}\n\n${immediateNext.text}`;
+        if (estimateTokenCount(candidateText) <= config.tableMaxTokens) {
+          mergedChunks.push({
+            text: candidateText,
+            chunkIndex: mergedChunks.length,
+            pageNumbers: [...new Set([...chunk.pageNumbers, ...immediateNext.pageNumbers])]
+              .sort((a, b) => a - b),
+            hasTable: true,
+            sectionHeader: chunk.sectionHeader,
+            tokenCount: estimateTokenCount(candidateText),
+          });
+          i += 1;
+          continue;
+        }
+      }
+
+      let mergedText = chunk.text;
+      let mergedPages = chunk.pageNumbers;
+      let lastMergedIndex = i;
+
+      while (lastMergedIndex + 1 < chunks.length) {
+        const nextChunk = chunks[lastMergedIndex + 1];
+        if (nextChunk.hasTable) break;
+        const candidateText = `${mergedText}\n\n${nextChunk.text}`;
+        if (estimateTokenCount(candidateText) > config.maxTokens) break;
+
+        mergedText = candidateText;
+        mergedPages = [...new Set([...mergedPages, ...nextChunk.pageNumbers])]
+          .sort((a, b) => a - b);
+        lastMergedIndex += 1;
+        if (!isHeadingOnly(nextChunk)) break;
+      }
+
+      if (lastMergedIndex > i) {
+        mergedChunks.push({
+          text: mergedText,
+          chunkIndex: mergedChunks.length,
+          pageNumbers: mergedPages,
+          hasTable: false,
+          sectionHeader: chunk.sectionHeader,
+          tokenCount: estimateTokenCount(mergedText),
+        });
+        i = lastMergedIndex;
+        continue;
+      }
+    }
 
     // If chunk is too short, try to merge with next or previous
     if (

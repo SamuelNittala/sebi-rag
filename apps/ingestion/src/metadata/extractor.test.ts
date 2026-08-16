@@ -741,6 +741,71 @@ describe("Metadata Extractor", () => {
   });
 
   describe("real-world filename patterns", () => {
+    test("extracts Mirae scheme titles that use broader product endings", () => {
+      const cases = [
+        ["MIRAE ASSET DYNAMIC BOND FUND", "Mirae Asset Dynamic Bond Fund"],
+        ["Mirae Asset Nifty 50 ETF", "Mirae Asset Nifty 50 ETF"],
+        ["Mirae Asset Nifty 100 ESG Sector Leaders FOF", "Mirae Asset Nifty 100 ESG Sector Leaders FOF"],
+        [
+          "Scheme Information Document – MIRAE ASSET FIXED MATURITY PLAN - SERIES III - 1122 DAYS 1",
+          "Mirae Asset Fixed Maturity Plan - Series III - 1122 Days",
+        ],
+      ] as const;
+
+      for (const [title, expected] of cases) {
+        const result = extractMetadata({
+          filename: "1764661171439.pdf",
+          firstPageText: `SCHEME INFORMATION DOCUMENT\n${title}\nName of Mutual Fund: Mirae Asset Mutual Fund`,
+        });
+        expect(result.fundName).toBe(expected);
+      }
+    });
+
+    test("extracts a Mirae scheme title wrapped before Index Fund", () => {
+      const result = extractMetadata({
+        filename: "1773743929948.pdf",
+        firstPageText: [
+          "Mirae Asset Nifty200 Momentum 30 Plus 8-13yr G-Sec 75:25",
+          "Index Fund",
+          "SCHEME INFORMATION DOCUMENT",
+          "Name of Mutual Fund Mirae Asset Mutual Fund",
+        ].join("\n"),
+      });
+
+      expect(result.fundName).toBe(
+        "Mirae Asset Nifty200 Momentum 30 Plus 8-13yr G-Sec 75:25 Index Fund",
+      );
+    });
+
+    test("rejects generic legal fund and AMC phrases as scheme names", () => {
+      const result = extractMetadata({
+        filename: "1764661171439.pdf",
+        firstPageText: `
+          SCHEME INFORMATION DOCUMENT
+          The Mutual Fund shall publish the NAV every business day.
+          Name of Mutual Fund: Mirae Asset Mutual Fund
+          Name of Asset Management Company: Mirae Asset Investment Managers (India) Private Limited
+        `,
+      });
+
+      expect(result.fundName).toBeNull();
+      expect(result.amcName).not.toBe("The AMC");
+    });
+
+    test("labels a legacy combined Mirae SID as a document collection", () => {
+      const result = extractMetadata({
+        filename: "miraesidequity.pdf",
+        firstPageText: `
+          SCHEME INFORMATION DOCUMENT
+          COMBINED SID - EQUITY
+          MIRAE ASSET MUTUAL FUND
+          This Scheme Information Document is dated 18th June, 2015
+        `,
+      });
+
+      expect(result.fundName).toBe("Mirae Asset Combined Scheme Information Document - Equity");
+    });
+
     test("extracts authoritative metadata from a notice-cum-addendum", () => {
       const text = `
         NOTICE CUM ADDENDUM NO. SIF/05/2026

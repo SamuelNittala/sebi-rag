@@ -21,7 +21,7 @@ export * from "./faq.ts";
 const DEFAULT_CONFIG: ChunkInspectorConfig = {
   inspectorVersion: "1.0.0",
   maxTextTokens: 512,
-  maxTableTokens: 1024,
+  maxTableTokens: 1536,
   headingOnlyMaxTokens: 20,
 };
 
@@ -72,6 +72,7 @@ function hasBrokenContinuation(
 ): boolean {
   const previousText = previous.text.trim();
   const currentText = current.text.trim();
+  if (/--\s*$/.test(previousText) || /https?:\/\/\S*\/\s*$/i.test(previousText)) return false;
   if (!/(?:&|\band|[,/\-])\s*$/i.test(previousText)) return false;
   if (/^(?:fund\s+manager|dealer|analyst|head\b|manager\b)/i.test(currentText)) return true;
   const firstLine = currentText.split("\n", 1)[0] ?? "";

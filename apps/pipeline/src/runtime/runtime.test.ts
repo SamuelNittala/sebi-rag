@@ -15,9 +15,13 @@ import {
 
 const checksum = (character: string) => character.repeat(64);
 const parseIdentity = {
+  releaseIdentity: `sha256:${checksum("a")}`,
+  componentVersion: "parse-v1",
   configChecksum: checksum("b"),
 };
 const chunkIdentity = {
+  releaseIdentity: `sha256:${checksum("a")}`,
+  componentVersion: "chunk-v1",
   configChecksum: checksum("c"),
 };
 const PARSE_IMPLEMENTATION = deriveStageImplementationVersion(parseIdentity);
@@ -252,11 +256,15 @@ describe("retry classification", () => {
 });
 
 describe("stage implementation identity", () => {
-  test("configuration drift derives a different compatibility identity", () => {
+  test("release, component, and configuration drift derive different compatibility identities", () => {
     const baseline = deriveStageImplementationVersion(parseIdentity);
-    expect(deriveStageImplementationVersion({ configChecksum: checksum("e") })).not.toBe(baseline);
-    expect(baseline).toMatch(/^stage-v1:[0-9a-f]{64}$/);
-    expect(() => deriveStageImplementationVersion({ configChecksum: "not-a-sha256" })).toThrow("SHA-256");
+    expect(deriveStageImplementationVersion({ ...parseIdentity, releaseIdentity: `sha256:${checksum("d")}` })).not.toBe(baseline);
+    expect(deriveStageImplementationVersion({ ...parseIdentity, componentVersion: "parse-v2" })).not.toBe(baseline);
+    expect(deriveStageImplementationVersion({ ...parseIdentity, configChecksum: checksum("e") })).not.toBe(baseline);
+    expect(baseline).toMatch(/^stage-v2:[0-9a-f]{64}$/);
+    expect(() => deriveStageImplementationVersion({ ...parseIdentity, releaseIdentity: "not-a-digest" })).toThrow("release identity");
+    expect(() => deriveStageImplementationVersion({ ...parseIdentity, componentVersion: "" })).toThrow("component version");
+    expect(() => deriveStageImplementationVersion({ ...parseIdentity, configChecksum: "not-a-sha256" })).toThrow("SHA-256");
   });
 });
 

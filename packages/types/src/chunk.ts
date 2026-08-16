@@ -87,7 +87,7 @@ export interface ChunkConfig {
 export const DEFAULT_CHUNK_CONFIG: ChunkConfig = {
   targetTokens: 450,
   maxTokens: 512,
-  tableMaxTokens: 1024,
+  tableMaxTokens: 1536,
   overlapTokens: 50,
   minTokens: 100,
 };

@@ -20,8 +20,8 @@ sources:
       # fund identifier used in their URL structure — these are different ID systems.
       strategy: sebi_sid_scraper
       mfId: "37"
-      maxSchemes: 100
-      maxDocuments: 100
+      maxSchemes: 107
+      maxDocuments: 107
       # Axis had ~80 active schemes as of 2026-08-11; set conservatively.
       minimumDocuments: 50
     schedule:

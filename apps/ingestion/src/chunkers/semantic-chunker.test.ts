@@ -136,6 +136,21 @@ Content of second section.`,
       expect(startsWithNumbered.length).toBeGreaterThan(0);
     });
 
+    test("does not treat a year as a numbered section boundary", () => {
+      const input: ChunkInput = {
+        pages: [{
+          pageNumber: 1,
+          text: "The scheme complies with the SEBI Mutual Funds Regulations,\n1996. The AMC shall apply the regulation consistently.",
+        }],
+      };
+
+      const result = semanticChunk(input);
+
+      expect(result.chunks).toHaveLength(1);
+      expect(result.chunks[0]?.text).toContain("Regulations,");
+      expect(result.chunks[0]?.text).toContain("1996. The AMC");
+    });
+
     test("splits Roman-numbered SIF facts into independently classifiable chunks", () => {
       const input: ChunkInput = {
         pages: [{
@@ -681,6 +696,25 @@ Second paragraph of text content.`,
   });
 
   describe("edge cases", () => {
+    test("merges standalone and chained headings with their following body", () => {
+      const input: ChunkInput = {
+        pages: [{
+          pageNumber: 1,
+          text: `SECTION I
+PART II. INFORMATION ABOUT THE SCHEME
+A. HOW WILL THE SCHEME ALLOCATE ITS ASSETS?
+The scheme will allocate its assets according to the limits stated in the following table and the applicable regulations.`,
+        }],
+      };
+
+      const result = semanticChunk(input);
+
+      expect(result.chunks).toHaveLength(1);
+      expect(result.chunks[0]?.text).toContain("SECTION I");
+      expect(result.chunks[0]?.text).toContain("The scheme will allocate its assets");
+      expect(result.chunks[0]?.tokenCount).toBeLessThanOrEqual(DEFAULT_CHUNK_CONFIG.maxTokens);
+    });
+
     test("handles single sentence input", () => {
       const input: ChunkInput = {
         pages: [{ pageNumber: 1, text: "Just one sentence here." }],
@@ -726,6 +760,35 @@ ${rows}`;
         );
         expect(occurrences).toBe(1);
       }
+    });
+
+    test("preserves a legal table row within the bounded table allowance", () => {
+      const longCell = Array(850).fill("condition").join(" ");
+      const table = `| Rule | Details |
+|------|---------|
+| Redemption | ${longCell} |`;
+      const result = semanticChunk({
+        pages: [{ pageNumber: 1, text: "Redemption terms." }],
+        tables: [{ pageNumber: 1, markdown: table }],
+      });
+
+      const tableChunks = result.chunks.filter((chunk) => chunk.hasTable);
+      expect(tableChunks).toHaveLength(1);
+      expect(tableChunks[0]?.tokenCount).toBeGreaterThan(1024);
+      expect(tableChunks[0]?.tokenCount).toBeLessThanOrEqual(DEFAULT_CHUNK_CONFIG.tableMaxTokens);
+      expect(tableChunks[0]?.text).toContain(longCell);
+    });
+
+    test("attaches a standalone heading to its following table", () => {
+      const result = semanticChunk({
+        pages: [{ pageNumber: 1, text: "A. ASSET ALLOCATION" }],
+        tables: [{ pageNumber: 1, markdown: "| Asset | Limit |\n|---|---|\n| Equity | 80% |" }],
+      });
+
+      expect(result.chunks).toHaveLength(1);
+      expect(result.chunks[0]?.hasTable).toBe(true);
+      expect(result.chunks[0]?.text).toContain("A. ASSET ALLOCATION");
+      expect(result.chunks[0]?.text).toContain("| Equity | 80% |");
     });
 
     test("handles input with only tables, no text", () => {

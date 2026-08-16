@@ -280,6 +280,7 @@ services:
     environment:
       <<: *pipeline-environment
       PIPELINE_ROLE: discovery-worker
+      PIPELINE_WORKER_ID: ${PIPELINE_DISCOVERY_WORKER_ID:-pipeline-discovery-worker-local}
       PIPELINE_HEALTH_PORT: 3011
     volumes:
       - ..:/app
@@ -302,6 +303,7 @@ services:
     environment:
       <<: *pipeline-environment
       PIPELINE_ROLE: stage-worker
+      PIPELINE_WORKER_ID: ${PIPELINE_STAGE_WORKER_ID:-pipeline-stage-worker-local}
       PIPELINE_HEALTH_PORT: 3011
     volumes:
       - ..:/app

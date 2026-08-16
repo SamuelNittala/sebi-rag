@@ -6,7 +6,7 @@ import {
   ingestionRuns,
   pauseSourceSchedule,
   reactivateScheduledPublicationGeneration,
-  requeueDeadLetterAttempt,
+  requeueTerminalAttempt,
   requeueDeadLetterDiscoveryRun,
   resumeSourceSchedule,
   setAccessScopeEmergencyFreeze,
@@ -80,7 +80,7 @@ export function createDatabasePipelineOperatorRepository(database: Database): Pi
     resumeSource: (sourceId) => resumeSourceSchedule(database, sourceId),
     freezeSource: (sourceId, reason) => setSourceEmergencyFreeze(database, { sourceId, reason }),
     freezeAccessScope: (accessScopeId, reason) => setAccessScopeEmergencyFreeze(database, { accessScopeId, reason }),
-    requeueStage: (input) => requeueDeadLetterAttempt(database, input),
+    requeueStage: (input) => requeueTerminalAttempt(database, input),
     requeueDiscovery: (input) => requeueDeadLetterDiscoveryRun(database, input),
     reactivateGeneration: (input) => reactivateScheduledPublicationGeneration(database, input),
   };

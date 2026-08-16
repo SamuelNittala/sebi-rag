@@ -110,7 +110,7 @@ export async function assertScheduledPublicationReady(
 ): Promise<void> {
   await db.transaction(async (tx) => {
     const { run, lineage } = await lockScheduledLineage(tx, ingestionRunId);
-    if (run.status !== "approved" && run.status !== "failed") {
+    if (!["approved", "embedding", "staged", "failed"].includes(run.status)) {
       throw new Error("Scheduled review is not approved.");
     }
     if (!run.riskPolicyVersion || !run.riskActor || !run.riskRoute || !run.riskEvidence) {

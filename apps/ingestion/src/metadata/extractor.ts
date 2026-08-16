@@ -379,38 +379,109 @@ function extractAmendedDocumentTypes(text: string): string[] {
   );
 }
 
+const SCHEME_TITLE_TERMS = /\b(?:FUND|ETF|FOF|PLAN|SCHEME)\b/i;
+const GENERIC_FUND_NAMES = /^(?:THE\s+)?(?:MUTUAL\s+FUND|FUND|SCHEME|AMC)$/i;
+const NON_SCHEME_TITLE_PHRASES = /\b(?:NAME\s+OF|ASSET\s+MANAGEMENT|TRUSTEE\s+COMPANY|MUTUAL\s+FUND|REGISTERED\s+(?:AND|&)\s+CORPORATE\s+OFFICE)\b/i;
+const PRESERVED_TITLE_ACRONYMS = new Set([
+  "ETF", "FOF", "ESG", "ELSS", "PSU", "SDL", "NFO", "NAV", "GILT",
+  "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
+]);
+
+function normalizeSchemeTitle(value: string): string | null {
+  const title = value
+    .replace(/^[\s•|:;,-]+/, "")
+    .replace(/\s+(?:Type\s+of\s+the\s+scheme|An\s+Open[- ]ended|Investment\s+Objective|Scheme\s+Category)\b.*$/i, "")
+    .replace(/\s+-\s+(?:Growth|IDCW)\s*$/i, "")
+    .replace(/\s+\d{1,3}\s*$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (title.length < 5 || title.length > 160 || !SCHEME_TITLE_TERMS.test(title)) return null;
+  if (GENERIC_FUND_NAMES.test(title) || NON_SCHEME_TITLE_PHRASES.test(title)) return null;
+  if (!/[A-Za-z]/.test(title)) return null;
+
+  if (title !== title.toUpperCase()) return title;
+  return title.toLowerCase().split(" ").map((word) => {
+    const parts = word.split("-");
+    return parts.map((part) => {
+      const upper = part.toUpperCase();
+      return PRESERVED_TITLE_ACRONYMS.has(upper)
+        ? upper
+        : part.charAt(0).toUpperCase() + part.slice(1);
+    }).join("-");
+  }).join(" ");
+}
+
+function extractSchemeTitleLine(text: string): string | null {
+  const lines = text.split(/\r?\n/).slice(0, 250)
+    .map((line) => line.replace(/\s+/g, " ").trim());
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]!;
+    const start = line.search(/\bMIRAE\s+ASSET\b/i);
+    if (start === -1) continue;
+    const candidates = [
+      line.slice(start),
+      [line.slice(start), lines[index + 1]].filter(Boolean).join(" "),
+    ];
+    for (const candidate of candidates) {
+      const title = normalizeSchemeTitle(candidate);
+      if (title) return title;
+    }
+  }
+  return null;
+}
+
 /**
  * Extracts fund/scheme name from content
  */
 function extractFundNameFromContent(text: string): string | null {
   // Normalize whitespace
   const normalized = text.replace(/\s+/g, " ");
+  const combinedSchemeDocument = text.match(
+    /^\s*COMBINED\s+(?:SID|SCHEME\s+INFORMATION\s+DOCUMENT)\s*[-–—:]\s*([A-Z][A-Z -]{2,40})\s*$/im,
+  );
+  if (combinedSchemeDocument?.[1]) {
+    const category = combinedSchemeDocument[1]
+      .trim()
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    return `Mirae Asset Combined Scheme Information Document - ${category}`;
+  }
+
   const addendumFundMatch = normalized.match(
     /\bOF\s+([A-Z][A-Z0-9&' -]{4,100}?\bFUND)\b/,
   );
   if (addendumFundMatch?.[1]) {
-    return addendumFundMatch[1]
+    const title = addendumFundMatch[1]
       .toLowerCase()
       .split(/\s+/)
       .map((word) => word.split("-").map(
         (part) => part.charAt(0).toUpperCase() + part.slice(1),
       ).join("-"))
       .join(" ");
+    const normalizedTitle = normalizeSchemeTitle(title);
+    if (normalizedTitle) return normalizedTitle;
   }
 
   // Pattern 1: "Name of the Scheme: XYZ Fund"
   const schemeNamePattern = /Name\s+of\s+the\s+Scheme\s*[:\-]?\s*([A-Z][A-Za-z\s&]+(?:Fund|Scheme))/i;
   let match = normalized.match(schemeNamePattern);
   if (match && match[1]) {
-    return match[1].trim();
+    const title = normalizeSchemeTitle(match[1]);
+    if (title) return title;
   }
 
   // Pattern 2: "I. Name of the Scheme XYZ Fund"
   const schemePattern2 = /I\.\s+Name\s+of\s+the\s+Scheme\s+([A-Z][A-Za-z\s&]+(?:Fund|Scheme))/i;
   match = normalized.match(schemePattern2);
   if (match && match[1]) {
-    return match[1].trim();
+    const title = normalizeSchemeTitle(match[1]);
+    if (title) return title;
   }
+
+  // SEBI SIDs commonly place the authoritative scheme title on its own line,
+  // including products whose names end in ETF, FOF, or a maturity plan.
+  const titleLine = extractSchemeTitleLine(text);
+  if (titleLine) return titleLine;
 
   // Pattern 3: All caps fund name in title (e.g., "CAPITALMIND FLEXI CAP FUND")
   // Match 1-5 capitalized words followed by fund type, then "FUND" or "SCHEME"
@@ -418,19 +489,14 @@ function extractFundNameFromContent(text: string): string | null {
   const allCapsFundPattern = /\b([A-Z]{2,}(?:\s+[A-Z]{2,}){0,4}\s+(?:FLEXI\s*CAP|MULTI\s*CAP|LARGE\s*CAP|MID\s*CAP|SMALL\s*CAP|BLUE\s*CHIP|BANKING|PSU|EQUITY|DEBT|HYBRID|BALANCED|VALUE|GROWTH|INCOME)\s+(?:FUND|SCHEME))\b/;
   match = titleSection.match(allCapsFundPattern);
   if (match && match[1]) {
-    // Convert to title case for consistency
-    return match[1]
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+    return normalizeSchemeTitle(match[1]);
   }
 
   // Pattern 4: Title case fund name (e.g., "Canara Robeco Blue Chip Equity Fund")
   const fundNamePattern = /\b([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){1,4}\s+(?:Equity|Debt|Hybrid|Flexi\s*Cap|Multi\s*Cap|Large\s*Cap|Mid\s*Cap|Small\s*Cap|Blue\s*Chip|Value|Growth|Income|Balanced)\s+(?:Fund|Scheme))\b/;
   match = titleSection.match(fundNamePattern);
   if (match && match[1]) {
-    return match[1].trim();
+    return normalizeSchemeTitle(match[1]);
   }
 
   return null;
@@ -620,8 +686,8 @@ export function extractMetadata(input: MetadataInput): ExtractedMetadata {
   // Addenda often have administrative filenames. Their title is authoritative.
   const fundName = pathInfo.schemeName
     || (docType === "Addendum" ? fundNameFromContent : null)
-    || fundNameFromFilename
-    || fundNameFromContent;
+    || fundNameFromContent
+    || fundNameFromFilename;
 
   // AMC name priority: path > content
   // NOTE: Path-based AMC name is most reliable (from folder structure)

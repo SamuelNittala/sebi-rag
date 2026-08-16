@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 describe("access-scope manifest validation", () => {
-  test("loads the disabled 910 and 117 manifests as distinct immutable scopes", async () => {
+  test("loads enabled mutual-fund scopes and the disabled SIF scope", async () => {
     const configDirectory = new URL("../../../../config/access-scopes/", import.meta.url);
 
     const desiredState = await loadAccessScopeManifests(configDirectory);
@@ -32,13 +32,13 @@ describe("access-scope manifest validation", () => {
       { externalCode: "128", key: "axis-mf" },
       { externalCode: "910", key: "mirae-sif" },
     ]);
-    // 117 and 910 remain disabled; 128 (axis) ships with scheduling enabled.
-    const disabledScopes = desiredState.accessScopes.filter((s) => String(s.externalCode) !== "128");
-    expect(disabledScopes.every((scope) => (
-      scope.sources.every((source) => !source.enabled && !source.schedule.enabled)
+    const enabledMutualFunds = desiredState.accessScopes.filter((scope) =>
+      ["117", "128"].includes(String(scope.externalCode)));
+    expect(enabledMutualFunds.every((scope) => (
+      scope.sources.every((source) => source.enabled && source.schedule.enabled)
     ))).toBe(true);
-    const axisScope = desiredState.accessScopes.find((s) => String(s.externalCode) === "128");
-    expect(axisScope?.sources.every((source) => source.enabled && source.schedule.enabled)).toBe(true);
+    const miraeSifScope = desiredState.accessScopes.find((scope) => String(scope.externalCode) === "910");
+    expect(miraeSifScope?.sources.every((source) => !source.enabled && !source.schedule.enabled)).toBe(true);
     expect(Object.isFrozen(desiredState)).toBe(true);
     expect(Object.isFrozen(desiredState.accessScopes)).toBe(true);
     expect(Object.isFrozen(desiredState.accessScopes[0]?.sources)).toBe(true);
@@ -83,7 +83,7 @@ describe("access-scope manifest validation", () => {
       minimumDocuments: 50,
     });
     expect(axisMf?.sources[0]?.fetch.allowedHosts).toEqual(["www.sebi.gov.in"]);
-    expect(axisMf?.sources[0]?.fetch.allowedPathPrefixes).toEqual(["/sebi_data/", "/sebiweb/"]);
+    expect(axisMf?.sources[0]?.fetch.allowedPathPrefixes).toEqual(["/sebi_data/", "/sebiweb/", "/web/"]);
     expect(Object.isFrozen(axisMf?.sources)).toBe(true);
   });
 

@@ -96,6 +96,8 @@ export interface RequeueDeadLetterAttemptInput {
   readonly now?: Date;
 }
 
+export type RequeueTerminalAttemptInput = RequeueDeadLetterAttemptInput;
+
 export interface TriggerManualDiscoveryRunInput {
   readonly sourceId: string;
   readonly now?: Date;
@@ -498,9 +500,9 @@ export async function failStageAttempt(
 }
 
 /** Operator recovery preserves every ownership and compatibility field. */
-export async function requeueDeadLetterAttempt(
+export async function requeueTerminalAttempt(
   db: Database,
-  input: RequeueDeadLetterAttemptInput,
+  input: RequeueTerminalAttemptInput,
 ): Promise<typeof stageAttempts.$inferSelect> {
   assertNonEmpty(input.operator, "Requeue operator");
   const now = input.now ?? new Date();
@@ -508,8 +510,8 @@ export async function requeueDeadLetterAttempt(
   return db.transaction(async (tx) => {
     const [dead] = await tx.select().from(stageAttempts)
       .where(eq(stageAttempts.id, input.attemptId)).limit(1).for("update");
-    if (!dead || dead.status !== "dead_letter" || !dead.isCurrent) {
-      throw new Error("Only the current dead-letter attempt can be requeued.");
+    if (!dead || !dead.isCurrent || (dead.status !== "dead_letter" && dead.status !== "failed")) {
+      throw new Error("Only a current terminal stage attempt can be requeued.");
     }
     if (dead.inputChecksum !== input.expectedInputChecksum
       || dead.accessScopeId !== input.expectedAccessScopeId
@@ -540,6 +542,9 @@ export async function requeueDeadLetterAttempt(
     return requeued;
   });
 }
+
+/** @deprecated Use requeueTerminalAttempt for operator recovery. */
+export const requeueDeadLetterAttempt = requeueTerminalAttempt;
 
 export async function listDeadLetterAttempts(
   db: Database,

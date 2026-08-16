@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import { StageRegistry } from "../runtime/stage-registry.ts";
-import { createParseChunkStageRegistrations } from "./chunk-inspect-document.ts";
+import {
+  citationMetadataForSourceDocument,
+  createParseChunkStageRegistrations,
+} from "./chunk-inspect-document.ts";
 
 const checksum = (character: string) => character.repeat(64);
 const identity = (componentVersion: string, config: string) => ({
@@ -11,6 +14,20 @@ const identity = (componentVersion: string, config: string) => ({
 });
 
 describe("parse/chunk stage registration", () => {
+  test("derives trusted SEBI citation identity from the logical document key", () => {
+    expect(citationMetadataForSourceDocument(
+      "sebi-sid:10123",
+      "https://www.sebi.gov.in/sebi_data/mutualfundfile/example.pdf",
+    )).toEqual({
+      sebiSchemeId: "10123",
+      sebiUrl: "https://www.sebi.gov.in/sebi_data/mutualfundfile/example.pdf",
+    });
+    expect(citationMetadataForSourceDocument(
+      "catalog:10123",
+      "https://example.com/document.pdf",
+    )).toBeUndefined();
+  });
+
   test("registers the independent artifact stages in durable order", async () => {
     const calls: string[] = [];
     const registrations = createParseChunkStageRegistrations({

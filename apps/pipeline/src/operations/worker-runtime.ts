@@ -54,7 +54,16 @@ type WorkerRole = "discovery-worker" | "stage-worker";
 
 export interface ImmutableWorkerRuntimeConfig {
   readonly owner: string;
+  readonly releaseIdentity: string;
   readonly configChecksum: string;
+  readonly parserVersion: string;
+  readonly tableExtractorVersion: string;
+  readonly fetchArtifactVersion: string;
+  readonly parseArtifactVersion: string;
+  readonly parseComponentVersion: string;
+  readonly chunkComponentVersion: string;
+  readonly reviewComponentVersion: string;
+  readonly publishComponentVersion: string;
   readonly embeddingBaseUrl: string;
   readonly embeddingModel: string;
   readonly embeddingBatchSize: number;
@@ -89,6 +98,7 @@ export interface WorkerCompositionOverrides {
 }
 
 const SHA256 = /^[0-9a-f]{64}$/;
+const RELEASE_IDENTITY = /^sha256:[0-9a-f]{64}$/;
 
 export function loadImmutableWorkerRuntimeConfig(
   env: Readonly<Record<string, string | undefined>> = process.env,
@@ -97,9 +107,22 @@ export function loadImmutableWorkerRuntimeConfig(
   if (!SHA256.test(configChecksum)) {
     throw new Error("PIPELINE_CONFIG_CHECKSUM must be the current lowercase SHA-256 configuration checksum.");
   }
+  const releaseIdentity = required(env.PIPELINE_RELEASE_DIGEST, "PIPELINE_RELEASE_DIGEST");
+  if (!RELEASE_IDENTITY.test(releaseIdentity)) {
+    throw new Error("PIPELINE_RELEASE_DIGEST must use sha256:<64 lowercase hex>.");
+  }
   return {
     owner: required(env.PIPELINE_WORKER_ID, "PIPELINE_WORKER_ID"),
+    releaseIdentity,
     configChecksum,
+    parserVersion: required(env.PIPELINE_PARSER_VERSION, "PIPELINE_PARSER_VERSION"),
+    tableExtractorVersion: required(env.PIPELINE_TABLE_EXTRACTOR_VERSION, "PIPELINE_TABLE_EXTRACTOR_VERSION"),
+    fetchArtifactVersion: required(env.PIPELINE_FETCH_ARTIFACT_VERSION, "PIPELINE_FETCH_ARTIFACT_VERSION"),
+    parseArtifactVersion: required(env.PIPELINE_PARSE_ARTIFACT_VERSION, "PIPELINE_PARSE_ARTIFACT_VERSION"),
+    parseComponentVersion: required(env.PIPELINE_PARSE_COMPONENT_VERSION, "PIPELINE_PARSE_COMPONENT_VERSION"),
+    chunkComponentVersion: required(env.PIPELINE_CHUNK_COMPONENT_VERSION, "PIPELINE_CHUNK_COMPONENT_VERSION"),
+    reviewComponentVersion: required(env.PIPELINE_REVIEW_COMPONENT_VERSION, "PIPELINE_REVIEW_COMPONENT_VERSION"),
+    publishComponentVersion: required(env.PIPELINE_PUBLISH_COMPONENT_VERSION, "PIPELINE_PUBLISH_COMPONENT_VERSION"),
     embeddingBaseUrl: canonicalUrl(required(env.OLLAMA_BASE_URL, "OLLAMA_BASE_URL")),
     embeddingModel: required(env.EMBEDDING_MODEL, "EMBEDDING_MODEL"),
     embeddingBatchSize: integer(env.EMBEDDING_BATCH_SIZE, 10, "EMBEDDING_BATCH_SIZE"),
@@ -160,16 +183,15 @@ function createDiscoveryRuntime(
   retryPolicy: RetryPolicy,
 ): WorkerRuntime {
   const repository = createDatabaseDiscoverySourceRepository(input.database);
-  const shortChecksum = config.configChecksum.slice(0, 12);
   const fetch = new FetchDocumentStage({
     repository,
     artifactStore: input.artifactStore,
     pipelineIdentity: {
       pipelineImplementationVersion: pipelineImplementationVersion(config),
-      parseImplementationVersion: deriveStageImplementationVersion({ configChecksum: config.configChecksum }),
+      parseImplementationVersion: deriveStageImplementationVersion(parseIdentity(config)),
       maxAttempts: config.maxAttempts,
     },
-    artifactProducerVersion: shortChecksum,
+    artifactProducerVersion: config.fetchArtifactVersion,
   });
   const discover = new DiscoverSourceStage({
     repository,
@@ -199,9 +221,9 @@ function createStageRuntime(
   overrides: WorkerCompositionOverrides,
 ): WorkerRuntime {
   const parseAdapter = new ParsePdfStage({ artifactStore: input.artifactStore }, {
-    parserVersion: config.configChecksum.slice(0, 12),
-    tableExtractorVersion: config.configChecksum.slice(0, 12),
-    producerVersion: config.configChecksum.slice(0, 12),
+    parserVersion: config.parserVersion,
+    tableExtractorVersion: config.tableExtractorVersion,
+    producerVersion: config.parseArtifactVersion,
     deadlineMs: config.parseDeadlineMs,
     maxPages: config.parseMaxPages,
     maxTextChars: config.parseMaxTextChars,
@@ -236,10 +258,10 @@ function createStageRuntime(
     publisher,
   });
   const registry = new StageRegistry([
-    { stage: "PARSE", implementationIdentity: { configChecksum: config.configChecksum }, handler: (context) => parse.execute(context) },
-    { stage: "CHUNK_AND_INSPECT", implementationIdentity: { configChecksum: config.configChecksum }, handler: (context) => chunk.execute(context) },
-    { stage: "REVIEW_DECISION", implementationIdentity: { configChecksum: config.configChecksum }, handler: (context) => review.execute(context) },
-    { stage: "EMBED_AND_PUBLISH", implementationIdentity: { configChecksum: config.configChecksum }, handler: (context) => publish.execute(context) },
+    { stage: "PARSE", implementationIdentity: parseIdentity(config), handler: (context) => parse.execute(context) },
+    { stage: "CHUNK_AND_INSPECT", implementationIdentity: stageIdentity(config, config.chunkComponentVersion), handler: (context) => chunk.execute(context) },
+    { stage: "REVIEW_DECISION", implementationIdentity: stageIdentity(config, config.reviewComponentVersion), handler: (context) => review.execute(context) },
+    { stage: "EMBED_AND_PUBLISH", implementationIdentity: stageIdentity(config, config.publishComponentVersion, config.embeddingModel), handler: (context) => publish.execute(context) },
   ]);
   const worker = new StageWorker({
     owner: config.owner,
@@ -295,7 +317,35 @@ function createScheduledPublisher(database: Database, embedder: Embedder): Sched
 }
 
 function pipelineImplementationVersion(config: ImmutableWorkerRuntimeConfig): string {
-  return `pipeline-v1:${createHash("sha256").update(config.configChecksum).digest("hex")}`;
+  return `pipeline-v2:${createHash("sha256").update(JSON.stringify([
+    config.releaseIdentity,
+    config.fetchArtifactVersion,
+    config.configChecksum,
+  ])).digest("hex")}`;
+}
+
+function parseIdentity(config: ImmutableWorkerRuntimeConfig): StageImplementationIdentityInput {
+  return stageIdentity(
+    config,
+    config.parseComponentVersion,
+    config.parserVersion,
+    config.tableExtractorVersion,
+    config.parseArtifactVersion,
+  );
+}
+
+function stageIdentity(
+  config: ImmutableWorkerRuntimeConfig,
+  ...componentParts: readonly string[]
+): StageImplementationIdentityInput {
+  const componentVersion = `component-v1:${createHash("sha256")
+    .update(JSON.stringify(componentParts))
+    .digest("hex")}`;
+  return {
+    releaseIdentity: config.releaseIdentity,
+    componentVersion,
+    configChecksum: config.configChecksum,
+  };
 }
 
 function required(value: string | undefined, name: string): string {

@@ -97,6 +97,18 @@ describe("ChunkInspector", () => {
     }));
   });
 
+  test("does not treat table placeholders or complete URLs as broken continuations", () => {
+    const report = new ChunkInspector().inspect(input([
+      candidate(0, "3. Equity derivatives 0% --"),
+      candidate(1, "4. Securitized Debt 0%", { sectionHeader: "4. Securitized Debt 0%" }),
+      candidate(2, "See https://www.miraeassetmf.co.in/"),
+      candidate(3, "XVI. New Fund Offer Price", { sectionHeader: "XVI. New Fund Offer Price" }),
+    ]));
+
+    expect(report.findings.map((finding) => finding.ruleCode))
+      .not.toContain("CROSS_CHUNK_ROW_CONTINUATION");
+  });
+
   test("warns when a chunk contains only its heading", () => {
     const report = new ChunkInspector().inspect(input([
       candidate(0, "Got Questions? We've Got Answers!", {
@@ -151,6 +163,16 @@ describe("ChunkInspector", () => {
     }));
     expect(report.findings).not.toContainEqual(expect.objectContaining({
       candidateId: "candidate-1",
+      ruleCode: "TOKEN_LIMIT_EXCEEDED",
+    }));
+  });
+
+  test("accepts a table inside the default 1536-token allowance", () => {
+    const report = new ChunkInspector().inspect(input([
+      candidate(0, "[TABLE]\n| Rule | Details |", { tokenCount: 1400, hasTable: true }),
+    ]));
+
+    expect(report.findings).not.toContainEqual(expect.objectContaining({
       ruleCode: "TOKEN_LIMIT_EXCEEDED",
     }));
   });
