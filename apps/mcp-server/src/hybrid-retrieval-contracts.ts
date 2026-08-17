@@ -68,6 +68,7 @@ export interface HybridFusionInput<T extends HybridRetrievalCandidate> {
   dense: Array<RankedRetrievalCandidate<T>>;
   lexical: Array<RankedRetrievalCandidate<T>>;
   intent: RetrievalIntent;
+  query?: string;
   limit: number;
   rrfK?: number;
   asOfDate?: string;

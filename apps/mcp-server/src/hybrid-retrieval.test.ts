@@ -456,6 +456,35 @@ describe("reviewed metadata ranking", () => {
     expect(result.every((item) => item.trace.sourcePriority === 0)).toBe(true);
   });
 
+  test("does not prioritize an addendum for a different Fund 117 scheme", () => {
+    const wrongAddendum = candidate("small-cap-addendum", "Who manages the scheme?", {
+      documentType: "Addendum",
+      fundName: "Mirae Asset Small Cap Fund",
+      effectiveDate: "2026-01-08",
+    });
+    const factsheet = candidate("large-cap-factsheet", "Fund manager for Mirae Asset Large Cap Fund", {
+      documentType: "Factsheet",
+      fundName: "Mirae Asset Large Cap Fund",
+    });
+    const question = "Who is the fund manager of Mirae Asset Large Cap Fund?";
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: wrongAddendum, score: 0.99 },
+        { candidate: factsheet, score: 0.8 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent(question),
+      query: question,
+      tenantId: "117",
+      limit: 2,
+      asOfDate: "2026-08-17",
+    });
+
+    expect(result.map((item) => item.candidate.id))
+      .toEqual(["large-cap-factsheet", "small-cap-addendum"]);
+    expect(result.map((item) => item.trace.sourcePriority)).toEqual([3, 0]);
+  });
+
   test("uses TER before scheme page and KIM for Fund 117 expense questions", () => {
     const kim = candidate("kim", "Total expense ratio TER is shown here", { documentType: "KIM" });
     const schemePage = candidate("scheme", "Total expense ratio TER is shown here", {

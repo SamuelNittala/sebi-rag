@@ -339,6 +339,7 @@ export async function searchHybridDocuments(
     dense: candidates.dense,
     lexical: candidates.lexical,
     intent,
+    query,
     limit: fusionLimit,
     rrfK,
     tenantId: accessScope.kind === "tenant-set" ? undefined : accessScope.tenantId,

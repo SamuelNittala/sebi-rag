@@ -65,6 +65,37 @@ const FUND_117_PRIORITIES: Partial<Record<RetrievalFactIntent, readonly Fund117S
   exit_load: ["addendum", "kim", "scheme_page"],
 };
 
+const FUND_QUERY_STOPWORDS = new Set([
+  "a", "about", "and", "are", "as", "asset", "at", "be", "by", "can", "cap",
+  "category", "current", "direct", "does", "expense", "for", "fund", "funds",
+  "how", "horizon", "in", "installment", "investment", "is", "latest", "manager",
+  "minimum", "mirae", "mutual", "nav", "of", "or", "plan", "ratio", "regular",
+  "risk", "scheme", "sip", "ter", "the", "to", "today", "total", "value", "what",
+  "who",
+]);
+
+function identityTokens(value: string): string[] {
+  return value.toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token.length > 1 && !FUND_QUERY_STOPWORDS.has(token));
+}
+
+function matchesNamedFund(candidate: HybridRetrievalCandidate, query: string): boolean {
+  const queryTokens = identityTokens(query);
+  if (queryTokens.length === 0) return true;
+  const evidence = identityTokens([
+    candidate.metadata?.fundName,
+    candidate.metadata?.canonicalStrategyName,
+    candidate.fundName,
+    candidate.documentTitle,
+    candidate.text,
+  ].filter((value): value is string => typeof value === "string").join(" "));
+  const evidenceTokens = new Set(evidence);
+  return queryTokens.every((token) => evidenceTokens.has(token));
+}
+
 function resolveSupersessionKey(
   query: string,
   factType: RetrievalFactIntent | null,
@@ -232,6 +263,7 @@ function fund117Source(candidate: HybridRetrievalCandidate): Fund117Source | nul
 function fund117SourcePriority(
   candidate: HybridRetrievalCandidate,
   intent: RetrievalIntent,
+  query: string,
   asOfDate: string,
   tenantId?: string,
 ): { priority: number; signal: string | null } {
@@ -244,6 +276,9 @@ function fund117SourcePriority(
     return { priority: 0, signal: null };
   }
   const source = fund117Source(candidate);
+  if (source !== "ter" && !matchesNamedFund(candidate, query)) {
+    return { priority: 0, signal: null };
+  }
   const addendumDate = candidate.metadata?.effectiveDate ?? candidate.metadata?.documentDate;
   if (source === "addendum" && (
     typeof addendumDate !== "string"
@@ -450,6 +485,7 @@ export function fuseHybridCandidates<T extends HybridRetrievalCandidate>(
     const sourcePriority = fund117SourcePriority(
       state.candidate,
       input.intent,
+      input.query ?? "",
       asOfDate,
       input.tenantId,
     );
