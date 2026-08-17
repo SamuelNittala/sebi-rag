@@ -38,6 +38,7 @@ data/pdfs/
 data/sebi-pdfs/
 data/scrape-state.json
 data/curated-faq/
+data/structured-sources/
 
 # Python
 __pycache__
