@@ -16,6 +16,10 @@ const FACT_COORDINATOR_PATTERN = /\b(?:and|or)\b|[&,;/]/i;
 
 const FACT_PATTERNS: ReadonlyArray<[RetrievalFactIntent, RegExp]> = [
   ["fund_manager", /\b(?:fund\s+manager|who\s+manages|managed\s+by)\b/i],
+  ["aum", /\b(?:AUM|assets?\s+under\s+management)\b/i],
+  ["category", /\b(?:fund|scheme)\s+category\b|\bcategory\b/i],
+  ["nav", /\b(?:NAV|net\s+asset\s+value)\b/i],
+  ["investment_horizon", /\b(?:investment|ideal|recommended|time)\s+horizon\b|\bhow\s+long\s+(?:should|to)\s+invest\b/i],
   ["investment_objective", /\binvestment\s+objective\b/i],
   ["investment_approach", /\binvestment\s+approach\b/i],
   ["benchmark", /\bbenchmark\b/i],
@@ -27,6 +31,39 @@ const FACT_PATTERNS: ReadonlyArray<[RetrievalFactIntent, RegExp]> = [
   ["risk", /\brisk(?:\s+profile|\s+factors?)?\b/i],
   ["investment_strategy", /\binvestment\s+strateg(?:y|ies)\b/i],
 ];
+
+const FACT_EVIDENCE_PATTERNS: Readonly<Record<RetrievalFactIntent, RegExp>> = {
+  fund_manager: /\b(?:fund\s+manager|managed\s+by|who\s+manages)\b/i,
+  aum: /\b(?:AUM|assets?\s+under\s+management)\b/i,
+  category: /\b(?:fund|scheme)\s+category\b|\bcategory\b/i,
+  nav: /\b(?:NAV|net\s+asset\s+value)\b/i,
+  investment_horizon: /\b(?:investment|ideal|recommended|time)\s+horizon\b|\byears?\b/i,
+  investment_objective: /\binvestment\s+objective\b/i,
+  investment_strategy: /\binvestment\s+strateg(?:y|ies)\b/i,
+  investment_approach: /\binvestment\s+approach\b/i,
+  risk: /\b(?:riskometer|risk\s+(?:level|profile|factors?))\b/i,
+  benchmark: /\bbenchmark\b/i,
+  minimum_investment: /\b(?:minimum|SIP|installment|application|subscription)\b/i,
+  exit_load: /\b(?:exit\s+load|load\s+structure|exit\s+early)\b/i,
+  expenses: /\b(?:TER|total\s+expense\s+ratio|expense\s+ratio|expenses?)\b/i,
+  redemption: /\b(?:redemption|redeem|repurchase|withdrawal|SWP)\b/i,
+  eligibility: /\b(?:eligibility|eligible|who\s+can\s+invest)\b/i,
+};
+
+type Fund117Source = "addendum" | "factsheet" | "scheme_page" | "kim" | "ter";
+
+const FUND_117_PRIORITIES: Partial<Record<RetrievalFactIntent, readonly Fund117Source[]>> = {
+  fund_manager: ["addendum", "factsheet", "scheme_page", "kim"],
+  aum: ["addendum", "factsheet", "scheme_page", "kim"],
+  category: ["addendum", "factsheet", "scheme_page", "kim"],
+  benchmark: ["addendum", "factsheet", "scheme_page", "kim"],
+  risk: ["addendum", "factsheet", "scheme_page", "kim"],
+  nav: ["addendum", "scheme_page", "factsheet", "kim"],
+  investment_horizon: ["addendum", "scheme_page", "factsheet", "kim"],
+  expenses: ["addendum", "ter", "scheme_page", "kim"],
+  minimum_investment: ["addendum", "kim", "scheme_page"],
+  exit_load: ["addendum", "kim", "scheme_page"],
+};
 
 function resolveSupersessionKey(
   query: string,
@@ -174,6 +211,55 @@ function candidateStrategyId(
     .filter((value): value is string => typeof value === "string")
     .join(" ");
   return PLATINUM_PATTERN.test(strategyEvidence) ? PLATINUM_STRATEGY_ID : null;
+}
+
+function fund117Source(candidate: HybridRetrievalCandidate): Fund117Source | null {
+  const documentType = String(candidate.metadata?.documentType ?? "").toLowerCase();
+  const sourceUrl = String(
+    candidate.sourceUrl
+      ?? candidate.metadata?.sourceUrl
+      ?? candidate.metadata?.sourceArtifactUrl
+      ?? "",
+  );
+  if (documentType === "addendum") return "addendum";
+  if (/total-expense-ratio|mirae-mf-ter/i.test(sourceUrl)) return "ter";
+  if (documentType === "factsheet") return "factsheet";
+  if (documentType === "kim") return "kim";
+  if (/\/mutual-fund-scheme\//i.test(sourceUrl)) return "scheme_page";
+  return null;
+}
+
+function fund117SourcePriority(
+  candidate: HybridRetrievalCandidate,
+  intent: RetrievalIntent,
+  asOfDate: string,
+  tenantId?: string,
+): { priority: number; signal: string | null } {
+  if (tenantId !== "117" || !intent.factType) return { priority: 0, signal: null };
+  const evidence = `${candidate.metadata?.factType ?? ""}\n${candidate.documentTitle ?? ""}\n${candidate.text ?? ""}`;
+  if (
+    candidate.metadata?.factType !== intent.factType
+    && !FACT_EVIDENCE_PATTERNS[intent.factType].test(evidence)
+  ) {
+    return { priority: 0, signal: null };
+  }
+  const source = fund117Source(candidate);
+  const addendumDate = candidate.metadata?.effectiveDate ?? candidate.metadata?.documentDate;
+  if (source === "addendum" && (
+    typeof addendumDate !== "string"
+    || !/^\d{4}-\d{2}-\d{2}$/.test(addendumDate)
+    || addendumDate > asOfDate
+  )) {
+    return { priority: 0, signal: null };
+  }
+  const hierarchy = FUND_117_PRIORITIES[intent.factType];
+  const index = source && hierarchy ? hierarchy.indexOf(source) : -1;
+  if (index < 0 || !source || !hierarchy) return { priority: 0, signal: null };
+  const priority = hierarchy.length - index;
+  return {
+    priority,
+    signal: `fund117:${intent.factType}:${source}:priority_${priority}`,
+  };
 }
 
 function metadataAdjustment(
@@ -361,6 +447,13 @@ export function fuseHybridCandidates<T extends HybridRetrievalCandidate>(
       + (state.lexicalRank ? 1 / (rrfK + state.lexicalRank) : 0);
     const rrfScore = rawRrfScore / maximumRrfScore;
     const metadata = metadataAdjustment(state.candidate.metadata, input.intent, asOfDate);
+    const sourcePriority = fund117SourcePriority(
+      state.candidate,
+      input.intent,
+      asOfDate,
+      input.tenantId,
+    );
+    if (sourcePriority.signal) metadata.signals.push(sourcePriority.signal);
     const finalScore = Math.max(0, rrfScore + metadata.adjustment);
     const trace: RetrievalTrace = {
       denseRank: state.denseRank,
@@ -370,6 +463,7 @@ export function fuseHybridCandidates<T extends HybridRetrievalCandidate>(
       rrfScore,
       metadataAdjustment: metadata.adjustment,
       metadataSignals: metadata.signals,
+      sourcePriority: sourcePriority.priority,
       fusedScore: finalScore,
       preRerankRank: 0,
       rerankRank: null,
@@ -380,7 +474,10 @@ export function fuseHybridCandidates<T extends HybridRetrievalCandidate>(
   });
 
   return fused
-    .sort((left, right) => right.trace.finalScore - left.trace.finalScore)
+    .sort((left, right) =>
+      right.trace.sourcePriority - left.trace.sourcePriority
+      || right.trace.finalScore - left.trace.finalScore
+    )
     .slice(0, input.limit)
     .map((item, index) => ({
       ...item,

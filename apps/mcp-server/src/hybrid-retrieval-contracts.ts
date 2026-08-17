@@ -4,6 +4,10 @@ export type RetrievalSourceType = "scheme_document" | "generic_document" | "know
 
 export type RetrievalFactIntent =
   | "fund_manager"
+  | "aum"
+  | "category"
+  | "nav"
+  | "investment_horizon"
   | "investment_objective"
   | "investment_strategy"
   | "investment_approach"
@@ -30,6 +34,8 @@ export interface HybridRetrievalCandidate {
   fundName?: string;
   documentFilename?: string;
   documentTitle?: string;
+  sourceUrl?: string;
+  contentCategory?: string;
 }
 
 export interface RankedRetrievalCandidate<T extends HybridRetrievalCandidate> {
@@ -45,6 +51,7 @@ export interface RetrievalTrace {
   rrfScore: number;
   metadataAdjustment: number;
   metadataSignals: string[];
+  sourcePriority: number;
   fusedScore: number;
   preRerankRank: number;
   rerankRank: number | null;
@@ -64,4 +71,5 @@ export interface HybridFusionInput<T extends HybridRetrievalCandidate> {
   limit: number;
   rrfK?: number;
   asOfDate?: string;
+  tenantId?: string;
 }

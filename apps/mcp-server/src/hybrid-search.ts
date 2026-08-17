@@ -271,7 +271,10 @@ async function applyReranker(
         finalScore,
       },
     };
-  }).sort((left, right) => right.trace.finalScore - left.trace.finalScore)
+  }).sort((left, right) =>
+    right.trace.sourcePriority - left.trace.sourcePriority
+    || right.trace.finalScore - left.trace.finalScore
+  )
     .slice(0, limit);
 }
 
@@ -338,6 +341,7 @@ export async function searchHybridDocuments(
     intent,
     limit: fusionLimit,
     rrfK,
+    tenantId: accessScope.kind === "tenant-set" ? undefined : accessScope.tenantId,
   });
   let ranked = fused;
   let reranking = {

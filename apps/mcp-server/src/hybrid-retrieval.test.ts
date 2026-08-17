@@ -13,10 +13,15 @@ interface Candidate extends HybridRetrievalCandidate {
 function candidate(
   id: string,
   text: string,
-  metadata: HybridRetrievalCandidate["metadata"] = null,
+  metadata: Partial<NonNullable<HybridRetrievalCandidate["metadata"]>> | null = null,
   sourceType: Candidate["sourceType"] = "scheme_document",
 ): Candidate {
-  return { id, sourceType, text, metadata };
+  return {
+    id,
+    sourceType,
+    text,
+    metadata: metadata ? { documentScope: "unknown", ...metadata } : null,
+  };
 }
 
 describe("hybrid retrieval intent", () => {
@@ -33,6 +38,14 @@ describe("hybrid retrieval intent", () => {
       factType: "investment_objective",
       preferredDocumentScope: "strategy",
     });
+  });
+
+  test("identifies Fund 117 current-fact intents", () => {
+    expect(resolveRetrievalIntent("What is the latest AUM?").factType).toBe("aum");
+    expect(resolveRetrievalIntent("What is the scheme category?").factType).toBe("category");
+    expect(resolveRetrievalIntent("What is today's NAV?").factType).toBe("nav");
+    expect(resolveRetrievalIntent("What is the ideal investment horizon?").factType)
+      .toBe("investment_horizon");
   });
 
   test("identifies colloquial early-exit questions as exit-load intent", () => {
@@ -250,6 +263,7 @@ describe("reviewed metadata ranking", () => {
         { candidate: addendum, score: 8 },
       ],
       intent: resolveRetrievalIntent("What is the minimum SIP installment amount?"),
+      tenantId: "117",
       limit: 2,
       asOfDate: "2026-07-23",
     });
@@ -332,6 +346,7 @@ describe("reviewed metadata ranking", () => {
     });
 
     expect(result[0]?.candidate.id).toBe("previous");
+    expect(result[1]?.trace.sourcePriority).toBe(0);
     expect(result[1]?.trace.metadataSignals).not.toContain("temporal:effective_addendum");
   });
 
@@ -385,6 +400,140 @@ describe("reviewed metadata ranking", () => {
     expect(result.map((item) => item.candidate.id)).toEqual(["addendum", "factsheet", "page"]);
     expect(result[0]?.trace.metadataSignals).toContain("temporal:authoritative_addendum");
     expect(result[1]?.trace.metadataSignals).toContain("temporal:current_factsheet");
+  });
+
+  test("enforces addendum, factsheet, scheme-page, KIM order for Fund 117 facts", () => {
+    const kim = candidate("kim", "The benchmark is Nifty 500 TRI", { documentType: "KIM" });
+    const schemePage = {
+      ...candidate("scheme", "The benchmark is Nifty 500 TRI", {
+        documentType: "product",
+        sourceUrl: "https://www.miraeassetmf.co.in/mutual-fund-scheme/example",
+      }, "knowledge_base"),
+    };
+    const factsheet = candidate("factsheet", "The benchmark is Nifty 500 TRI", {
+      documentType: "Factsheet",
+    });
+    const addendum = candidate("addendum", "The benchmark changed to Nifty 500 TRI", {
+      documentType: "Addendum",
+      effectiveDate: "2026-08-10",
+    });
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: kim, score: 0.99 },
+        { candidate: schemePage, score: 0.9 },
+        { candidate: factsheet, score: 0.8 },
+        { candidate: addendum, score: 0.7 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent("What is the benchmark?"),
+      tenantId: "117",
+      limit: 4,
+      asOfDate: "2026-08-17",
+    });
+
+    expect(result.map((item) => item.candidate.id))
+      .toEqual(["addendum", "factsheet", "scheme", "kim"]);
+    expect(result.map((item) => item.trace.sourcePriority)).toEqual([4, 3, 2, 1]);
+  });
+
+  test("keeps the Fund 117 authority policy isolated from other tenants", () => {
+    const kim = candidate("kim", "The benchmark is Nifty 500 TRI", { documentType: "KIM" });
+    const factsheet = candidate("factsheet", "The benchmark is Nifty 500 TRI", {
+      documentType: "Factsheet",
+    });
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: kim, score: 0.99 },
+        { candidate: factsheet, score: 0.8 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent("What is the benchmark?"),
+      tenantId: "176",
+      limit: 2,
+    });
+
+    expect(result.map((item) => item.candidate.id)).toEqual(["kim", "factsheet"]);
+    expect(result.every((item) => item.trace.sourcePriority === 0)).toBe(true);
+  });
+
+  test("uses TER before scheme page and KIM for Fund 117 expense questions", () => {
+    const kim = candidate("kim", "Total expense ratio TER is shown here", { documentType: "KIM" });
+    const schemePage = candidate("scheme", "Total expense ratio TER is shown here", {
+      documentType: "product",
+      sourceUrl: "https://www.miraeassetmf.co.in/mutual-fund-scheme/example",
+    }, "knowledge_base");
+    const ter = candidate("ter", "Direct Plan total expense ratio TER is 0.75%", {
+      documentType: "regulatory",
+      sourceUrl: "https://www.miraeassetmf.co.in/downloads/statutory-disclosure/total-expense-ratio",
+    }, "knowledge_base");
+    const addendum = candidate("addendum", "The total expense ratio TER provision is amended", {
+      documentType: "Addendum",
+      effectiveDate: "2026-08-10",
+    });
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: kim, score: 0.99 },
+        { candidate: schemePage, score: 0.9 },
+        { candidate: ter, score: 0.8 },
+        { candidate: addendum, score: 0.7 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent("What is the current expense ratio?"),
+      tenantId: "117",
+      limit: 4,
+      asOfDate: "2026-08-17",
+    });
+
+    expect(result.map((item) => item.candidate.id))
+      .toEqual(["addendum", "ter", "scheme", "kim"]);
+  });
+
+  test("uses KIM before scheme pages for Fund 117 minimum and load questions", () => {
+    const schemePage = candidate("scheme", "The minimum SIP installment is Rs 500", {
+      documentType: "product",
+      sourceUrl: "https://www.miraeassetmf.co.in/mutual-fund-scheme/example",
+    }, "knowledge_base");
+    const kim = candidate("kim", "The minimum SIP installment is Rs 500", { documentType: "KIM" });
+    const addendum = candidate("addendum", "The minimum SIP installment is amended to Rs 99", {
+      documentType: "Addendum",
+      effectiveDate: "2026-08-10",
+    });
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: schemePage, score: 0.99 },
+        { candidate: kim, score: 0.9 },
+        { candidate: addendum, score: 0.8 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent("What is the minimum SIP installment?"),
+      tenantId: "117",
+      limit: 3,
+      asOfDate: "2026-08-17",
+    });
+
+    expect(result.map((item) => item.candidate.id)).toEqual(["addendum", "kim", "scheme"]);
+  });
+
+  test("uses scheme pages before factsheets and KIMs for Fund 117 NAV questions", () => {
+    const kim = candidate("kim", "NAV means net asset value", { documentType: "KIM" });
+    const factsheet = candidate("factsheet", "NAV as of the stated date", { documentType: "Factsheet" });
+    const schemePage = candidate("scheme", "Current NAV is 125.42", {
+      documentType: "product",
+      sourceUrl: "https://www.miraeassetmf.co.in/mutual-fund-scheme/example",
+    }, "knowledge_base");
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: kim, score: 0.99 },
+        { candidate: factsheet, score: 0.9 },
+        { candidate: schemePage, score: 0.8 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent("What is the current NAV?"),
+      tenantId: "117",
+      limit: 3,
+    });
+
+    expect(result.map((item) => item.candidate.id)).toEqual(["scheme", "factsheet", "kim"]);
   });
 
   test("promotes a current dated TER workbook only for expense questions", () => {
