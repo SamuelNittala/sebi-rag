@@ -485,6 +485,32 @@ describe("reviewed metadata ranking", () => {
     expect(result.map((item) => item.trace.sourcePriority)).toEqual([3, 0]);
   });
 
+  test("does not trust a mislabeled factsheet chunk without the named scheme in its text", () => {
+    const mislabeled = candidate("multicap", "Mirae Asset Multicap Fund Benchmark: Nifty 500 Multicap", {
+      documentType: "Factsheet",
+      fundName: "Mirae Asset Large Cap Fund",
+    });
+    const correct = candidate("large-cap", "Mirae Asset Large Cap Fund Benchmark: Nifty 100 TRI", {
+      documentType: "Factsheet",
+      fundName: "Mirae Asset Large Cap Fund",
+    });
+    const question = "What is the benchmark of Mirae Asset Large Cap Fund?";
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: mislabeled, score: 0.99 },
+        { candidate: correct, score: 0.8 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent(question),
+      query: question,
+      tenantId: "117",
+      limit: 2,
+    });
+
+    expect(result.map((item) => item.candidate.id)).toEqual(["large-cap", "multicap"]);
+    expect(result.map((item) => item.trace.sourcePriority)).toEqual([3, 0]);
+  });
+
   test("uses TER before scheme page and KIM for Fund 117 expense questions", () => {
     const kim = candidate("kim", "Total expense ratio TER is shown here", { documentType: "KIM" });
     const schemePage = candidate("scheme", "Total expense ratio TER is shown here", {

@@ -82,7 +82,33 @@ function identityTokens(value: string): string[] {
     .filter((token) => token.length > 1 && !FUND_QUERY_STOPWORDS.has(token));
 }
 
-function matchesNamedFund(candidate: HybridRetrievalCandidate, query: string): boolean {
+function normalizedSchemeName(query: string): string | null {
+  const match = /\bmirae\s+asset\s+([a-z0-9& -]+?\bfund)\b/i.exec(query);
+  return match?.[0]?.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim() ?? null;
+}
+
+function matchesNamedFund(
+  candidate: HybridRetrievalCandidate,
+  query: string,
+  source: Fund117Source,
+): boolean {
+  const schemeName = normalizedSchemeName(query);
+  if (schemeName) {
+    const exactEvidence = source === "factsheet"
+      ? candidate.text ?? ""
+      : [
+          candidate.metadata?.fundName,
+          candidate.metadata?.canonicalStrategyName,
+          candidate.fundName,
+          candidate.documentTitle,
+          candidate.text,
+        ].filter((value): value is string => typeof value === "string").join(" ");
+    const normalizedEvidence = exactEvidence.toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return normalizedEvidence.includes(schemeName);
+  }
   const queryTokens = identityTokens(query);
   if (queryTokens.length === 0) return true;
   const evidence = identityTokens([
@@ -276,7 +302,7 @@ function fund117SourcePriority(
     return { priority: 0, signal: null };
   }
   const source = fund117Source(candidate);
-  if (!matchesNamedFund(candidate, query)) {
+  if (source && !matchesNamedFund(candidate, query, source)) {
     return { priority: 0, signal: null };
   }
   const addendumDate = candidate.metadata?.effectiveDate ?? candidate.metadata?.documentDate;
