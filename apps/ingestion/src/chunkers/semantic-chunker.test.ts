@@ -693,6 +693,19 @@ Second paragraph of text content.`,
         }
       }
     });
+
+    test("does not merge a short overlap chunk past the token limit", () => {
+      const input: ChunkInput = {
+        pages: [{ pageNumber: 1, text: Array(900).fill("a").join(" ") }],
+      };
+
+      const result = semanticChunk(input);
+
+      expect(result.chunks.length).toBeGreaterThan(1);
+      expect(result.chunks.every((chunk) =>
+        chunk.hasTable || chunk.tokenCount <= DEFAULT_CHUNK_CONFIG.maxTokens
+      )).toBe(true);
+    });
   });
 
   describe("edge cases", () => {

@@ -337,9 +337,25 @@ function splitAtSectionBoundaries(text: string): string[] {
  * Estimates position in text for a given token count
  */
 function estimatePositionForTokens(text: string, targetTokens: number): number {
-  // Reverse of token estimation: position ~ targetTokens / 1.3 * avgWordLength
-  const avgWordLength = 5; // Average word + space
-  return Math.round((targetTokens / 1.3) * avgWordLength);
+  if (targetTokens <= 0 || !text) return 0;
+  if (estimateTokenCount(text) <= targetTokens) return text.length;
+
+  // The estimator is word-based, so a fixed average character width can
+  // overshoot badly for dense, short-token PDF text. Find the greatest
+  // character prefix that actually satisfies the same estimator instead.
+  let low = 1;
+  let high = text.length;
+  let best = 0;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    if (estimateTokenCount(text.slice(0, middle)) <= targetTokens) {
+      best = middle;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return best;
 }
 
 /**
@@ -786,14 +802,14 @@ export function semanticChunk(
         const prevChunk = mergedChunks[mergedChunks.length - 1];
 
         // Merge if previous chunk is also short OR won't become too long
-        const combinedLength = prevChunk.text.length + chunk.text.length;
+        const combinedText = `${prevChunk.text}\n\n${chunk.text}`;
         if (
           prevChunk.sectionHeader === chunk.sectionHeader
           && !prevChunk.hasTable
-          && combinedLength <= config.maxTokens * 4
+          && estimateTokenCount(combinedText) <= config.maxTokens
         ) {
           // Merge into previous chunk
-          prevChunk.text += "\n\n" + chunk.text;
+          prevChunk.text = combinedText;
           prevChunk.pageNumbers = [
             ...new Set([...prevChunk.pageNumbers, ...chunk.pageNumbers])
           ].sort((a, b) => a - b);
@@ -806,23 +822,23 @@ export function semanticChunk(
       // If can't merge with previous, try merging with next
       if (i < chunks.length - 1) {
         const nextChunk = chunks[i + 1];
-        const combinedLength = chunk.text.length + nextChunk.text.length;
+        const combinedText = `${chunk.text}\n\n${nextChunk.text}`;
 
         if (
           nextChunk.sectionHeader === chunk.sectionHeader
           && !nextChunk.hasTable
-          && combinedLength <= config.maxTokens * 4
+          && estimateTokenCount(combinedText) <= config.maxTokens
         ) {
           // Merge current and next, then add
           mergedChunks.push({
-            text: chunk.text + "\n\n" + nextChunk.text,
+            text: combinedText,
             chunkIndex: mergedChunks.length,
             pageNumbers: [
               ...new Set([...chunk.pageNumbers, ...nextChunk.pageNumbers])
             ].sort((a, b) => a - b),
             hasTable: chunk.hasTable || nextChunk.hasTable,
             sectionHeader: chunk.sectionHeader || nextChunk.sectionHeader,
-            tokenCount: estimateTokenCount(chunk.text + "\n\n" + nextChunk.text),
+            tokenCount: estimateTokenCount(combinedText),
           });
           i++; // Skip the next chunk since we merged it
           continue;

@@ -232,6 +232,40 @@ describe("ChunkInspectStage", () => {
     )).toBe(true);
   });
 
+  test("removes PostgreSQL-forbidden NUL bytes before review staging", async () => {
+    const value = fixture();
+    value.parsed.pages[0] = {
+      ...value.parsed.pages[0]!,
+      text: "Mirae Flexi\u0000 Cap Fund Factsheet January 2026",
+      hasTable: true,
+    };
+    value.parsed.tables = [{
+      pageNumber: 1,
+      tableIndex: 0,
+      rows: [["Minimum SIP", "Amount"], ["Monthly\u0000", "INR 500"]],
+      markdown: "| Minimum SIP | Amount |\n| --- | --- |\n| Monthly\u0000 | INR 500 |",
+    }];
+    value.parsed.diagnostics = { ...value.parsed.diagnostics, tableCount: 1 };
+    value.bytes = encodeNormalizedParseArtifact(value.parsed);
+    value.checksum = createHash("sha256").update(value.bytes).digest("hex");
+    value.descriptor = {
+      ...value.descriptor,
+      key: `parsed/${value.checksum}`,
+      uri: `memory://${value.checksum}`,
+      sha256: value.checksum,
+      byteSize: value.bytes.byteLength,
+    };
+    const repository = new IdempotentReviewRepository();
+
+    await stageFor(value, repository).execute(stageInput(value));
+
+    expect(repository.inputs[0]!.candidates).not.toHaveLength(0);
+    expect(repository.inputs[0]!.candidates.every((candidate) =>
+      !candidate.text.includes("\u0000")
+      && !JSON.stringify(candidate.metadata).includes("\u0000")
+    )).toBe(true);
+  });
+
   test("a retry returns one compatible review run and implementation drift changes compatibility", async () => {
     const value = fixture();
     const repository = new IdempotentReviewRepository();

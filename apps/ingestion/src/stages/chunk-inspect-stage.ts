@@ -170,7 +170,10 @@ export function preparePdfChunkInspection(input: {
   readonly sourceUrl?: string | null;
 }): PreparedPdfChunkInspection {
   assertClassifiedKnowledgeOwnership(input.ownership);
-  const parsed = input.parsed;
+  // PDF text extractors can preserve embedded NUL characters. PostgreSQL text
+  // columns reject U+0000, so remove it before metadata extraction, chunking,
+  // inspection, hashing, and durable review staging all observe the content.
+  const parsed = sanitizePostgresText(input.parsed);
   const sourceUrl = input.sourceUrl === undefined ? parsed.source.canonicalUrl : input.sourceUrl;
   const metadata = input.metadata ?? extractPdfMetadata(parsed, input.metadataFilepath);
   let chunkResult = semanticChunk({
@@ -265,6 +268,19 @@ export function preparePdfChunkInspection(input: {
     chunkerVersion,
     prepared,
     sourceAuthority,
+  };
+}
+
+function sanitizePostgresText(parsed: NormalizedPdfParseArtifact): NormalizedPdfParseArtifact {
+  const withoutNul = (value: string) => value.replaceAll("\u0000", "");
+  return {
+    ...parsed,
+    pages: parsed.pages.map((page) => ({ ...page, text: withoutNul(page.text) })),
+    tables: parsed.tables.map((table) => ({
+      ...table,
+      rows: table.rows.map((row) => row.map(withoutNul)),
+      markdown: withoutNul(table.markdown),
+    })),
   };
 }
 
