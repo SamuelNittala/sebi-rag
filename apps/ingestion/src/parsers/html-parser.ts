@@ -20,6 +20,8 @@ export interface ParsedHtmlFrontmatter {
   content_category: ContentCategory;
   source: string;
   scraped_at: string;
+  source_date?: string;
+  source_artifact_url?: string;
 }
 
 export interface ParsedHtmlDocument {
@@ -64,6 +66,8 @@ export function parseFrontmatter(content: string): {
       content_category: (frontmatter.content_category || "education") as ContentCategory,
       source: frontmatter.source || "",
       scraped_at: frontmatter.scraped_at || "",
+      source_date: frontmatter.source_date || undefined,
+      source_artifact_url: frontmatter.source_artifact_url || undefined,
     },
     body,
   };

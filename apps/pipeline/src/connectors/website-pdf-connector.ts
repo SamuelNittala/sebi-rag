@@ -20,6 +20,7 @@ import {
   type SourceFetchResult,
 } from "./source-connector.ts";
 import { discoverMiraeSifDownloadCatalog } from "./mirae-sif-download-catalog.ts";
+import { discoverMiraeMfDownloadCatalog } from "./mirae-mf-download-catalog.ts";
 import { discoverSebiSidScraper } from "./sebi-sid-scraper.ts";
 
 const PDF_SIGNATURE = new TextEncoder().encode("%PDF-");
@@ -63,6 +64,13 @@ export class WebsitePdfConnector implements SourceConnector {
         return this.#discoverSitemaps(config, signal);
       case "constrained_crawl":
         return this.#discoverCrawl(config, signal);
+      case "mirae_mf_download_catalog":
+        return discoverMiraeMfDownloadCatalog(
+          config,
+          (url, payload, requestSignal) => this.#postJson(url, payload, requestSignal),
+          (url) => this.#assertAllowed(url),
+          signal,
+        );
       case "mirae_sif_download_catalog":
         return discoverMiraeSifDownloadCatalog(
           config,
@@ -180,7 +188,29 @@ export class WebsitePdfConnector implements SourceConnector {
     return new TextDecoder().decode(await readBounded(response, this.#maxBytes, signal, timeoutSignal));
   }
 
-  async #request(url: string, headers: Headers, signal?: AbortSignal): Promise<{
+  async #postJson(url: string, payload: unknown, signal?: AbortSignal): Promise<string> {
+    const allowedUrl = this.#assertAllowed(url);
+    const headers = new Headers({
+      ...DEFAULT_HEADERS,
+      accept: "application/json",
+      "content-type": "application/json",
+    });
+    const { response, timeoutSignal } = await this.#request(
+      allowedUrl,
+      headers,
+      signal,
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+    this.#assertSuccessful(response);
+    return new TextDecoder().decode(await readBounded(response, this.#maxBytes, signal, timeoutSignal));
+  }
+
+  async #request(
+    url: string,
+    headers: Headers,
+    signal?: AbortSignal,
+    init: Pick<RequestInit, "method" | "body"> = {},
+  ): Promise<{
     response: Response;
     canonicalUrl: string;
     aliases: readonly string[];
@@ -200,7 +230,12 @@ export class WebsitePdfConnector implements SourceConnector {
       let response: Response;
       try {
         await this.#assertPublicResolution(new URL(current).hostname, resolutionSignal);
-        response = await this.#fetch(current, { headers: currentHeaders, redirect: "manual", signal: combinedSignal });
+        response = await this.#fetch(current, {
+          ...init,
+          headers: currentHeaders,
+          redirect: "manual",
+          signal: combinedSignal,
+        });
       } catch (error) {
         if (error instanceof SourceConnectorError) throw error;
         if (timeout.aborted) throw transient("FETCH_TIMEOUT", `Fetch timed out after ${this.#timeoutMs}ms.`, error);

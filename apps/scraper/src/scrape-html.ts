@@ -11,12 +11,16 @@
 import { HtmlScraper } from "./html-scraper.ts";
 import { allAmfiSources } from "./sources/amfi.ts";
 import { allMiraeSifSources } from "./sources/mirae-sif.ts";
+import { discoverMiraeMfSchemeSource } from "./sources/mirae-mf.ts";
 
 async function main() {
   const args = process.argv.slice(2);
   const sourceFilter = args.includes("--source") ? args[args.indexOf("--source") + 1] : undefined;
 
-  const allSources = [...allAmfiSources, ...allMiraeSifSources];
+  const discoveredSources = !sourceFilter || sourceFilter === "mirae-mf-schemes"
+    ? [await discoverMiraeMfSchemeSource()]
+    : [];
+  const allSources = [...allAmfiSources, ...allMiraeSifSources, ...discoveredSources];
   const sources = sourceFilter
     ? allSources.filter((s) => s.name === sourceFilter)
     : allSources;

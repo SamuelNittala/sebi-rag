@@ -51,6 +51,75 @@ describe("WebsitePdfConnector", () => {
     ]);
   });
 
+  test("discovers every PDF in a paginated Mirae MF download catalogue", async () => {
+    const requests: unknown[] = [];
+    const connector = new WebsitePdfConnector({
+      allowedHosts: ["catalog.example"],
+      allowedPathPrefixes: ["/AjaxService/GetDownloadsData", "/docs/"],
+      maxBytes: 1024 * 1024,
+      timeoutMs: 500,
+      maxRedirects: 1,
+      resolveHost: async () => ["8.8.8.8"],
+      fetch: async (input, init) => {
+        expect(init?.method).toBe("POST");
+        requests.push(JSON.parse(String(init?.body)));
+        const page = (requests.at(-1) as { request: { pgno: number } }).request.pgno;
+        return Response.json({
+          ReturnCode: "0",
+          DataCount: 3,
+          Data: page === 1
+            ? [
+                { Id: "doc-a", URL: "/docs/a.pdf" },
+                { Id: "sheet", URL: "/docs/ignored.xls" },
+              ]
+            : [{ Id: "doc-b", URL: "/docs/b.pdf?sfvrsn=2" }],
+        });
+      },
+    });
+
+    await expect(connector.discover({
+      strategy: "mirae_mf_download_catalog",
+      catalogUrl: "https://catalog.example/AjaxService/GetDownloadsData",
+      moduleName: "Factsheet",
+      fromDate: "2026-01-01",
+      toDate: "2026-12-31",
+      pageSize: 2,
+      maxPages: 3,
+      maxDocuments: 5,
+      minimumDocuments: 2,
+    })).resolves.toEqual([
+      { logicalDocumentKey: createLogicalDocumentKey("catalog:doc-a"), url: "https://catalog.example/docs/a.pdf" },
+      { logicalDocumentKey: createLogicalDocumentKey("catalog:doc-b"), url: "https://catalog.example/docs/b.pdf?sfvrsn=2" },
+    ]);
+    expect(requests).toEqual([
+      { request: { modulename: "Factsheet", title: "", fromdate: "2026-01-01", todate: "2026-12-31", pgno: 1, pgsize: 2 } },
+      { request: { modulename: "Factsheet", title: "", fromdate: "2026-01-01", todate: "2026-12-31", pgno: 2, pgsize: 2 } },
+    ]);
+  });
+
+  test("fails closed when the Mirae MF catalogue shrinks below its baseline", async () => {
+    const connector = new WebsitePdfConnector({
+      allowedHosts: ["catalog.example"],
+      allowedPathPrefixes: ["/"],
+      maxBytes: 1024,
+      timeoutMs: 500,
+      maxRedirects: 1,
+      resolveHost: async () => ["8.8.8.8"],
+      fetch: async () => Response.json({ ReturnCode: "0", DataCount: 1, Data: [
+        { Id: "doc-a", URL: "/docs/a.pdf" },
+      ] }),
+    });
+    await expect(connector.discover({
+      strategy: "mirae_mf_download_catalog",
+      catalogUrl: "https://catalog.example/AjaxService/GetDownloadsData",
+      moduleName: "Addendum",
+      pageSize: 100,
+      maxPages: 2,
+      maxDocuments: 10,
+      minimumDocuments: 2,
+    })).rejects.toMatchObject({ code: "CATALOG_DOCUMENT_MINIMUM", classification: "deterministic" });
+  });
+
   test("watches every Mirae SIF catalogue section, subsection, and page", async () => {
     const requestedEndpoints: string[] = [];
     const connector = new WebsitePdfConnector({

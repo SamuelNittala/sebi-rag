@@ -178,8 +178,13 @@ export function preparePdfChunkInspection(input: {
     tables: parsed.tables.map((table) => ({ pageNumber: table.pageNumber, markdown: table.markdown })),
   });
   let chunkerVersion = "semantic-v1";
+  let addendumChunkingMode: "specialized" | "semantic_fallback" | null = null;
+  let addendumFallbackReason: "incomplete_metadata" | "unpaired_provisions" | null = null;
   if (metadata.docType === "Addendum") {
-    const addendum = metadata.fundName && metadata.amendmentNumber && metadata.effectiveDate
+    const hasRequiredMetadata = Boolean(
+      metadata.fundName && metadata.amendmentNumber && metadata.effectiveDate,
+    );
+    const addendum = hasRequiredMetadata
       ? chunkAddendum({
           pages: parsed.pages.map((page) => ({ pageNumber: page.pageNumber, text: page.text })),
           fundName: metadata.fundName,
@@ -188,11 +193,15 @@ export function preparePdfChunkInspection(input: {
           amendedDocumentTypes: metadata.amendedDocumentTypes,
         })
       : null;
-    if (!addendum) {
-      throw deterministicChunkError("AMBIGUOUS_ADDENDUM", "Addendum provisions could not be paired unambiguously.");
+    if (addendum) {
+      chunkResult = addendum;
+      chunkerVersion = "addendum-v1";
+      addendumChunkingMode = "specialized";
+    } else {
+      chunkerVersion = "semantic-addendum-fallback-v1";
+      addendumChunkingMode = "semantic_fallback";
+      addendumFallbackReason = hasRequiredMetadata ? "unpaired_provisions" : "incomplete_metadata";
     }
-    chunkResult = addendum;
-    chunkerVersion = "addendum-v1";
   }
   if (input.knowledgeScope.sourceCollection === "mirae_sif") {
     chunkResult = removeDisposableSifChunks(chunkResult, parsed.source.filename);
@@ -235,6 +244,8 @@ export function preparePdfChunkInspection(input: {
       effectiveDate: metadata.effectiveDate?.toISOString().slice(0, 10) ?? null,
       amendmentNumber: metadata.amendmentNumber,
       amendedDocumentTypes: metadata.amendedDocumentTypes,
+      addendumChunkingMode,
+      addendumFallbackReason,
       sebiSchemeId: citation.sebiSchemeId ?? "",
       sebiUrl: citation.sebiUrl ?? "",
       sourceUrl,

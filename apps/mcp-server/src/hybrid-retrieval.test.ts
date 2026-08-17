@@ -355,6 +355,54 @@ describe("reviewed metadata ranking", () => {
     expect(result[0]?.trace.metadataSignals).not.toContain("temporal:effective_addendum");
   });
 
+  test("promotes current AMC fact sources in authority order", () => {
+    const page = candidate("page", "Benchmark is Nifty 500 TRI", {
+      documentType: "product",
+      sourceAuthority: "official_product_page",
+      sourceUrl: "https://www.miraeassetmf.co.in/mutual-fund-scheme/example",
+    });
+    const factsheet = candidate("factsheet", "Benchmark is Nifty 500 TRI", {
+      documentType: "Factsheet",
+      documentDate: "2026-08-01",
+      sourceAuthority: "official_product_page",
+    });
+    const addendum = candidate("addendum", "Benchmark changed to Nifty 500 TRI", {
+      documentType: "Addendum",
+      effectiveDate: "2026-08-10",
+      sourceAuthority: "regulatory_filing",
+    });
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: page, score: 0.9 },
+        { candidate: factsheet, score: 0.8 },
+        { candidate: addendum, score: 0.7 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent("What is the benchmark?"),
+      limit: 3,
+      asOfDate: "2026-08-17",
+    });
+    expect(result.map((item) => item.candidate.id)).toEqual(["addendum", "factsheet", "page"]);
+    expect(result[0]?.trace.metadataSignals).toContain("temporal:authoritative_addendum");
+    expect(result[1]?.trace.metadataSignals).toContain("temporal:current_factsheet");
+  });
+
+  test("promotes a current dated TER workbook only for expense questions", () => {
+    const ter = candidate("ter", "Direct Plan total expense ratio is 0.58%", {
+      documentType: "regulatory",
+      sourceDate: "2026-08-16",
+      sourceUrl: "https://www.miraeassetmf.co.in/downloads/statutory-disclosure/total-expense-ratio",
+    }, "knowledge_base");
+    const result = fuseHybridCandidates({
+      dense: [{ candidate: ter, score: 0.7 }],
+      lexical: [],
+      intent: resolveRetrievalIntent("What is the expense ratio?"),
+      limit: 1,
+      asOfDate: "2026-08-17",
+    });
+    expect(result[0]?.trace.metadataSignals).toContain("temporal:current_ter");
+  });
+
   test("ranks Gaurik's strategy assignment above an SAI staff directory", () => {
     const gaurik = candidate("gaurik", "Mr. Gaurik Shah", {
       documentScope: "strategy",

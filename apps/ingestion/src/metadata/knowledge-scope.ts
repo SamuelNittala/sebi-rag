@@ -39,6 +39,15 @@ export function resolveKnowledgeScope(
     };
   }
 
+  if (descriptor.source.toLowerCase().includes("mirae-mf")
+    || descriptor.sourceUrl.toLowerCase().includes("miraeassetmf.co.in/mutual-fund-scheme")) {
+    return {
+      knowledgeDomain: "mutual_fund",
+      sourceCollection: "mirae_mf",
+      amcSlug: "mirae-asset",
+    };
+  }
+
   // IndusInd/BFIL demo corpus — mirrors the mirae-sif source mapping.
   if (descriptor.source.toLowerCase().includes("indusind-demo")) {
     return {

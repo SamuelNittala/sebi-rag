@@ -50,6 +50,7 @@ export const discoveryStrategies = [
   "explicit_urls",
   "sitemap",
   "constrained_crawl",
+  "mirae_mf_download_catalog",
   "mirae_sif_download_catalog",
   "sebi_sid_scraper",
 ] as const;
@@ -93,6 +94,19 @@ export type SourceDiscoveryConfig =
       readonly maxPages: number;
       readonly maxDocuments: number;
       readonly identity: NormalizedPathIdentityRule;
+    }
+  | {
+      /** Watches a PDF catalogue exposed by Mirae Asset MF's official Sitefinity API. */
+      readonly strategy: "mirae_mf_download_catalog";
+      readonly catalogUrl: string;
+      readonly moduleName: "Addendum" | "Factsheet" | "Application_Form&KIM";
+      readonly fromDate?: string;
+      readonly toDate?: string;
+      readonly pageSize: number;
+      readonly maxPages: number;
+      readonly maxDocuments: number;
+      /** Fail closed when discovery returns fewer documents than this reviewed baseline. */
+      readonly minimumDocuments: number;
     }
   | {
       /** Watches every section and subsection advertised by the Mirae SIF download catalogue. */

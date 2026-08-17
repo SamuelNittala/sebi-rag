@@ -124,6 +124,78 @@ describe("ChunkInspector", () => {
     }));
   });
 
+  test("adds one document warning when required addendum metadata is incomplete", () => {
+    const addendumMetadata = {
+      documentScope: "regulatory" as const,
+      documentType: "Addendum",
+      fundName: "Mirae Asset Gold ETF Fund",
+      amendmentNumber: "AD/02/2026",
+      effectiveDate: null,
+      addendumChunkingMode: "semantic_fallback",
+      addendumFallbackReason: "incomplete_metadata",
+    };
+    const report = new ChunkInspector().inspect(input([
+      candidate(0, "First semantic addendum chunk.", { metadata: addendumMetadata }),
+      candidate(1, "Second semantic addendum chunk.", { metadata: addendumMetadata }),
+    ]));
+
+    expect(report.findings.filter((item) => item.ruleCode === "ADDENDUM_METADATA_INCOMPLETE"))
+      .toEqual([expect.objectContaining({
+        candidateId: null,
+        severity: "warning",
+        blocksApproval: false,
+        evidence: {
+          missingFields: ["effectiveDate"],
+          fallbackReason: "incomplete_metadata",
+        },
+      })]);
+  });
+
+  test("warns when complete addendum metadata still cannot produce safely paired provisions", () => {
+    const report = new ChunkInspector().inspect(input([
+      candidate(0, "Unpaired addendum provision.", {
+        metadata: {
+          documentScope: "regulatory",
+          documentType: "Addendum",
+          fundName: "Mirae Asset Gold ETF Fund",
+          amendmentNumber: "AD/03/2026",
+          effectiveDate: "2026-01-15",
+          addendumChunkingMode: "semantic_fallback",
+          addendumFallbackReason: "unpaired_provisions",
+        },
+      }),
+    ]));
+
+    expect(report.findings).toContainEqual(expect.objectContaining({
+      candidateId: null,
+      ruleCode: "ADDENDUM_SPECIALIZED_CHUNKING_UNAVAILABLE",
+      severity: "warning",
+      blocksApproval: false,
+      evidence: { missingFields: [], fallbackReason: "unpaired_provisions" },
+    }));
+  });
+
+  test("does not warn when required addendum metadata is complete", () => {
+    const report = new ChunkInspector().inspect(input([
+      candidate(0, "Complete addendum provision.", {
+        metadata: {
+          documentScope: "regulatory",
+          documentType: "Addendum",
+          fundName: "Mirae Asset Gold ETF Fund",
+          amendmentNumber: "AD/02/2026",
+          effectiveDate: "2026-01-08",
+          addendumChunkingMode: "specialized",
+          addendumFallbackReason: null,
+        },
+      }),
+    ]));
+
+    expect(report.findings.map((item) => item.ruleCode)).not.toEqual(expect.arrayContaining([
+      "ADDENDUM_METADATA_INCOMPLETE",
+      "ADDENDUM_SPECIALIZED_CHUNKING_UNAVAILABLE",
+    ]));
+  });
+
   test("blocks missing and out-of-range page references", () => {
     const report = new ChunkInspector().inspect(input([
       candidate(0, "Content without a source page.", { pageNumbers: [] }),

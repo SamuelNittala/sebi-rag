@@ -6,6 +6,7 @@ import type { StageInspectionReviewInput } from "@mf-rag/db";
 
 import {
   ChunkInspectStage,
+  preparePdfChunkInspection,
   type ChunkInspectionReviewRepository,
 } from "./chunk-inspect-stage.ts";
 import {
@@ -114,6 +115,95 @@ function stageInput(fixtureValue: ReturnType<typeof fixture>) {
 }
 
 describe("ChunkInspectStage", () => {
+  test("uses reviewed semantic fallback for an addendum without an effective date", () => {
+    const value = fixture();
+    const inspection = preparePdfChunkInspection({
+      parsed: {
+        ...value.parsed,
+        source: { ...value.parsed.source, filename: "addendum-ad-02-2026.pdf" },
+      },
+      sourceDocumentId: "source-document-1",
+      ownership: {
+        visibilityScope: "TENANT",
+        tenantId: "117",
+        ownershipManifestId: "source-registry:revision-1",
+        ownershipManifestVersion: 1,
+      },
+      knowledgeScope: {
+        knowledgeDomain: "mutual_fund",
+        sourceCollection: "mirae_mf",
+        amcSlug: "mirae-asset",
+      },
+      metadata: {
+        fundName: "Mirae Asset Gold ETF Fund",
+        docType: "Addendum",
+        documentDate: new Date("2026-01-08T00:00:00.000Z"),
+        effectiveDate: null,
+        amendmentNumber: "AD/02/2026",
+        amendedDocumentTypes: [],
+        amcName: "Mirae Asset Mutual Fund",
+        schemeType: "Other",
+        schemeCategory: null,
+        isinGrowth: null,
+        isinDividend: null,
+        schemeCode: null,
+      },
+    });
+
+    expect(inspection.chunkerVersion).toBe("semantic-addendum-fallback-v1");
+    expect(inspection.chunkResult.chunks.length).toBeGreaterThan(0);
+    expect(inspection.prepared.report.findings).toContainEqual(expect.objectContaining({
+      candidateId: null,
+      ruleCode: "ADDENDUM_METADATA_INCOMPLETE",
+      severity: "warning",
+      blocksApproval: false,
+      evidence: {
+        missingFields: ["effectiveDate"],
+        fallbackReason: "incomplete_metadata",
+      },
+    }));
+  });
+
+  test("warns when complete addendum metadata has no safely paired provisions", () => {
+    const value = fixture();
+    const inspection = preparePdfChunkInspection({
+      parsed: value.parsed,
+      sourceDocumentId: "source-document-1",
+      ownership: {
+        visibilityScope: "TENANT",
+        tenantId: "117",
+        ownershipManifestId: "source-registry:revision-1",
+        ownershipManifestVersion: 1,
+      },
+      knowledgeScope: {
+        knowledgeDomain: "mutual_fund",
+        sourceCollection: "mirae_mf",
+        amcSlug: "mirae-asset",
+      },
+      metadata: {
+        fundName: "Mirae Asset Gold ETF Fund",
+        docType: "Addendum",
+        documentDate: new Date("2026-01-15T00:00:00.000Z"),
+        effectiveDate: new Date("2026-01-15T00:00:00.000Z"),
+        amendmentNumber: "AD/03/2026",
+        amendedDocumentTypes: [],
+        amcName: "Mirae Asset Mutual Fund",
+        schemeType: "Other",
+        schemeCategory: null,
+        isinGrowth: null,
+        isinDividend: null,
+        schemeCode: null,
+      },
+    });
+
+    expect(inspection.chunkerVersion).toBe("semantic-addendum-fallback-v1");
+    expect(inspection.prepared.report.findings).toContainEqual(expect.objectContaining({
+      candidateId: null,
+      ruleCode: "ADDENDUM_SPECIALIZED_CHUNKING_UNAVAILABLE",
+      evidence: { missingFields: [], fallbackReason: "unpaired_provisions" },
+    }));
+  });
+
   test("consumes only a parsed artifact and stages universally inspected tenant-owned candidates", async () => {
     const value = fixture();
     const repository = new IdempotentReviewRepository();

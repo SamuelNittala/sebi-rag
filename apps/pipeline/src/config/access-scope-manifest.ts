@@ -84,6 +84,20 @@ const constrainedCrawlSchema = z.object({
   identity: normalizedPathIdentitySchema,
 }).strict();
 
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD.");
+
+const miraeMfDownloadCatalogSchema = z.object({
+  strategy: z.literal("mirae_mf_download_catalog"),
+  catalogUrl: safeUrlSchema,
+  moduleName: z.enum(["Addendum", "Factsheet", "Application_Form&KIM"]),
+  fromDate: isoDateSchema.optional(),
+  toDate: isoDateSchema.optional(),
+  pageSize: z.number().int().min(1).max(1000),
+  maxPages: z.number().int().min(1).max(1000),
+  maxDocuments: z.number().int().min(1).max(10_000),
+  minimumDocuments: z.number().int().min(1).max(10_000),
+}).strict();
+
 const miraeSifDownloadCatalogSchema = z.object({
   strategy: z.literal("mirae_sif_download_catalog"),
   catalogUrl: safeUrlSchema,
@@ -111,6 +125,7 @@ const discoverySchema = z.discriminatedUnion("strategy", [
   explicitUrlsSchema,
   sitemapSchema,
   constrainedCrawlSchema,
+  miraeMfDownloadCatalogSchema,
   miraeSifDownloadCatalogSchema,
   sebiSidScraperSchema,
 ]);
@@ -163,6 +178,23 @@ const sourceSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: `Duplicate additional catalogue target: ${duplicate}`,
         path: ["discovery", "additionalTargets"],
+      });
+    }
+  }
+  if (source.discovery.strategy === "mirae_mf_download_catalog") {
+    if (source.discovery.minimumDocuments > source.discovery.maxDocuments) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "minimumDocuments must not exceed maxDocuments.",
+        path: ["discovery", "minimumDocuments"],
+      });
+    }
+    if (source.discovery.fromDate && source.discovery.toDate
+      && source.discovery.fromDate > source.discovery.toDate) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "fromDate must not be after toDate.",
+        path: ["discovery", "fromDate"],
       });
     }
   }
@@ -339,6 +371,8 @@ function discoveryTargets(discovery: SourceDiscoveryConfig): readonly string[] {
       return discovery.sitemapUrls;
     case "constrained_crawl":
       return discovery.startUrls;
+    case "mirae_mf_download_catalog":
+      return [discovery.catalogUrl];
     case "mirae_sif_download_catalog":
       return [discovery.catalogUrl];
     case "sebi_sid_scraper":

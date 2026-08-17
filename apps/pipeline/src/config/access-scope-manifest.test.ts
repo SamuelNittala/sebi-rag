@@ -119,6 +119,37 @@ describe("access-scope manifest validation", () => {
     });
   });
 
+  test("accepts a bounded Mirae MF official download catalogue", () => {
+    const yaml = validManifest().replace(
+      "strategy: explicit_urls\n      urls: []",
+      `strategy: mirae_mf_download_catalog
+      catalogUrl: https://www.miraeassetmf.co.in/AjaxService/GetDownloadsData
+      moduleName: Factsheet
+      fromDate: "2026-01-01"
+      toDate: "2026-12-31"
+      pageSize: 100
+      maxPages: 5
+      maxDocuments: 100
+      minimumDocuments: 12`,
+    );
+
+    expect(parseAccessScopeManifestYaml(yaml).sources[0]?.discovery).toEqual({
+      strategy: "mirae_mf_download_catalog",
+      catalogUrl: "https://www.miraeassetmf.co.in/AjaxService/GetDownloadsData",
+      moduleName: "Factsheet",
+      fromDate: "2026-01-01",
+      toDate: "2026-12-31",
+      pageSize: 100,
+      maxPages: 5,
+      maxDocuments: 100,
+      minimumDocuments: 12,
+    });
+    expect(() => parseAccessScopeManifestYaml(yaml.replace("minimumDocuments: 12", "minimumDocuments: 101")))
+      .toThrow(/minimumDocuments.*maxDocuments/i);
+    expect(() => parseAccessScopeManifestYaml(yaml.replace("fromDate: \"2026-01-01\"", "fromDate: \"2027-01-01\"")))
+      .toThrow(/fromDate.*toDate/i);
+  });
+
   test("requires a bounded catalogue completeness guard and strict additional targets", () => {
     const watcher = validManifest().replace(
       "strategy: explicit_urls\n      urls: []",

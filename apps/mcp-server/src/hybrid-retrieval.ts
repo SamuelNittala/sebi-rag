@@ -253,7 +253,45 @@ function metadataAdjustment(
     "temporal:effective_addendum",
     0.5,
   );
+  adjustment += addSignal(
+    signals,
+    Boolean(
+      intent.factType
+      && !intent.supersessionKey
+      && metadata.documentType === "Addendum"
+      && typeof metadata.effectiveDate === "string"
+      && metadata.effectiveDate <= asOfDate
+    ),
+    "temporal:authoritative_addendum",
+    0.28,
+  );
+  adjustment += addSignal(
+    signals,
+    Boolean(
+      intent.factType
+      && /^factsheet$/i.test(metadata.documentType ?? "")
+      && isRecentDate(metadata.documentDate, asOfDate, 62)
+    ),
+    "temporal:current_factsheet",
+    0.12,
+  );
+  adjustment += addSignal(
+    signals,
+    Boolean(
+      intent.factType === "expenses"
+      && isRecentDate(metadata.sourceDate, asOfDate, 14)
+      && /total-expense-ratio|mirae-mf-ter/i.test(String(metadata.sourceUrl ?? metadata.sourceArtifactUrl ?? ""))
+    ),
+    "temporal:current_ter",
+    0.2,
+  );
   return { adjustment, signals };
+}
+
+function isRecentDate(value: unknown, asOfDate: string, maximumAgeDays: number): boolean {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value > asOfDate) return false;
+  const ageMs = Date.parse(`${asOfDate}T00:00:00Z`) - Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(ageMs) && ageMs <= maximumAgeDays * 86_400_000;
 }
 
 interface CandidateState<T extends HybridRetrievalCandidate> {

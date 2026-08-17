@@ -15,6 +15,8 @@ source_url: "https://example.com/sip"
 content_category: education
 source: amfi-knowledge-centre
 scraped_at: "2026-03-22T10:00:00Z"
+source_date: "2026-03-21"
+source_artifact_url: "https://example.com/sip.xls"
 ---
 
 # What is SIP?
@@ -27,6 +29,8 @@ Content here.`;
     expect(frontmatter.source_url).toBe("https://example.com/sip");
     expect(frontmatter.content_category).toBe("education");
     expect(frontmatter.source).toBe("amfi-knowledge-centre");
+    expect(frontmatter.source_date).toBe("2026-03-21");
+    expect(frontmatter.source_artifact_url).toBe("https://example.com/sip.xls");
     expect(body).toStartWith("# What is SIP?");
   });
 

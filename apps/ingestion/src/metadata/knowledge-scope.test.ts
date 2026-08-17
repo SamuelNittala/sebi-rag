@@ -3,6 +3,17 @@ import { describe, expect, test, it } from "bun:test";
 import { resolveKnowledgeScope } from "./knowledge-scope.ts";
 
 describe("resolveKnowledgeScope", () => {
+  test("classifies Mirae MF scheme pages into the AMC corpus", () => {
+    expect(resolveKnowledgeScope({
+      source: "mirae-mf-schemes",
+      sourceUrl: "https://www.miraeassetmf.co.in/mutual-fund-scheme/equity-fund/mirae-asset-large-cap-fund",
+    })).toEqual({
+      knowledgeDomain: "mutual_fund",
+      sourceCollection: "mirae_mf",
+      amcSlug: "mirae-asset",
+    });
+  });
+
   test("tags the Platinum SIF website as Mirae SIF", () => {
     expect(resolveKnowledgeScope({
       source: "mirae-sif",
@@ -93,4 +104,3 @@ describe("resolveKnowledgeScope — indusind-demo source", () => {
     }).sourceCollection).toBe("mirae_sif");
   });
 });
-

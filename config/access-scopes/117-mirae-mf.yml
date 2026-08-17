@@ -15,14 +15,11 @@ sources:
     connector: website_pdf
     enabled: true
     discovery:
-      # Discovers SID PDFs for Axis Mutual Fund from SEBI's scheme database.
-      # externalCode 128 is MFCentral's AMC code; mfId 3 is SEBI's internal
-      # fund identifier used in their URL structure — these are different ID systems.
+      # SEBI's internal mutual-fund identifier is independent of tenant code 117.
       strategy: sebi_sid_scraper
       mfId: "37"
       maxSchemes: 107
       maxDocuments: 107
-      # Axis had ~80 active schemes as of 2026-08-11; set conservatively.
       minimumDocuments: 50
     schedule:
       enabled: true
@@ -35,6 +32,91 @@ sources:
         - /sebi_data/
         - /sebiweb/
         - /web/
+      maxBytes: 26214400
+      timeoutMs: 30000
+      maxRedirects: 3
+    review:
+      policy: risk_based
+
+  - key: mirae-mf-2026-addenda
+    connector: website_pdf
+    enabled: true
+    discovery:
+      strategy: mirae_mf_download_catalog
+      catalogUrl: https://www.miraeassetmf.co.in/AjaxService/GetDownloadsData
+      moduleName: Addendum
+      fromDate: "2026-01-01"
+      toDate: "2026-12-31"
+      pageSize: 100
+      maxPages: 5
+      maxDocuments: 100
+      minimumDocuments: 60
+    schedule:
+      enabled: true
+      cron: "0 3 * * *"
+      timezone: Asia/Kolkata
+    fetch:
+      allowedHosts:
+        - www.miraeassetmf.co.in
+      allowedPathPrefixes:
+        - /AjaxService/GetDownloadsData
+        - /docs/default-source/addendum-2019/
+      maxBytes: 26214400
+      timeoutMs: 30000
+      maxRedirects: 3
+    review:
+      policy: risk_based
+
+  - key: mirae-mf-2026-factsheets
+    connector: website_pdf
+    enabled: true
+    discovery:
+      strategy: mirae_mf_download_catalog
+      catalogUrl: https://www.miraeassetmf.co.in/AjaxService/GetDownloadsData
+      moduleName: Factsheet
+      fromDate: "2026-01-01"
+      toDate: "2026-12-31"
+      pageSize: 100
+      maxPages: 5
+      maxDocuments: 100
+      minimumDocuments: 12
+    schedule:
+      enabled: true
+      cron: "15 3 * * *"
+      timezone: Asia/Kolkata
+    fetch:
+      allowedHosts:
+        - www.miraeassetmf.co.in
+      allowedPathPrefixes:
+        - /AjaxService/GetDownloadsData
+        - /docs/default-source/fachsheet/
+      maxBytes: 26214400
+      timeoutMs: 30000
+      maxRedirects: 3
+    review:
+      policy: risk_based
+
+  - key: mirae-mf-kims
+    connector: website_pdf
+    enabled: true
+    discovery:
+      strategy: mirae_mf_download_catalog
+      catalogUrl: https://www.miraeassetmf.co.in/AjaxService/GetDownloadsData
+      moduleName: Application_Form&KIM
+      pageSize: 100
+      maxPages: 5
+      maxDocuments: 150
+      minimumDocuments: 90
+    schedule:
+      enabled: true
+      cron: "30 3 * * *"
+      timezone: Asia/Kolkata
+    fetch:
+      allowedHosts:
+        - www.miraeassetmf.co.in
+      allowedPathPrefixes:
+        - /AjaxService/GetDownloadsData
+        - /docs/default-source/application-form-kim/
       maxBytes: 26214400
       timeoutMs: 30000
       maxRedirects: 3

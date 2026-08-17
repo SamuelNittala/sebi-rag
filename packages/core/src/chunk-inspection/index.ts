@@ -248,6 +248,37 @@ function crossChunkFindings(candidates: InspectionCandidate[]): InspectionFindin
   return findings;
 }
 
+function documentFindings(candidates: InspectionCandidate[]): InspectionFinding[] {
+  const addendum = candidates.find((candidate) => candidate.metadata.documentType === "Addendum");
+  if (!addendum) return [];
+
+  const requiredFields = ["fundName", "amendmentNumber", "effectiveDate"] as const;
+  const missingFields = requiredFields.filter((field) => {
+    const value = addendum.metadata[field];
+    return typeof value !== "string" || value.trim().length === 0;
+  });
+  const semanticFallback = addendum.metadata.addendumChunkingMode === "semantic_fallback";
+  if (missingFields.length === 0 && !semanticFallback) return [];
+
+  const incompleteMetadata = missingFields.length > 0;
+
+  return [finding(
+    null,
+    incompleteMetadata
+      ? "ADDENDUM_METADATA_INCOMPLETE"
+      : "ADDENDUM_SPECIALIZED_CHUNKING_UNAVAILABLE",
+    "warning",
+    false,
+    incompleteMetadata
+      ? "Addendum metadata is incomplete; semantic fallback chunks require reviewer acknowledgement."
+      : "Addendum provisions could not be paired safely; semantic fallback chunks require reviewer acknowledgement.",
+    {
+      missingFields,
+      fallbackReason: addendum.metadata.addendumFallbackReason ?? null,
+    },
+  )];
+}
+
 export class ChunkInspector implements ChunkInspectorContract {
   private readonly config: ChunkInspectorConfig;
 
@@ -260,6 +291,7 @@ export class ChunkInspector implements ChunkInspectorContract {
       candidateFindings(candidate, input, this.config)
     );
     findings.push(...crossChunkFindings(input.candidates));
+    findings.push(...documentFindings(input.candidates));
 
     if (input.candidates.length === 0) {
       findings.push(finding(null, "NO_CHUNKS", "critical", true, "Document produced no candidate chunks."));

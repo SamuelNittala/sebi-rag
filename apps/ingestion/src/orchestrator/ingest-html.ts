@@ -249,6 +249,13 @@ export async function ingestHtmlDocument(
           fundName: frontmatter.title,
           documentType: frontmatter.content_category,
           sourceUrl: frontmatter.source_url,
+          documentDate: frontmatter.source_date ?? null,
+          sourceDate: frontmatter.source_date ?? null,
+          sourceAuthority: "official_product_page",
+          authority: "issuer",
+          ...(frontmatter.source_artifact_url
+            ? { sourceArtifactUrl: frontmatter.source_artifact_url }
+            : {}),
           knowledgeDomain: knowledgeScope.knowledgeDomain,
           amcSlug: knowledgeScope.amcSlug,
         },
@@ -427,8 +434,16 @@ export async function ingestHtmlDirectory(
     const result = await ingestHtmlDocument(filepath, config, callback);
     results.push(result);
 
-    const statusIcon = result.status === "completed" ? "ok" : result.status === "skipped" ? "skip" : "FAIL";
-    const detail = result.status === "completed" ? `${result.chunkCount} chunks` : result.error ?? "";
+    const statusIcon = result.status === "completed"
+      ? "ok"
+      : result.status === "skipped"
+        ? "skip"
+        : result.status === "review_required"
+          ? "review"
+          : "FAIL";
+    const detail = result.status === "completed" || result.status === "review_required"
+      ? `${result.chunkCount} chunks`
+      : result.error ?? "";
     console.log(`  [${statusIcon}] ${result.title || filename} ${detail ? `(${detail})` : ""}`);
   }
 
