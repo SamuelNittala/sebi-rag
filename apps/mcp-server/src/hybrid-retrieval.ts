@@ -283,7 +283,7 @@ function metadataAdjustment(
       && /total-expense-ratio|mirae-mf-ter/i.test(String(metadata.sourceUrl ?? metadata.sourceArtifactUrl ?? ""))
     ),
     "temporal:current_ter",
-    0.2,
+    0.6,
   );
   return { adjustment, signals };
 }

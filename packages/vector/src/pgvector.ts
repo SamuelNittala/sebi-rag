@@ -127,6 +127,22 @@ function htmlCategoryCondition(category: string | string[]) {
   return sql`AND content_category IN (${sql.join(values.map((value) => sql`${value}`), sql`, `)})`;
 }
 
+function htmlFundNameCondition(value: string) {
+  const normalizedFilter = sql`regexp_replace(
+    regexp_replace(lower(${value}), '[^a-z0-9]+', '', 'g'),
+    'fund$',
+    ''
+  )`;
+  return sql`AND (
+    regexp_replace(regexp_replace(lower(coalesce(retrieval_metadata ->> 'fundName', '')), '[^a-z0-9]+', '', 'g'), 'fund$', '')
+      LIKE '%' || ${normalizedFilter} || '%'
+    OR regexp_replace(regexp_replace(lower(coalesce(section_heading, '')), '[^a-z0-9]+', '', 'g'), 'fund$', '')
+      LIKE '%' || ${normalizedFilter} || '%'
+    OR regexp_replace(regexp_replace(lower(coalesce(document_title, '')), '[^a-z0-9]+', '', 'g'), 'fund$', '')
+      LIKE '%' || ${normalizedFilter} || '%'
+  )`;
+}
+
 export interface VectorClientConfig {
   // These are kept for backwards compatibility but ignored
   // pgvector uses the shared DATABASE_URL connection
@@ -862,6 +878,9 @@ export class VectorClient {
     if (filters?.content_category) {
       conditions.push(htmlCategoryCondition(filters.content_category));
     }
+    if (filters?.fund_name) {
+      conditions.push(htmlFundNameCondition(filters.fund_name));
+    }
     if (filters?.document_id) {
       conditions.push(sql`AND document_id = ${filters.document_id}::uuid`);
     }
@@ -1099,6 +1118,9 @@ export class VectorClient {
     const conditions: ReturnType<typeof sql>[] = [];
     if (filters.content_category) {
       conditions.push(htmlCategoryCondition(filters.content_category));
+    }
+    if (filters.fund_name) {
+      conditions.push(htmlFundNameCondition(filters.fund_name));
     }
     if (filters.document_id) {
       conditions.push(sql`AND document_id = ${filters.document_id}::uuid`);

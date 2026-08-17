@@ -82,6 +82,16 @@ function addPdfArguments(
   if (request.doc_type) filters.doc_type = request.doc_type;
 }
 
+function addHtmlArguments(
+  filters: HtmlSearchFilters,
+  request: RetrievalScopeRequest,
+  canonicalStrategyName?: string,
+): void {
+  if (request.scheme_name && !isSifUmbrellaSchemeName(request.scheme_name)) {
+    filters.fund_name = canonicalStrategyName ?? request.scheme_name;
+  }
+}
+
 /**
  * Convert agent-facing business concepts into internal retrieval filters.
  * Internal collection names are deliberately derived here and are never
@@ -110,6 +120,7 @@ export function resolveRetrievalScope(
   const htmlFilters: HtmlSearchFilters = {};
   const manifestStrategy = resolveManifestStrategy(request.question, request.scheme_name);
   addPdfArguments(pdfFilters, request, manifestStrategy?.name);
+  addHtmlArguments(htmlFilters, request, manifestStrategy?.name);
 
   if (request.content_category) {
     htmlFilters.content_category = request.content_category;
@@ -147,12 +158,13 @@ export function resolveRetrievalScope(
   if (hasPdfArguments) {
     if (!sifRequest) {
       pdfFilters.knowledge_domain = "mutual_fund";
+      if (htmlFilters.fund_name) htmlFilters.knowledge_domain = "mutual_fund";
     }
     return {
       pdfFilters,
       htmlFilters,
       searchPdf: true,
-      searchHtml: false,
+      searchHtml: Boolean(htmlFilters.fund_name),
       allowFundFilterFallback: hasManifestTarget && Boolean(pdfFilters.source_collection),
       rankingProfile,
     };

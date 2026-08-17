@@ -99,17 +99,33 @@ describe("resolveRetrievalScope", () => {
     expect(scope.htmlFilters.source_collection).toBeUndefined();
   });
 
-  test("keeps an explicit scheme query limited to scheme documents", () => {
+  test("routes an explicit scheme query across PDF and HTML facts", () => {
     const scope = resolveRetrievalScope({
       question: "Tell me about Platinum Hybrid Long-Short Fund",
       scheme_name: "Platinum Hybrid Long-Short Fund",
     });
 
     expect(scope.searchPdf).toBe(true);
-    expect(scope.searchHtml).toBe(false);
+    expect(scope.searchHtml).toBe(true);
     expect(scope.pdfFilters.fund_name).toBe("Platinum Hybrid Long-Short Fund");
+    expect(scope.htmlFilters.fund_name).toBe("Platinum Hybrid Long-Short Fund");
     expect(scope.pdfFilters.source_collection).toBe("mirae_sif");
     expect(scope.allowFundFilterFallback).toBe(true);
+  });
+
+  test("uses a scheme heading filter for current mutual-fund HTML facts", () => {
+    const scope = resolveRetrievalScope({
+      question: "What is the current expense ratio?",
+      scheme_name: "Mirae Asset Banking and Financial Services Fund",
+    });
+
+    expect(scope.searchPdf).toBe(true);
+    expect(scope.searchHtml).toBe(true);
+    expect(scope.pdfFilters.fund_name).toBe("Mirae Asset Banking and Financial Services Fund");
+    expect(scope.htmlFilters).toMatchObject({
+      fund_name: "Mirae Asset Banking and Financial Services Fund",
+      knowledge_domain: "mutual_fund",
+    });
   });
 
   test("treats Platinum SIF as an umbrella instead of an exact strategy name", () => {
@@ -248,7 +264,7 @@ describe("resolveRetrievalScope", () => {
     });
     expect(unrelated.searchPdf).toBe(true);
     expect(unrelated.searchHtml).toBe(true);
-    expect(unrelated.pdfFilters).toEqual({});
-    expect(unrelated.htmlFilters).toEqual({});
+    expect(unrelated.pdfFilters).toEqual({ knowledge_domain: "mutual_fund" });
+    expect(unrelated.htmlFilters).toEqual({ knowledge_domain: "mutual_fund" });
   });
 });

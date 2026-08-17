@@ -75,6 +75,8 @@ export interface ChunkWithVector {
 export interface HtmlSearchFilters {
   /** Single category, or a set of allowed categories (matched with IN). */
   content_category?: string | string[];
+  /** Scheme/fund name, matched against chunk metadata or its section heading. */
+  fund_name?: string;
   document_id?: string;
   knowledge_domain?: string;
   source_collection?: string;

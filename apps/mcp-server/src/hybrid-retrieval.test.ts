@@ -403,6 +403,31 @@ describe("reviewed metadata ranking", () => {
     expect(result[0]?.trace.metadataSignals).toContain("temporal:current_ter");
   });
 
+  test("ranks a current TER above a strongly fused generic expense passage", () => {
+    const generic = candidate("generic", "General expense-ratio limits", {
+      documentType: "KIM",
+      sourceAuthority: "official_product_page",
+    });
+    const ter = candidate("ter", "Direct Plan total expense ratio is 0.72%", {
+      documentType: "regulatory",
+      sourceDate: "2026-08-16",
+      sourceUrl: "https://www.miraeassetmf.co.in/downloads/statutory-disclosure/total-expense-ratio",
+    }, "knowledge_base");
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: generic, score: 0.95 },
+        { candidate: ter, score: 0.8 },
+      ],
+      lexical: [{ candidate: generic, score: 20 }],
+      intent: resolveRetrievalIntent("What is the current expense ratio?"),
+      limit: 2,
+      asOfDate: "2026-08-17",
+    });
+
+    expect(result[0]?.candidate.id).toBe("ter");
+    expect(result[0]?.trace.metadataSignals).toContain("temporal:current_ter");
+  });
+
   test("ranks Gaurik's strategy assignment above an SAI staff directory", () => {
     const gaurik = candidate("gaurik", "Mr. Gaurik Shah", {
       documentScope: "strategy",
