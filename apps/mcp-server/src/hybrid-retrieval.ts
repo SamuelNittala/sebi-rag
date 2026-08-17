@@ -43,7 +43,7 @@ const FACT_EVIDENCE_PATTERNS: Readonly<Record<RetrievalFactIntent, RegExp>> = {
   investment_approach: /\binvestment\s+approach\b/i,
   risk: /\b(?:riskometer|risk\s+(?:level|profile|factors?))\b/i,
   benchmark: /\bbenchmark\b/i,
-  minimum_investment: /\b(?:minimum|SIP|installment|application|subscription)\b/i,
+  minimum_investment: /\b(?:minimum\s+(?:SIP|installment|investment|application|subscription|amount)|SIP\s+(?:minimum|installment|amount))\b/i,
   exit_load: /\b(?:exit\s+load|load\s+structure|exit\s+early)\b/i,
   expenses: /\b(?:TER|total\s+expense\s+ratio|expense\s+ratio|expenses?)\b/i,
   redemption: /\b(?:redemption|redeem|repurchase|withdrawal|SWP)\b/i,
@@ -66,7 +66,7 @@ const FUND_117_PRIORITIES: Partial<Record<RetrievalFactIntent, readonly Fund117S
 };
 
 const FUND_QUERY_STOPWORDS = new Set([
-  "a", "about", "and", "are", "as", "asset", "at", "be", "by", "can", "cap",
+  "a", "about", "and", "are", "as", "asset", "at", "be", "by", "can",
   "category", "current", "direct", "does", "expense", "for", "fund", "funds",
   "how", "horizon", "in", "installment", "investment", "is", "latest", "manager",
   "minimum", "mirae", "mutual", "nav", "of", "or", "plan", "ratio", "regular",
@@ -276,7 +276,7 @@ function fund117SourcePriority(
     return { priority: 0, signal: null };
   }
   const source = fund117Source(candidate);
-  if (source !== "ter" && !matchesNamedFund(candidate, query)) {
+  if (!matchesNamedFund(candidate, query)) {
     return { priority: 0, signal: null };
   }
   const addendumDate = candidate.metadata?.effectiveDate ?? candidate.metadata?.documentDate;

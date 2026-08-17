@@ -517,6 +517,32 @@ describe("reviewed metadata ranking", () => {
       .toEqual(["addendum", "ter", "scheme", "kim"]);
   });
 
+  test("does not prioritize a TER row for a similarly named Fund 117 scheme", () => {
+    const wrongTer = candidate("large-midcap", "Mirae Asset Large & Midcap Fund TER is 0.86%", {
+      documentType: "regulatory",
+      sourceUrl: "https://www.miraeassetmf.co.in/downloads/statutory-disclosure/total-expense-ratio",
+    }, "knowledge_base");
+    const correctTer = candidate("large-cap", "Mirae Asset Large Cap Fund TER is 0.75%", {
+      documentType: "regulatory",
+      sourceUrl: "https://www.miraeassetmf.co.in/downloads/statutory-disclosure/total-expense-ratio",
+    }, "knowledge_base");
+    const question = "What is the TER for Mirae Asset Large Cap Fund?";
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: wrongTer, score: 0.99 },
+        { candidate: correctTer, score: 0.8 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent(question),
+      query: question,
+      tenantId: "117",
+      limit: 2,
+    });
+
+    expect(result.map((item) => item.candidate.id)).toEqual(["large-cap", "large-midcap"]);
+    expect(result.map((item) => item.trace.sourcePriority)).toEqual([3, 0]);
+  });
+
   test("uses KIM before scheme pages for Fund 117 minimum and load questions", () => {
     const schemePage = candidate("scheme", "The minimum SIP installment is Rs 500", {
       documentType: "product",
@@ -541,6 +567,34 @@ describe("reviewed metadata ranking", () => {
     });
 
     expect(result.map((item) => item.candidate.id)).toEqual(["addendum", "kim", "scheme"]);
+  });
+
+  test("does not treat a portfolio-allocation minimum as a minimum SIP answer", () => {
+    const allocation = candidate("allocation", "The fund invests minimum 80% in equity", {
+      documentType: "product",
+      fundName: "Mirae Asset Large Cap Fund",
+      sourceUrl: "https://www.miraeassetmf.co.in/mutual-fund-scheme/equity-fund/mirae-asset-large-cap-fund",
+    }, "knowledge_base");
+    const sip = candidate("sip", "Minimum SIP Installment Amount Rs. 99", {
+      documentType: "product",
+      fundName: "Mirae Asset Large Cap Fund",
+      sourceUrl: "https://www.miraeassetmf.co.in/mutual-fund-scheme/equity-fund/mirae-asset-large-cap-fund",
+    }, "knowledge_base");
+    const question = "What is the minimum SIP installment for Mirae Asset Large Cap Fund?";
+    const result = fuseHybridCandidates({
+      dense: [
+        { candidate: allocation, score: 0.99 },
+        { candidate: sip, score: 0.8 },
+      ],
+      lexical: [],
+      intent: resolveRetrievalIntent(question),
+      query: question,
+      tenantId: "117",
+      limit: 2,
+    });
+
+    expect(result.map((item) => item.candidate.id)).toEqual(["sip", "allocation"]);
+    expect(result.map((item) => item.trace.sourcePriority)).toEqual([1, 0]);
   });
 
   test("uses scheme pages before factsheets and KIMs for Fund 117 NAV questions", () => {
