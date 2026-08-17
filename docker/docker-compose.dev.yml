@@ -62,6 +62,7 @@ x-pipeline-environment: &pipeline-environment
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    shm_size: 2g
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
