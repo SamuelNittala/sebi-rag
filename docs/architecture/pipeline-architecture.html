@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MF-RAG Pipeline Architecture</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: #1f2937;
+      --border: #374151;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-blue: #3b82f6;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding-bottom: 80px;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    header {
+      background: linear-gradient(180deg, rgba(31, 41, 55, 0.7) 0%, rgba(11, 15, 25, 0) 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 40px 0 32px;
+      margin-bottom: 32px;
+    }
+
+    .badge-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-green { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-purple { background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3); }
+    .badge-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 10px;
+      background: linear-gradient(to right, #ffffff, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 850px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 12px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+      animation: fadeIn 0.25s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards & Grids */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.4);
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Diagram Canvas */
+    .diagram-container {
+      background: #0d1322;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 32px;
+      overflow-x: auto;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .diagram-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+
+    .diagram-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #e5e7eb;
+    }
+
+    .diagram-tip {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Table Styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background-color: rgba(31, 41, 55, 0.6);
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    tr:hover td {
+      background-color: rgba(31, 41, 55, 0.3);
+    }
+
+    code {
+      font-family: var(--font-mono);
+      background-color: rgba(55, 65, 81, 0.5);
+      color: #93c5fd;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+    }
+
+    .callout {
+      border-left: 4px solid var(--accent-blue);
+      background: rgba(59, 130, 246, 0.08);
+      padding: 16px 20px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+
+    .callout-amber {
+      border-left-color: var(--accent-amber);
+      background: rgba(245, 158, 11, 0.08);
+    }
+
+    .callout-emerald {
+      border-left-color: var(--accent-emerald);
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    .callout-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    ul {
+      padding-left: 20px;
+      margin: 12px 0;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .step-item {
+      position: relative;
+      padding-left: 32px;
+      margin-bottom: 20px;
+    }
+
+    .step-item::before {
+      content: attr(data-step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 22px;
+      height: 22px;
+      background: var(--accent-blue);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-item::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      top: 24px;
+      bottom: -12px;
+      width: 2px;
+      background: var(--border);
+    }
+
+    .step-item:last-child::after {
+      display: none;
+    }
+
+    .step-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 2px;
+      color: #fff;
+    }
+
+    .step-desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="container">
+      <div class="badge-bar">
+        <span class="badge badge-blue">MF-RAG Pipeline</span>
+        <span class="badge badge-green">LLM-Free Retrieval</span>
+        <span class="badge badge-purple">Multi-Tenant (X-AMC-Scope)</span>
+        <span class="badge badge-amber">Pre-Embedding Risk Gate</span>
+      </div>
+      <h1>MF-RAG Pipeline Architecture</h1>
+      <p class="subtitle">
+        Visual interactive architecture documentation for the mutual fund ingestion and MCP hybrid retrieval pipeline.
+      </p>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Tabs Navigation -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('overview')">1. End-to-End System Flow</button>
+      <button class="tab-btn" onclick="switchTab('ingestion')">2. Ingestion & Quality Gate</button>
+      <button class="tab-btn" onclick="switchTab('retrieval')">3. Retrieval & Reranking</button>
+      <button class="tab-btn" onclick="switchTab('comparison')">4. LLM-Free vs Traditional RAG</button>
+      <button class="tab-btn" onclick="switchTab('contracts')">5. Multi-Tenant Scopes</button>
+    </div>
+
+    <!-- TAB 1: OVERVIEW -->
+    <section id="overview" class="tab-pane active">
+      <div class="diagram-container">
+        <div class="diagram-header">
+          <span class="diagram-title">System Architecture Overview</span>
+          <span class="diagram-tip">Full End-to-End Data and Query Flows</span>
+        </div>
+        <div class="mermaid">
+flowchart TB
+    subgraph SOURCELAYER["1. Data Sources"]
+        SEBI["SEBI Portal\n(SIDs, KIMs, Circulars)"]
+        AMC["AMC Websites\n(Mirae, HDFC, ICICI, etc.)"]
+        FAQS["Investor FAQs & Guides\n(Generic Disclosures)"]
+    end
+
+    subgraph INGESTION["2. Ingestion & Quality Gate Pipeline (apps/pipeline & apps/ingestion)"]
+        DISCOVER["Discovery & Fetch\n(discovery_runs with Leases)"]
+        PARSE["Document Parser\n(Tables, Headers, Text)"]
+        INSPECT["Chunk & Inspect\n(Anomaly & Drift Check)"]
+        REVIEW["Human Review Gate\n(/review UI + Audit Log)"]
+        EMBED_STAGE["Embedder (Ollama)\n(bge-m3: 1024-dim)"]
+    end
+
+    subgraph STORAGE["3. Storage & Indexes (PostgreSQL + pgvector)"]
+        STAGED_DB[("Staged / Candidate Chunks\n(Isolated outside search)")]
+        PUB_VECTORS[("Published Vectors\n(HNSW / Cosine <=>)")]
+        PUB_LEXICAL[("Full-Text tsvector\n(ts_rank & websearch)")]
+        RUNS_DB[("Pipeline Runs & Leases\n(Audit Lineage)")]
+    end
+
+    subgraph MCP_SERVER["4. MCP Retrieval Pipeline (apps/mcp-server)"]
+        AUTH_GUARD["Auth & Scope Guard\n(Bearer + X-AMC-Scope)"]
+        INTENT_RES["Query Intent Resolver\n(TER, NAV, Manager, SIF)"]
+        Q_EMBED["Query Embedder\n(Ollama: bge-m3)"]
+        HYBRID_EXEC["Dual Hybrid Retrieval\n(Dense + Lexical Search)"]
+        RRF_FUSION["Reciprocal Rank Fusion\n(RRF k=60 + Domain Weights)"]
+        RERANKER["Cross-Encoder Reranker\n(HuggingFace TEI: bge-reranker-v2-m3)"]
+        RESPONSE_BUILD["Citations & Response Pack\n(Scheme & Generic docs)"]
+    end
+
+    subgraph CONSUMERS["5. Consumers & Synthesizers"]
+        CLAUDE_APP["Claude Desktop / Claude Code\n(Client-side LLM Synthesis)"]
+        INVESTOR_AGENT["Investor Agent Platform\n(Autonomous agent consumer)"]
+    end
+
+    SOURCELAYER --> DISCOVER
+    DISCOVER --> PARSE
+    PARSE --> INSPECT
+    INSPECT --> STAGED_DB
+    INSPECT --> REVIEW
+    REVIEW -->|Approved| EMBED_STAGE
+    EMBED_STAGE --> PUB_VECTORS
+    EMBED_STAGE --> PUB_LEXICAL
+
+    CONSUMERS -->|Tool Call: query_mutual_funds| AUTH_GUARD
+    AUTH_GUARD --> INTENT_RES
+    INTENT_RES --> Q_EMBED
+    INTENT_RES --> HYBRID_EXEC
+    Q_EMBED --> HYBRID_EXEC
+
+    PUB_VECTORS -.->|Dense Search| HYBRID_EXEC
+    PUB_LEXICAL -.->|BM25 / FullText| HYBRID_EXEC
+
+    HYBRID_EXEC --> RRF_FUSION
+    RRF_FUSION --> RERANKER
+    RERANKER --> RESPONSE_BUILD
+    RESPONSE_BUILD -->|Chunks + Source Citations| CONSUMERS
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-title">Pre-Embedding Risk Gate</div>
+          <p class="step-desc">
+            Raw candidate chunks are isolated outside the searchable vector set until automated inspection rules verify table integrity, schema compliance, and tenant ownership.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">LLM-Free Retrieval</div>
+          <p class="step-desc">
+            Zero generation latency on the backend server. The pipeline extracts, ranks, and returns verifiable chunks directly to Claude Desktop / Code to synthesize answers.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Tenant Isolation</div>
+          <p class="step-desc">
+            Enforced via mandatory <code>X-AMC-Scope</code> HTTP header. Multi-tenant partitioning guarantees AMC data segregation and audited regulator access (<code>RTA</code>).
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: INGESTION -->
+    <section id="ingestion" class="tab-pane">
+      <div class="diagram-container">
+        <div class="diagram-header">
+          <span class="diagram-title">Document Ingestion & Staging Workflow</span>
+          <span class="diagram-tip">Risk-gated data progression</span>
+        </div>
+        <div class="mermaid">
+flowchart LR
+    A["Source Document\n(PDF / HTML)"] --> B["DISCOVER_SOURCE\n(ETag, Hash Check)"]
+    B --> C["FETCH_DOCUMENT\n(Durable version store)"]
+    C --> D["PARSE_DOCUMENT\n(Text & Table Extractor)"]
+    D --> E["CHUNK_AND_INSPECT\n(Candidate chunks + Rules)"]
+    E --> F{"ROUTE_REVIEW\n(Risk Policy)"}
+    
+    F -->|Critical drift or warning| G["Staged Candidate State\n(Blocked from vector search)"]
+    G --> H["Web Review Screen\n(/review)"]
+    H -->|Reviewer Edit & Reason| E
+    H -->|Approved & Signed| I["Approved State"]
+    F -->|Low risk baseline| I
+
+    I --> J["EMBED_AND_PUBLISH\n(Ollama bge-m3)"]
+    J --> K["Atomic Generation Switch\n(Mark published, retire old)"]
+    K --> L[("Live pgvector Store")]
+        </div>
+      </div>
+
+      <div class="callout callout-amber">
+        <div class="callout-title">⚠️ Fail-Closed Ingestion Contract</div>
+        Candidate chunks and rule violation findings are stored outside the searchable vector set. A malformed chunk or extraction table anomaly cannot reach retrieval before inspection and review approval.
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">Sequential Pipeline Stages</h3>
+          <div class="step-item" data-step="1">
+            <div class="step-title">DISCOVER & FETCH</div>
+            <div class="step-desc">Coordinated via <code>discovery_runs</code> with distributed PostgreSQL leases. Verifies cryptographic hashes to avoid duplicate processing.</div>
+          </div>
+          <div class="step-item" data-step="2">
+            <div class="step-title">PARSE & CHUNK</div>
+            <div class="step-desc">Extracts tables, sections, footnotes, and metadata from Scheme Information Documents (SID), KIM, and Factsheets.</div>
+          </div>
+          <div class="step-item" data-step="3">
+            <div class="step-title">DETERMINISTIC INSPECTION</div>
+            <div class="step-desc">Validates tenant ownership, parser drift, chunk boundary stability, and mandatory disclosure presence.</div>
+          </div>
+          <div class="step-item" data-step="4">
+            <div class="step-title">HUMAN AUDIT & RELEASE</div>
+            <div class="step-desc">Reviewers can view side-by-side context and edit candidate chunks at <code>/review</code>. Editing automatically reinspects the document.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Risk Criteria Evaluated</h3>
+          <table>
+            <thead>
+              <tr><th>Risk Factor</th><th>Policy Action</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>First-time document version</td><td>Flagged for review</td></tr>
+              <tr><td>Extraction anomalies / broken tables</td><td>Blocks publication</td></tr>
+              <tr><td>Ownership / Tenant ID drift</td><td>Blocks publication</td></tr>
+              <tr><td>Parser or chunker version mismatch</td><td>Requires re-inspection</td></tr>
+              <tr><td>Unclassified chunk visibility</td><td>Strict fail-closed reject</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: RETRIEVAL -->
+    <section id="retrieval" class="tab-pane">
+      <div class="diagram-container">
+        <div class="diagram-header">
+          <span class="diagram-title">MCP Retrieval Sequence & Cross-Encoder Reranking</span>
+          <span class="diagram-tip">Execution flow per tool call</span>
+        </div>
+        <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Claude as Claude Desktop / Investor Agent
+    participant MCP as MCP Server (:3000)
+    participant Scope as Scope & Rate Guard
+    participant Ollama as Ollama (bge-m3)
+    participant PG as PostgreSQL (pgvector)
+    participant Fusion as RRF & Intent Fusion
+    participant TEI as HF TEI (bge-reranker-v2-m3)
+
+    Claude->>MCP: query_mutual_funds(question, topic, filters...)
+    Note over MCP: Bearer Token + X-AMC-Scope
+    MCP->>Scope: Verify token quota & AMC access scope
+    Scope-->>MCP: Access Granted
+
+    par Embedding & Intent
+        MCP->>Ollama: Embed question text (1024d)
+        Ollama-->>MCP: queryVector
+    and Pattern Matching
+        MCP->>MCP: Extract intent (TER, Manager, NAV, Horizon)
+    end
+
+    par Dual Hybrid Retrieval
+        MCP->>PG: searchSimilar (Cosine <=> dense distance)
+        PG-->>MCP: Dense candidates
+    and
+        MCP->>PG: searchLexical (ts_rank FTS matching)
+        PG-->>MCP: Lexical candidates
+    end
+
+    MCP->>Fusion: fuseHybridCandidates(dense, lexical, rrfK=60)
+    Note over Fusion: Computes RRF scores + Addendum/Factsheet priority + FAQ diversification
+    Fusion-->>MCP: Top 20 Candidates
+
+    MCP->>TEI: Cross-Encoder Rerank(query, candidates)
+    TEI-->>MCP: Cross-attention relevance scores
+    
+    MCP->>MCP: Build source citations (SID/KIM/Factsheets/URLs)
+    MCP-->>Claude: Chunks + Citations
+    Note over Claude: Claude synthesizes verified response with exact citations
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">RRF & Ranking Formulation</h3>
+          <p class="step-desc" style="margin-bottom: 12px;">
+            Candidates from dense vector search and full-text lexical search are merged using Reciprocal Rank Fusion:
+          </p>
+          <div class="callout" style="margin: 8px 0 16px;">
+            <code>RRF Score = 1 / (k + Rank_dense) + 1 / (k + Rank_lexical)</code><br/>
+            <small style="color: var(--text-muted);">Default parameter: k = 60</small>
+          </div>
+          <p class="step-desc">
+            Document priority weights adjust scores to prioritize recent addenda and monthly factsheets over older annual SIDs when querying dynamic facts (NAV, AUM, fund manager updates).
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Hugging Face TEI Reranking</h3>
+          <p class="step-desc" style="margin-bottom: 12px;">
+            Top 20 fused candidates pass to <code>BAAI/bge-reranker-v2-m3</code> running on Hugging Face Text Embeddings Inference:
+          </p>
+          <ul>
+            <li><strong>Cross-Attention:</strong> Evaluates query-chunk pairs jointly for semantic precision.</li>
+            <li><strong>Section Header Context:</strong> Prepends section headers to preserve document hierarchy.</li>
+            <li><strong>Fail-Safe Fallback:</strong> If the reranker is unavailable, retrieval transparently falls back to RRF rank order.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: COMPARISON -->
+    <section id="comparison" class="tab-pane">
+      <div class="card" style="margin-bottom: 24px;">
+        <h3 class="card-title">Architectural Rationale: Why LLM-Free?</h3>
+        <p class="step-desc">
+          Traditional RAG pipelines rely on small local generative models (e.g., 7B parameters) to generate answers. In financial mutual fund compliance, local models often miss tabular details or hallucinate expense ratios. MF-RAG avoids this by returning high-precision chunks directly to Claude.
+        </p>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>With Local LLM (e.g. 7B)</th>
+            <th>MF-RAG (LLM-Free Server)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Latency</strong></td>
+            <td>8–16 seconds</td>
+            <td>Sub-second retrieval + reranking</td>
+          </tr>
+          <tr>
+            <td><strong>Table Accuracy</strong></td>
+            <td>Fails on complex financial tables & footnotes</td>
+            <td>Parses tables into structured chunks; Claude synthesizes</td>
+          </tr>
+          <tr>
+            <td><strong>Security</strong></td>
+            <td>Vulnerable to prompt injection & jailbreaking</td>
+            <td>Zero backend LLM attack surface</td>
+          </tr>
+          <tr>
+            <td><strong>Infrastructure Cost</strong></td>
+            <td>Heavy VRAM for local generative inference</td>
+            <td>Self-hosted embedding + lightweight reranker</td>
+          </tr>
+          <tr>
+            <td><strong>Audit Citations</strong></td>
+            <td>Unreliable or hallucinated page numbers</td>
+            <td>Exact source URLs, filenames, and verified page numbers</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-emerald">
+        <div class="callout-title">💡 The Claude Advantage</div>
+        Claude Desktop and Claude Code already excel at multi-step reasoning, mathematical verification, and tabular understanding. The MCP server feeds high-relevance chunks and citations, letting Claude generate safe, accurate responses.
+      </div>
+    </section>
+
+    <!-- TAB 5: CONTRACTS -->
+    <section id="contracts" class="tab-pane">
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">Tenant Scope Boundary (<code>X-AMC-Scope</code>)</h3>
+          <p class="step-desc" style="margin-bottom: 12px;">
+            Every request to <code>/mcp</code> mandates an authenticated tenant scope header:
+          </p>
+          <table>
+            <thead>
+              <tr><th>Scope Header</th><th>Authorized Scope</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>GLOBAL</code></td><td>Only public cross-AMC educational articles & generic FAQs</td></tr>
+              <tr><td><code>101</code>, <code>128</code>, <code>RMF</code>, etc.</td><td>Global knowledge + Specific AMC scheme documents</td></tr>
+              <tr><td><code>RTA</code></td><td>Regulator scope: GLOBAL + tenant set <code>[101, 128, 176, 183, 185, RMF]</code></td></tr>
+              <tr><td><em>Missing / Invalid</em></td><td>Fails closed immediately before tool execution</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Core Codebase Modules</h3>
+          <table>
+            <thead>
+              <tr><th>Component</th><th>Path</th><th>Role</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>MCP Server</strong></td><td><code>apps/mcp-server/</code></td><td>MCP tools, tenant authorization, hybrid search, TEI reranker</td></tr>
+              <tr><td><strong>Pipeline Engine</strong></td><td><code>apps/pipeline/</code></td><td>Scheduled discovery, fetch, parse, inspect, risk routing</td></tr>
+              <tr><td><strong>Ingestion CLI & Review</strong></td><td><code>apps/ingestion/</code></td><td>PDF parsers, review server, chunk editors</td></tr>
+              <tr><td><strong>Database & Vector</strong></td><td><code>packages/db/</code>, <code>packages/vector/</code></td><td>Drizzle ORM, schema, pgvector cosine search, tsvector FTS</td></tr>
+              <tr><td><strong>Core Engine</strong></td><td><code>packages/core/</code></td><td>Ollama client, token-bucket rate limiter, risk policies</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        darkMode: true,
+        background: '#0d1322',
+        primaryColor: '#1e293b',
+        primaryTextColor: '#f8fafc',
+        primaryBorderColor: '#3b82f6',
+        lineColor: '#60a5fa',
+        secondaryColor: '#334155',
+        tertiaryColor: '#0f172a',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }
+    });
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      
+      const selectedPane = document.getElementById(tabId);
+      if (selectedPane) {
+        selectedPane.classList.add('active');
+      }
+
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn'))
+        .find(btn => btn.getAttribute('onclick')?.includes(tabId));
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+      }
+    }
+  </script>
+</body>
+</html>
