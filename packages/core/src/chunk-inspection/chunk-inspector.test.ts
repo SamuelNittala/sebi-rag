@@ -363,4 +363,132 @@ describe("ChunkInspector", () => {
       blocksApproval: false,
     }));
   });
+
+  describe("Docling rules", () => {
+    const parserDiagnostics = { lowStructurePages: [], uncoveredPages: [] };
+    function docling(
+      chunkIndex: number,
+      text: string,
+      chunkType: string,
+      extra: Record<string, unknown> = {},
+    ): InspectionCandidate {
+      return candidate(chunkIndex, text, {
+        hasTable: chunkType === "table",
+        metadata: {
+          documentScope: "strategy",
+          documentType: "Factsheet",
+          parser: "docling",
+          chunkType,
+          normalizationFlags: [],
+          sourceItemRefs: [`#/texts/${chunkIndex}`],
+          parserDiagnostics,
+          ...extra,
+        },
+      });
+    }
+    const ruleCodes = (report: { findings: { ruleCode: string }[] }) =>
+      report.findings.map((item) => item.ruleCode);
+
+    test("reports inspector version 1.1.0", () => {
+      expect(new ChunkInspector().inspect(input([])).inspectorVersion).toBe("1.1.0");
+    });
+
+    test("blocks table and key-value chunks that repeat a span", () => {
+      const report = new ChunkInspector().inspect(input([
+        docling(0, "Mirae Asset Flexi Cap Fund\nFund Details\nNet AUM: Net AUM: ₹4,506.259 Cr.", "key_value"),
+        docling(1, "Fund Details, 1 = Fund Details", "table"),
+        docling(2, "Scheme | Regular Plan | Regular Plan | 10.2%", "table"),
+      ]));
+
+      const duplications = report.findings.filter((item) => item.ruleCode === "TABLE_SPAN_DUPLICATION");
+      expect(duplications.map((item) => item.chunkIndex)).toEqual([0, 1, 2]);
+      expect(duplications[0]).toMatchObject({
+        severity: "critical",
+        blocksApproval: true,
+        evidence: { pattern: "repeated_label", line: "Net AUM: Net AUM: ₹4,506.259 Cr." },
+      });
+      expect(duplications[1]!.evidence).toMatchObject({ pattern: "triplet_label_value" });
+      expect(duplications[2]!.evidence).toMatchObject({ pattern: "adjacent_cell" });
+    });
+
+    test("does not flag normalized tables, numeric repeats, or text chunks", () => {
+      const report = new ChunkInspector().inspect(input([
+        docling(0, "Returns for last 1 year, Scheme Returns Regular (%) = 6.62%. Returns for last 1 year, Benchmark (%) = 5.1%", "table"),
+        docling(1, "--, Previous Month Rating = --. --, Current Month Rating = --", "table"),
+        docling(2, "Total Amount Invested | 120,000 | 120,000", "table"),
+        docling(3, "Net AUM: Net AUM: repeated in prose", "text"),
+        docling(4, "Date of Inception/ Allotment: 24th February 2023\nNet AUM: ₹4,506.259 Cr.", "key_value"),
+      ]));
+
+      expect(ruleCodes(report)).not.toContain("TABLE_SPAN_DUPLICATION");
+    });
+
+    test("warns on picture chunks whose chart values could not be bound", () => {
+      const report = new ChunkInspector().inspect(input([
+        docling(0, "Regular Direct Benchmark\nFY 23 10.1 11.2", "picture", {
+          normalizationFlags: ["picture_text_recovered", "chart_multi_series_unparsed"],
+          pictureClassification: "bar_chart",
+        }),
+        docling(1, "Equity Holdings Cash & Other Receivables\n99.42%\n0.58%", "picture", {
+          normalizationFlags: ["picture_text_recovered", "chart_unpaired"],
+          pictureClassification: "pie_chart",
+        }),
+        docling(2, "Banks: 16.61%", "picture", {
+          normalizationFlags: ["picture_text_recovered", "chart_pairs_extracted"],
+          pictureClassification: "bar_chart",
+        }),
+      ]));
+
+      const unbound = report.findings.filter((item) => item.ruleCode === "CHART_VALUES_UNBOUND");
+      expect(unbound.map((item) => item.chunkIndex)).toEqual([0, 1]);
+      expect(unbound[0]).toMatchObject({
+        severity: "warning",
+        blocksApproval: false,
+        evidence: {
+          classification: "bar_chart",
+          flags: ["picture_text_recovered", "chart_multi_series_unparsed"],
+        },
+      });
+    });
+
+    test("warns once per document about low-structure and uncovered pages", () => {
+      const diagnostics = { lowStructurePages: [3], uncoveredPages: [7] };
+      const report = new ChunkInspector().inspect(input([
+        docling(0, "Fund Details text", "text", { parserDiagnostics: diagnostics }),
+        docling(1, "More text", "text", { parserDiagnostics: diagnostics }),
+      ]));
+
+      const lowStructure = report.findings.filter((item) => item.ruleCode === "LOW_STRUCTURE_PAGE");
+      expect(lowStructure).toEqual([expect.objectContaining({
+        candidateId: null,
+        chunkIndex: null,
+        severity: "warning",
+        blocksApproval: false,
+        evidence: diagnostics,
+      })]);
+      expect(ruleCodes(new ChunkInspector().inspect(input([docling(0, "Fund text", "text")]))))
+        .not.toContain("LOW_STRUCTURE_PAGE");
+    });
+
+    test("leaves findings for non-Docling candidates unchanged", () => {
+      const unpdf = [
+        candidate(0, "Net AUM: Net AUM: ₹4,506.259 Cr.", { hasTable: true }),
+        candidate(1, "Fund Details, 1 = Fund Details", { hasTable: true }),
+        candidate(2, "Regular Direct Benchmark", {
+          metadata: {
+            documentScope: "strategy",
+            documentType: "Factsheet",
+            chunkType: "picture",
+            normalizationFlags: ["chart_unpaired"],
+            parserDiagnostics: { lowStructurePages: [1], uncoveredPages: [2] },
+          },
+        }),
+      ];
+
+      expect(new ChunkInspector().inspect(input(unpdf)).findings).toEqual(
+        new ChunkInspector({ inspectorVersion: "1.0.0" }).inspect(input(unpdf)).findings,
+      );
+      expect(new ChunkInspector().inspect(input(unpdf)).findings).toEqual([]);
+    });
+  });
 });

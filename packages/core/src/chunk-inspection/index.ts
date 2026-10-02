@@ -19,7 +19,7 @@ export * from "./manual-edit.ts";
 export * from "./faq.ts";
 
 const DEFAULT_CONFIG: ChunkInspectorConfig = {
-  inspectorVersion: "1.0.0",
+  inspectorVersion: "1.1.0",
   maxTextTokens: 512,
   maxTableTokens: 1536,
   headingOnlyMaxTokens: 20,
@@ -32,6 +32,12 @@ const TABLE_LABELS = [
   /\btotal\s+(?:no\.?\s+of\s+)?years?\s+of\s+experience\b/i,
   /\bexperience\s*&\s*background\b/i,
 ];
+
+const UNBOUND_CHART_FLAGS = ["chart_multi_series_unparsed", "chart_unpaired"];
+/** A label of at least 6 characters ending in `:` repeated adjacently, e.g. `Net AUM: Net AUM:`. */
+const REPEATED_LABEL = /(?:^|\s)([^\s:|][^:|\n]{4,}:)\s*\1/u;
+/** One `row label, column = value` triplet of Docling's table serialization. */
+const TRIPLET = /^(.+?), (.+?) = (.+?)\.?$/u;
 
 function finding(
   candidate: InspectionCandidate | null,
@@ -197,6 +203,72 @@ function candidateFindings(
   return findings;
 }
 
+function isDoclingCandidate(candidate: InspectionCandidate): boolean {
+  return candidate.metadata.parser === "docling";
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+/** First span duplication a missed Docling table span leaves behind, if any. */
+function tableSpanDuplication(text: string): { pattern: string; line: string } | null {
+  for (const line of text.split("\n").map((value) => value.trim())) {
+    const cells = line.split("|").map((cell) => cell.trim());
+    if (cells.some((cell, index) =>
+      index > 0 && cell === cells[index - 1] && cell.length >= 6 && /\p{L}/u.test(cell)
+    )) {
+      return { pattern: "adjacent_cell", line: line.slice(0, 120) };
+    }
+    if (REPEATED_LABEL.test(line)) return { pattern: "repeated_label", line: line.slice(0, 120) };
+    const tripletRepeatsLabel = line.split(/\.\s+/).some((part) => {
+      const match = TRIPLET.exec(part.trim());
+      const label = match?.[1]?.trim() ?? "";
+      return /\p{L}/u.test(label) && label.toLowerCase() === match?.[3]?.trim().toLowerCase();
+    });
+    if (tripletRepeatsLabel) return { pattern: "triplet_label_value", line: line.slice(0, 120) };
+  }
+  return null;
+}
+
+/** Rules for Docling-parsed candidates only, so other parsers keep their findings unchanged. */
+function doclingCandidateFindings(candidate: InspectionCandidate): InspectionFinding[] {
+  if (!isDoclingCandidate(candidate)) return [];
+  const findings: InspectionFinding[] = [];
+  const chunkType = candidate.metadata.chunkType;
+  const flags = stringList(candidate.metadata.normalizationFlags);
+  if (chunkType === "table" || chunkType === "key_value") {
+    const duplication = tableSpanDuplication(candidate.text);
+    if (duplication) {
+      findings.push(finding(candidate, "TABLE_SPAN_DUPLICATION", "critical", true, "Table text repeats a spanned cell or label; the parser likely missed a merged cell.", duplication));
+    }
+  }
+  if (chunkType === "picture" && flags.some((flag) => UNBOUND_CHART_FLAGS.includes(flag))) {
+    findings.push(finding(candidate, "CHART_VALUES_UNBOUND", "warning", false, "Chart values could not be bound to their labels; verify them against the tabular source.", {
+      classification: candidate.metadata.pictureClassification ?? null,
+      flags,
+    }));
+  }
+  return findings;
+}
+
+function doclingDocumentFindings(candidates: InspectionCandidate[]): InspectionFinding[] {
+  const diagnostics = candidates.find(isDoclingCandidate)?.metadata.parserDiagnostics as
+    | { lowStructurePages?: unknown; uncoveredPages?: unknown }
+    | undefined;
+  const lowStructurePages = pageList(diagnostics?.lowStructurePages);
+  const uncoveredPages = pageList(diagnostics?.uncoveredPages);
+  if (lowStructurePages.length === 0 && uncoveredPages.length === 0) return [];
+  return [finding(null, "LOW_STRUCTURE_PAGE", "warning", false, "Some pages yielded little structured text or no chunks; verify them against the source PDF.", {
+    lowStructurePages,
+    uncoveredPages,
+  })];
+}
+
+function pageList(value: unknown): number[] {
+  return Array.isArray(value) ? value.filter((item): item is number => Number.isInteger(item)) : [];
+}
+
 function crossChunkFindings(candidates: InspectionCandidate[]): InspectionFinding[] {
   const findings: InspectionFinding[] = [];
   for (let index = 1; index < candidates.length; index++) {
@@ -287,11 +359,13 @@ export class ChunkInspector implements ChunkInspectorContract {
   }
 
   inspect(input: InspectionInput): InspectionReport {
-    const findings = input.candidates.flatMap((candidate) =>
-      candidateFindings(candidate, input, this.config)
-    );
+    const findings = input.candidates.flatMap((candidate) => [
+      ...candidateFindings(candidate, input, this.config),
+      ...doclingCandidateFindings(candidate),
+    ]);
     findings.push(...crossChunkFindings(input.candidates));
     findings.push(...documentFindings(input.candidates));
+    findings.push(...doclingDocumentFindings(input.candidates));
 
     if (input.candidates.length === 0) {
       findings.push(finding(null, "NO_CHUNKS", "critical", true, "Document produced no candidate chunks."));

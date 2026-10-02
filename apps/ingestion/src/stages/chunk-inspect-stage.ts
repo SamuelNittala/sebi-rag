@@ -9,6 +9,7 @@ import { assertClassifiedKnowledgeOwnership } from "@mf-rag/types";
 import type { StageInspectionReviewInput } from "@mf-rag/db";
 
 import { chunkAddendum } from "../chunkers/addendum-chunker.ts";
+import { mapDoclingChunks, type DoclingParserDiagnostics } from "../chunkers/docling-chunk-mapper.ts";
 import { removeDisposableSifChunks } from "../chunkers/disposable-content.ts";
 import {
   semanticChunk,
@@ -27,6 +28,11 @@ import {
   strategyIdForScope,
 } from "../review/review-metadata.ts";
 import {
+  decodeDoclingParseArtifact,
+  doclingPdfMediaType,
+  type DoclingPdfParseArtifact,
+} from "./docling-parse-stage.ts";
+import {
   decodeNormalizedParseArtifact,
   parsedPdfMediaType,
   type NormalizedPdfParseArtifact,
@@ -34,6 +40,9 @@ import {
 } from "./parse-pdf-stage.ts";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+
+/** Either stored PDF parse artifact; Docling adds chunks, unpdf adds tables. */
+export type PdfParseArtifact = NormalizedPdfParseArtifact | DoclingPdfParseArtifact;
 
 export interface PdfCitationMetadata {
   readonly sebiSchemeId?: string;
@@ -102,15 +111,20 @@ export class ChunkInspectStage {
       || input.parsedArtifact.sha256 !== input.expectedParsedChecksum) {
       throw deterministicChunkError("PARSED_ARTIFACT_CHECKSUM_MISMATCH", "Parsed artifact checksum does not match the stage input.");
     }
-    if (input.parsedArtifact.mediaType !== parsedPdfMediaType()) {
-      throw deterministicChunkError("INVALID_PARSED_MEDIA_TYPE", "Chunk stage accepts only the normalized PDF artifact contract.");
+    const decode = input.parsedArtifact.mediaType === parsedPdfMediaType()
+      ? decodeNormalizedParseArtifact
+      : input.parsedArtifact.mediaType === doclingPdfMediaType()
+        ? decodeDoclingParseArtifact
+        : null;
+    if (!decode) {
+      throw deterministicChunkError("INVALID_PARSED_MEDIA_TYPE", "Chunk stage accepts only the normalized or Docling PDF artifact contracts.");
     }
     input.signal?.throwIfAborted();
     const bytes = await this.options.artifactStore.readVerified(input.parsedArtifact);
     if (sha256Hex(bytes) !== input.parsedArtifact.sha256 || bytes.byteLength !== input.parsedArtifact.byteSize) {
       throw deterministicChunkError("PARSED_ARTIFACT_CHECKSUM_MISMATCH", "Parsed artifact bytes failed integrity verification.");
     }
-    const parsed = decodeNormalizedParseArtifact(bytes);
+    const parsed: PdfParseArtifact = decode(bytes);
     if (parsed.documentVersionId !== input.documentVersionId) {
       throw deterministicChunkError("PARSED_VERSION_MISMATCH", "Parsed artifact belongs to another document version.");
     }
@@ -158,7 +172,7 @@ export class ChunkInspectStage {
 
 /** Shared characterization boundary used by scheduled and legacy/manual flows. */
 export function preparePdfChunkInspection(input: {
-  readonly parsed: NormalizedPdfParseArtifact;
+  readonly parsed: PdfParseArtifact;
   readonly sourceDocumentId: string;
   readonly ownership: ClassifiedKnowledgeOwnership;
   readonly knowledgeScope: KnowledgeScope;
@@ -176,11 +190,19 @@ export function preparePdfChunkInspection(input: {
   const parsed = sanitizePostgresText(input.parsed);
   const sourceUrl = input.sourceUrl === undefined ? parsed.source.canonicalUrl : input.sourceUrl;
   const metadata = input.metadata ?? extractPdfMetadata(parsed, input.metadataFilepath);
-  let chunkResult = semanticChunk({
-    pages: parsed.pages.map((page) => ({ pageNumber: page.pageNumber, text: page.text })),
-    tables: parsed.tables.map((table) => ({ pageNumber: table.pageNumber, markdown: table.markdown })),
-  });
-  let chunkerVersion = "semantic-v1";
+  let parserDiagnostics: DoclingParserDiagnostics | null = null;
+  let chunkResult: ChunkResult;
+  let chunkerVersion: string;
+  if (isDoclingArtifact(parsed)) {
+    ({ chunkResult, parserDiagnostics } = mapDoclingChunks(parsed));
+    chunkerVersion = "docling-hybrid-v1";
+  } else {
+    chunkResult = semanticChunk({
+      pages: parsed.pages.map((page) => ({ pageNumber: page.pageNumber, text: page.text })),
+      tables: parsed.tables.map((table) => ({ pageNumber: table.pageNumber, markdown: table.markdown })),
+    });
+    chunkerVersion = "semantic-v1";
+  }
   let addendumChunkingMode: "specialized" | "semantic_fallback" | null = null;
   let addendumFallbackReason: "incomplete_metadata" | "unpaired_provisions" | null = null;
   if (metadata.docType === "Addendum") {
@@ -200,8 +222,11 @@ export function preparePdfChunkInspection(input: {
       chunkResult = addendum;
       chunkerVersion = "addendum-v1";
       addendumChunkingMode = "specialized";
+      // Diagnostics describe Docling chunk coverage, which no longer applies.
+      parserDiagnostics = null;
     } else {
-      chunkerVersion = "semantic-addendum-fallback-v1";
+      // A Docling fallback keeps its own chunks and chunker version.
+      if (!parserDiagnostics) chunkerVersion = "semantic-addendum-fallback-v1";
       addendumChunkingMode = "semantic_fallback";
       addendumFallbackReason = hasRequiredMetadata ? "unpaired_provisions" : "incomplete_metadata";
     }
@@ -255,6 +280,8 @@ export function preparePdfChunkInspection(input: {
       sourceChecksum: parsed.source.rawSha256,
       knowledgeDomain: input.knowledgeScope.knowledgeDomain,
       amcSlug: input.knowledgeScope.amcSlug,
+      // Shared by every candidate so document-level findings survive manual-edit reinspection.
+      ...(parserDiagnostics ? { parserDiagnostics } : {}),
     },
     ownership: input.ownership,
   });
@@ -271,8 +298,24 @@ export function preparePdfChunkInspection(input: {
   };
 }
 
-function sanitizePostgresText(parsed: NormalizedPdfParseArtifact): NormalizedPdfParseArtifact {
+function isDoclingArtifact(parsed: PdfParseArtifact): parsed is DoclingPdfParseArtifact {
+  return "kind" in parsed.parser && parsed.parser.kind === "docling";
+}
+
+function sanitizePostgresText<T extends PdfParseArtifact>(parsed: T): T;
+function sanitizePostgresText(parsed: PdfParseArtifact): PdfParseArtifact {
   const withoutNul = (value: string) => value.replaceAll("\u0000", "");
+  if (isDoclingArtifact(parsed)) {
+    return {
+      ...parsed,
+      pages: parsed.pages.map((page) => ({ ...page, text: withoutNul(page.text) })),
+      chunks: parsed.chunks.map((chunk) => ({
+        ...chunk,
+        text: withoutNul(chunk.text),
+        headings: chunk.headings.map(withoutNul),
+      })),
+    };
+  }
   return {
     ...parsed,
     pages: parsed.pages.map((page) => ({ ...page, text: withoutNul(page.text) })),
@@ -285,7 +328,7 @@ function sanitizePostgresText(parsed: NormalizedPdfParseArtifact): NormalizedPdf
 }
 
 export function extractPdfMetadata(
-  parsed: NormalizedPdfParseArtifact,
+  parsed: Pick<PdfParseArtifact, "pages" | "source">,
   metadataFilepath?: string,
 ): ExtractedMetadata {
   const firstPagesText = parsed.pages.slice(0, 3).map((page) => page.text).join("\n\n");

@@ -6,7 +6,7 @@
  * and preserves atomic units (tables, lists).
  */
 
-import { type ChunkConfig, DEFAULT_CHUNK_CONFIG } from "@mf-rag/types";
+import { type CandidateChunkMetadata, type ChunkConfig, DEFAULT_CHUNK_CONFIG } from "@mf-rag/types";
 
 /**
  * Input format for chunking
@@ -32,6 +32,8 @@ export interface Chunk {
   hasTable: boolean;
   sectionHeader: string | null;
   tokenCount: number;
+  /** Per-chunk metadata merged over the document metadata (set by the Docling mapper). */
+  metadata?: Partial<CandidateChunkMetadata>;
 }
 
 /**

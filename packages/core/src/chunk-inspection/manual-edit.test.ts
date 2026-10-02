@@ -122,4 +122,33 @@ describe("prepareManualChunkEdit", () => {
       normalizedQuestionKey: "what is the current tax rate",
     });
   });
+
+  test("keeps the document-level Docling page warning after a manual edit", () => {
+    const parserDiagnostics = { lowStructurePages: [2], uncoveredPages: [] };
+    const docling = (id: string, chunkIndex: number, text: string): EditableInspectionCandidate => ({
+      ...candidate(id, chunkIndex, text),
+      metadata: {
+        documentScope: "strategy",
+        documentType: "Factsheet",
+        parser: "docling",
+        chunkType: "text",
+        normalizationFlags: [],
+        sourceItemRefs: [`#/texts/${chunkIndex}`],
+        parserDiagnostics,
+      },
+    });
+
+    const result = prepareManualChunkEdit({
+      document: { id: "document", filename: "factsheet.pdf", pageCount: 40 },
+      candidates: [docling("first", 0, "Mirae Asset Flexi Cap Fund overview"), docling("second", 1, "Portfolio text")],
+      candidateId: "first",
+      expectedContentHash: "first-hash",
+      text: "Mirae Asset Flexi Cap Fund corrected overview",
+    });
+
+    expect(result.report.inspectorVersion).toBe("1.1.0");
+    expect(result.report.findings.filter((finding) => finding.ruleCode === "LOW_STRUCTURE_PAGE")).toEqual([
+      expect.objectContaining({ candidateId: null, evidence: parserDiagnostics }),
+    ]);
+  });
 });

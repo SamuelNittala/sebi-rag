@@ -411,7 +411,8 @@ function normalizeSchemeTitle(value: string): string | null {
   }).join(" ");
 }
 
-function extractSchemeTitleLine(text: string): string | null {
+/** First `MIRAE ASSET ...` scheme title in the text, title-cased; also stamps Docling factsheet pages. */
+export function extractSchemeTitleLine(text: string): string | null {
   const lines = text.split(/\r?\n/).slice(0, 250)
     .map((line) => line.replace(/\s+/g, " ").trim());
   for (let index = 0; index < lines.length; index += 1) {

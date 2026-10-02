@@ -34,6 +34,22 @@ production vector.
   reviewer, note, and timestamp in an append-only audit record.
 - [x] FR-13: An edit invalidates prior flag decisions and replaces findings with
   a fresh open set from the current inspector version.
+- [x] FR-14: Candidates produced from a Docling parse (`metadata.parser ===
+  "docling"`) receive three additional rules. Candidates from any other parser
+  receive exactly the findings they received under inspector `1.0.0`.
+  - `TABLE_SPAN_DUPLICATION` (chunk, critical, blocking): a `table` or
+    `key_value` chunk where, within one line, two adjacent `|` cells are equal
+    and at least 6 characters with a letter (`a | a`), a label of at least 6
+    characters ending in `:` repeats adjacently (`Net AUM: Net AUM:`), or a
+    `row, column = value` triplet repeats its row label as the value
+    (`Fund Details, 1 = Fund Details`).
+  - `CHART_VALUES_UNBOUND` (chunk, warning): a `picture` chunk flagged
+    `chart_multi_series_unparsed` or `chart_unpaired`; the reviewer verifies its
+    values against the tabular source. Evidence has the picture classification
+    and the flags.
+  - `LOW_STRUCTURE_PAGE` (document, warning): the document-level
+    `parserDiagnostics` lists `lowStructurePages` or `uncoveredPages`; evidence
+    lists both. Emitted once per document.
 
 ## Non-Functional Requirements
 
@@ -49,6 +65,8 @@ production vector.
   lock so one reviewer cannot silently overwrite another reviewer.
 - [x] NFR-7: Empty or unchanged edits are rejected without changing review
   state.
+- [x] NFR-8: Inspector version is `1.1.0` from the introduction of the Docling
+  rules (FR-14), so every document re-inspected afterwards routes to review once.
 
 ## Acceptance Criteria
 
@@ -74,6 +92,17 @@ production vector.
    then the second reviewer receives a conflict instead of overwriting it.
 10. Given an edited chunk, its original and revised text are both available in
     the audit history.
+11. Given a Docling `key_value` chunk containing `Net AUM: Net AUM: ₹4,506.259
+    Cr.` or a Docling `table` chunk containing `Fund Details, 1 = Fund Details`,
+    when inspected, then it receives a blocking `TABLE_SPAN_DUPLICATION`
+    finding; the same text from an unpdf candidate does not.
+12. Given a Docling picture chunk flagged `chart_multi_series_unparsed` or
+    `chart_unpaired`, when inspected, then it receives a non-blocking
+    `CHART_VALUES_UNBOUND` warning; a picture chunk flagged
+    `chart_pairs_extracted` does not.
+13. Given Docling candidates whose shared `parserDiagnostics` lists low-structure
+    or uncovered pages, when inspected or reinspected after a manual edit, then
+    exactly one document-level `LOW_STRUCTURE_PAGE` warning lists those pages.
 
 ## Edge Cases
 
@@ -91,6 +120,11 @@ production vector.
    rejected.
 7. Editing one candidate may clear, create, or move a cross-chunk finding on an
    adjacent candidate.
+8. Docling rules read only candidate metadata (`parser`, `chunkType`,
+   `normalizationFlags`, `pictureClassification`, `parserDiagnostics`), which a
+   manual edit does not change, so their scope survives reinspection.
+9. Equal adjacent numeric cells (`120,000 | 120,000`) are legitimate table data
+   and do not trigger `TABLE_SPAN_DUPLICATION`.
 
 ## Out of Scope
 
@@ -110,3 +144,5 @@ production vector.
 | Findings are versioned; decisions are audit logged | Historical inspection remains explainable | Unversioned mutable findings |
 | Text edits create append-only revisions | Reviewers can recover exactly what changed | Store only the latest text |
 | Reinspect the whole document after an edit | Boundary rules depend on neighboring chunks | Reinspect only the edited chunk |
+| Gate parser-specific rules on `metadata.parser` | Existing unpdf findings stay byte-identical | Apply new rules to every parser |
+| Store parser diagnostics on every candidate | Document-level findings survive per-candidate reinspection | Separate document diagnostics table |
