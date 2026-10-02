@@ -8,6 +8,7 @@ import {
   createSourceKey,
   findInlineSecretField,
   sourceConnectorKinds,
+  sourceDocumentTypes,
   sourceParsers,
   type AccessScopeManifest,
   type DesiredSourceRegistry,
@@ -159,6 +160,7 @@ const sourceSchema = z.object({
   parse: z.object({
     parser: z.enum(sourceParsers),
   }).strict().optional(),
+  documentType: z.enum(sourceDocumentTypes).optional(),
 }).strict().superRefine((source, context) => {
   if (source.discovery.strategy === "explicit_urls") {
     const duplicateKey = findDuplicate(source.discovery.urls.map(({ key }) => String(key)));
@@ -337,6 +339,7 @@ function toSourceManifest(source: ParsedManifest["sources"][number]): SourceMani
     fetch: source.fetch,
     review: source.review,
     ...(source.parse ? { parse: source.parse } : {}),
+    ...(source.documentType ? { documentType: source.documentType } : {}),
   };
 }
 

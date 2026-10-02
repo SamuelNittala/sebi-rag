@@ -373,5 +373,6 @@ function canonicalSource(source: SourceManifest): SourceManifest {
     fetch: source.fetch,
     review: source.review,
     ...(source.parse ? { parse: { parser: source.parse.parser } } : {}),
+    ...(source.documentType ? { documentType: source.documentType } : {}),
   };
 }

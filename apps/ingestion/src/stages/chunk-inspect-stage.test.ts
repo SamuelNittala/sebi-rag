@@ -16,7 +16,7 @@ import {
   doclingPdfMediaType,
   type DoclingPdfParseArtifact,
 } from "./docling-parse-stage.ts";
-import type { PdfStageArtifactStore } from "./parse-pdf-stage.ts";
+import type { NormalizedPdfParseArtifact, PdfStageArtifactStore } from "./parse-pdf-stage.ts";
 
 const FIXTURE_DIR = new URL("../../../../tests/fixtures/docling/", import.meta.url);
 const GOLDEN_PDF = new URL("mirae-flexi-cap-p34-35.pdf", FIXTURE_DIR);
@@ -268,5 +268,106 @@ describe("ChunkInspectStage with Docling artifacts", () => {
         chunk.flags.includes("chart_multi_series_unparsed") || chunk.flags.includes("chart_unpaired"))
         .map((chunk) => chunk.chunkIndex),
     );
+  });
+});
+
+describe("source document type override", () => {
+  const addendumReference = "Pursuant to notice cum addendum no. 70/2026, the expense ratio stands revised.";
+  const factsheetFilename = "mirae-flexi-cap-p34-35.pdf";
+
+  async function factsheetDoclingArtifact() {
+    return doclingArtifact(rawBytes, (source) => {
+      const body = structuredClone(minimalDoclingResponse(source)) as any;
+      body.pages[0].text = `${body.pages[0].text}\n${addendumReference}`;
+      return body;
+    }, factsheetFilename);
+  }
+
+  function factsheetUnpdfArtifact(): NormalizedPdfParseArtifact {
+    const text = [
+      "Mirae Asset Flexi Cap Fund",
+      "Fund Details",
+      "The investment objective of the scheme is to generate long term capital appreciation.",
+      addendumReference,
+    ].join("\n");
+    return {
+      schemaVersion: 1,
+      documentVersionId: "version-1",
+      source: {
+        filename: factsheetFilename,
+        canonicalUrl: "https://www.miraeassetmf.co.in/docs/factsheet.pdf",
+        rawSha256: "c".repeat(64),
+        rawByteSize: 10,
+      },
+      parser: { parserVersion: "unpdf-test", tableExtractorVersion: "pdfplumber-test" },
+      pages: [{ pageNumber: 1, text, hasTable: false }],
+      tables: [],
+      diagnostics: {
+        pageCount: 1,
+        emptyPageCount: 0,
+        tableCount: 0,
+        tableExtractionStatus: "succeeded",
+        tableExtractionCode: null,
+      },
+    };
+  }
+
+  test("without an override a factsheet citing an addendum is classified as Addendum (baseline)", async () => {
+    const { parsed } = await factsheetDoclingArtifact();
+
+    const docling = preparePdfChunkInspection({ parsed, sourceDocumentId: "source-document-1", ownership, knowledgeScope });
+    const unpdf = preparePdfChunkInspection({
+      parsed: factsheetUnpdfArtifact(), sourceDocumentId: "source-document-1", ownership, knowledgeScope,
+    });
+
+    expect(docling.metadata.docType).toBe("Addendum");
+    expect(unpdf.metadata.docType).toBe("Addendum");
+    expect(unpdf.chunkerVersion).toBe("semantic-addendum-fallback-v1");
+  });
+
+  test("the Docling path honours the source document type and keeps Docling chunks", async () => {
+    const { parsed } = await factsheetDoclingArtifact();
+
+    const inspection = preparePdfChunkInspection({
+      parsed, sourceDocumentId: "source-document-1", ownership, knowledgeScope, documentType: "Factsheet",
+    });
+
+    expect(inspection.metadata.docType).toBe("Factsheet");
+    expect(inspection.chunkerVersion).toBe("docling-hybrid-v1");
+    expect(inspection.prepared.candidates.every((candidate) =>
+      candidate.metadata.parser === "docling"
+      && candidate.metadata.documentType === "Factsheet"
+      && candidate.metadata.addendumChunkingMode === null)).toBe(true);
+    expect(inspection.prepared.report.findings.map((finding) => finding.ruleCode))
+      .not.toContain("ADDENDUM_METADATA_INCOMPLETE");
+  });
+
+  test("the unpdf path honours the source document type", () => {
+    const inspection = preparePdfChunkInspection({
+      parsed: factsheetUnpdfArtifact(), sourceDocumentId: "source-document-1", ownership, knowledgeScope,
+      documentType: "Factsheet",
+    });
+
+    expect(inspection.metadata.docType).toBe("Factsheet");
+    expect(inspection.chunkerVersion).toBe("semantic-v1");
+    expect(inspection.prepared.report.findings.map((finding) => finding.ruleCode))
+      .not.toContain("ADDENDUM_METADATA_INCOMPLETE");
+  });
+
+  test("ChunkInspectStage passes its input document type into metadata extraction", async () => {
+    const { artifact, store } = await factsheetDoclingArtifact();
+    const stageWith = async (documentType?: "Factsheet") => {
+      const repository = new RecordingReviewRepository();
+      await new ChunkInspectStage({ artifactStore: store, reviewRepository: repository })
+        .execute({ ...stageInput(artifact), ...(documentType ? { documentType } : {}) });
+      return repository.inputs[0]!;
+    };
+
+    const overridden = await stageWith("Factsheet");
+    const heuristic = await stageWith();
+
+    expect(overridden.chunkerVersion).toBe("docling-hybrid-v1");
+    expect(overridden.candidates.every((candidate) => candidate.metadata.documentType === "Factsheet")).toBe(true);
+    expect(heuristic.candidates.every((candidate) => candidate.metadata.documentType === "Addendum")).toBe(true);
   });
 });

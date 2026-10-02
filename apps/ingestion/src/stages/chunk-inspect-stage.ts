@@ -4,6 +4,7 @@ import type {
   ArtifactDescriptor,
   ClassifiedKnowledgeOwnership,
   KnowledgeScope,
+  SourceDocumentType,
 } from "@mf-rag/types";
 import { assertClassifiedKnowledgeOwnership } from "@mf-rag/types";
 import type { StageInspectionReviewInput } from "@mf-rag/db";
@@ -92,6 +93,8 @@ export interface ChunkInspectStageInput {
   readonly expectedParsedChecksum: string;
   readonly trustedContext: TrustedPdfPipelineContext;
   readonly citationMetadata?: PdfCitationMetadata;
+  /** Source-declared document type; overrides filename/content detection. */
+  readonly documentType?: SourceDocumentType;
   readonly signal?: AbortSignal;
 }
 
@@ -137,6 +140,7 @@ export class ChunkInspectStage {
       ownership,
       knowledgeScope: input.trustedContext.classification,
       citationMetadata: input.citationMetadata,
+      documentType: input.documentType,
     });
     const reviewRun = await this.options.reviewRepository.stage({
       sourceType: "pdf",
@@ -180,6 +184,8 @@ export function preparePdfChunkInspection(input: {
   /** Legacy-only hint; scheduled artifacts never depend on a local path. */
   readonly metadataFilepath?: string;
   readonly metadata?: ExtractedMetadata;
+  /** Source-declared document type; ignored when `metadata` is supplied. */
+  readonly documentType?: SourceDocumentType;
   /** Legacy/manual citation override; omitted by scheduled workers. */
   readonly sourceUrl?: string | null;
 }): PreparedPdfChunkInspection {
@@ -189,7 +195,7 @@ export function preparePdfChunkInspection(input: {
   // inspection, hashing, and durable review staging all observe the content.
   const parsed = sanitizePostgresText(input.parsed);
   const sourceUrl = input.sourceUrl === undefined ? parsed.source.canonicalUrl : input.sourceUrl;
-  const metadata = input.metadata ?? extractPdfMetadata(parsed, input.metadataFilepath);
+  const metadata = input.metadata ?? extractPdfMetadata(parsed, input.metadataFilepath, input.documentType);
   let parserDiagnostics: DoclingParserDiagnostics | null = null;
   let chunkResult: ChunkResult;
   let chunkerVersion: string;
@@ -330,6 +336,7 @@ function sanitizePostgresText(parsed: PdfParseArtifact): PdfParseArtifact {
 export function extractPdfMetadata(
   parsed: Pick<PdfParseArtifact, "pages" | "source">,
   metadataFilepath?: string,
+  documentType?: SourceDocumentType,
 ): ExtractedMetadata {
   const firstPagesText = parsed.pages.slice(0, 3).map((page) => page.text).join("\n\n");
   const rawText = parsed.pages
@@ -341,6 +348,7 @@ export function extractPdfMetadata(
     filepath: metadataFilepath,
     firstPageText: firstPagesText,
     fullText: rawText,
+    documentTypeOverride: documentType,
   });
 }
 

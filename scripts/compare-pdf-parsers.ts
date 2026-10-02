@@ -3,6 +3,7 @@
  *
  *   bun run parse:compare -- --pdf <file.pdf> [--pdf <file.pdf> ...]
  *     [--scope config/access-scopes/117-mirae-mf.yml]
+ *     [--source <sourceKey> | --document-type <SID|KIM|Factsheet|...>]
  *     [--docling-url http://localhost:8090] [--docling-version <parserVersion>]
  *     [--pages FIRST-LAST] [--out <dir>]
  *
@@ -19,6 +20,10 @@
  * still converts every page, so a range does not save Docling time.
  *
  * `--docling-version` defaults to the service's `/health` parserVersion.
+ *
+ * `--source` applies that scope source's manifest `documentType` (as the
+ * scheduled CHUNK stage does); `--document-type` sets one directly. Without
+ * either, docType comes from the filename/content heuristics.
  */
 
 import { createHash } from "node:crypto";
@@ -26,7 +31,14 @@ import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve, sep } from "node:path";
 
-import type { ArtifactDescriptor, ClassifiedKnowledgeOwnership, KnowledgeScope } from "@mf-rag/types";
+import {
+  sourceDocumentTypes,
+  type AccessScopeManifest,
+  type ArtifactDescriptor,
+  type ClassifiedKnowledgeOwnership,
+  type KnowledgeScope,
+  type SourceDocumentType,
+} from "@mf-rag/types";
 
 import { parseAccessScopeManifestYaml } from "../apps/pipeline/src/config/access-scope-manifest.ts";
 import { fetchDoclingHealth } from "../apps/ingestion/src/parsers/docling-client.ts";
@@ -53,6 +65,8 @@ export interface CompareArgs {
   readonly doclingUrl: string;
   readonly doclingVersion: string | null;
   readonly pageRange: PageRange | null;
+  readonly sourceKey: string | null;
+  readonly documentType: SourceDocumentType | null;
   readonly outDir: string;
 }
 
@@ -62,6 +76,8 @@ export function parseCompareArgs(argv: readonly string[], env: { readonly tmpRoo
   let doclingUrl = "http://localhost:8090";
   let doclingVersion: string | null = null;
   let pageRange: PageRange | null = null;
+  let sourceKey: string | null = null;
+  let documentType: SourceDocumentType | null = null;
   let outDir: string | null = null;
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index]!;
@@ -77,18 +93,39 @@ export function parseCompareArgs(argv: readonly string[], env: { readonly tmpRoo
       case "--docling-url": doclingUrl = value(); break;
       case "--docling-version": doclingVersion = value(); break;
       case "--pages": pageRange = parsePageRange(value()); break;
+      case "--source": sourceKey = value(); break;
+      case "--document-type": documentType = parseDocumentType(value()); break;
       case "--out": outDir = resolve(value()); break;
       default: throw new Error(`Unknown argument ${flag}.`);
     }
   }
   if (pdfs.length === 0) throw new Error("At least one --pdf <file> is required.");
+  if (sourceKey && documentType) throw new Error("Use either --source or --document-type, not both.");
   const resolvedOut = outDir
     ?? join(env.tmpRoot, "mf-rag-parse-compare", env.now.toISOString().replace(/\.\d+Z$/, "Z").replaceAll(":", "-"));
   const fromData = relative(join(REPO_ROOT, "data"), resolvedOut);
   if (fromData === "" || (!fromData.startsWith("..") && !fromData.startsWith(sep) && !/^[A-Za-z]:/.test(fromData))) {
     throw new Error("--out must not be inside data/; reports are scratch output.");
   }
-  return { pdfs, scopePath, doclingUrl, doclingVersion, pageRange, outDir: resolvedOut };
+  return { pdfs, scopePath, doclingUrl, doclingVersion, pageRange, sourceKey, documentType, outDir: resolvedOut };
+}
+
+function parseDocumentType(value: string): SourceDocumentType {
+  const match = sourceDocumentTypes.find((type) => type === value);
+  if (!match) throw new Error(`--document-type must be one of ${sourceDocumentTypes.join(", ")}.`);
+  return match;
+}
+
+/** The docType override the comparison applies, mirroring the scheduled CHUNK stage. */
+export function resolveCompareDocumentType(
+  manifest: Pick<AccessScopeManifest, "accessScopeKey" | "sources">,
+  args: Pick<CompareArgs, "sourceKey" | "documentType">,
+): SourceDocumentType | null {
+  if (args.documentType) return args.documentType;
+  if (!args.sourceKey) return null;
+  const source = manifest.sources.find((candidate) => String(candidate.sourceKey) === args.sourceKey);
+  if (!source) throw new Error(`Source ${args.sourceKey} is not in scope ${manifest.accessScopeKey}.`);
+  return source.documentType ?? null;
 }
 
 /** Holds the one raw PDF; parse outputs are returned by the stages, so `put` only describes them. */
@@ -115,12 +152,14 @@ interface ScopeContext {
   readonly key: string;
   readonly knowledgeScope: KnowledgeScope;
   readonly ownership: ClassifiedKnowledgeOwnership;
+  readonly documentType: SourceDocumentType | null;
 }
 
-async function loadScope(path: string): Promise<ScopeContext> {
-  const manifest = parseAccessScopeManifestYaml(await Bun.file(path).text(), basename(path));
+async function loadScope(args: CompareArgs): Promise<ScopeContext> {
+  const manifest = parseAccessScopeManifestYaml(await Bun.file(args.scopePath).text(), basename(args.scopePath));
   return {
     key: manifest.accessScopeKey,
+    documentType: resolveCompareDocumentType(manifest, args),
     knowledgeScope: { ...manifest.classification },
     ownership: {
       visibilityScope: "TENANT",
@@ -137,6 +176,7 @@ function inspect(parsed: PdfParseArtifact, scope: ScopeContext, sourceDocumentId
     sourceDocumentId,
     ownership: scope.ownership,
     knowledgeScope: scope.knowledgeScope,
+    ...(scope.documentType ? { documentType: scope.documentType } : {}),
   });
   const diagnostics = (inspection.prepared.candidates[0]?.metadata as { parserDiagnostics?: ComparisonSideInput["parserDiagnostics"] } | undefined)
     ?.parserDiagnostics ?? null;
@@ -203,9 +243,9 @@ async function compareOne(path: string, args: CompareArgs, scope: ScopeContext, 
 
 async function main(): Promise<number> {
   const args = parseCompareArgs(process.argv.slice(2), { tmpRoot: tmpdir(), now: new Date() });
-  const scope = await loadScope(args.scopePath);
+  const scope = await loadScope(args);
   const doclingVersion = args.doclingVersion ?? (await fetchDoclingHealth(args.doclingUrl)).parserVersion;
-  console.error(`Docling ${doclingVersion} at ${args.doclingUrl}; scope ${scope.key}`);
+  console.error(`Docling ${doclingVersion} at ${args.doclingUrl}; scope ${scope.key}; documentType ${scope.documentType ?? "heuristic"}`);
 
   const comparisons: ParserComparison[] = [];
   const errors: { filename: string; code: string | null; message: string }[] = [];
@@ -230,6 +270,8 @@ async function main(): Promise<number> {
     generatedAt: new Date().toISOString(),
     parserVersions,
     scope: scope.key,
+    sourceKey: args.sourceKey,
+    documentType: scope.documentType,
     pageRange: args.pageRange,
     documents: comparisons,
     errors,

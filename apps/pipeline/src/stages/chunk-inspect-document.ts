@@ -10,7 +10,7 @@ import {
   stageAttempts,
   type Database,
 } from "@mf-rag/db";
-import type { ArtifactDescriptor, KnowledgeScope } from "@mf-rag/types";
+import type { ArtifactDescriptor, KnowledgeScope, SourceDocumentType } from "@mf-rag/types";
 import type { PdfCitationMetadata } from "../../../ingestion/src/stages/chunk-inspect-stage.ts";
 
 import type {
@@ -40,6 +40,7 @@ export interface ChunkInspectDocumentAdapter {
     readonly expectedParsedChecksum: string;
     readonly trustedContext: TrustedContext;
     readonly citationMetadata?: PdfCitationMetadata;
+    readonly documentType?: SourceDocumentType;
     readonly signal?: AbortSignal;
   }): Promise<{ readonly reviewRunId: string; readonly outputChecksum: string }>;
 }
@@ -50,6 +51,8 @@ export interface ChunkInspectDocumentRepository {
     readonly parsedArtifact: ArtifactDescriptor;
     readonly trustedContext: TrustedContext;
     readonly citationMetadata?: PdfCitationMetadata;
+    /** From the run's immutable registry snapshot; absent means heuristic detection. */
+    readonly documentType?: SourceDocumentType;
   }>;
 }
 
@@ -70,6 +73,7 @@ export class ChunkInspectDocumentStage {
       expectedParsedChecksum: context.inputChecksum,
       trustedContext: input.trustedContext,
       citationMetadata: input.citationMetadata,
+      documentType: input.documentType,
       signal: context.signal,
     });
     return { outputRef: `review:${result.reviewRunId}`, outputChecksum: result.outputChecksum };
@@ -133,6 +137,7 @@ export function createDatabaseChunkInspectDocumentRepository(db: Database): Chun
           lineage.document.logicalDocumentKey,
           lineage.document.canonicalUrl,
         ),
+        ...(desiredSource.documentType ? { documentType: desiredSource.documentType } : {}),
       };
     },
   };

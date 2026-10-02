@@ -46,6 +46,8 @@ export interface MetadataInput {
   filepath?: string; // Full path to PDF for extracting AMC/scheme from path
   firstPageText: string; // First 2-3 pages of text
   fullText?: string; // Optional, for deep extraction
+  /** Source-declared type (manifest `documentType`); wins over filename and content. */
+  documentTypeOverride?: Exclude<DocType, "Unknown">;
 }
 
 /**
@@ -658,7 +660,7 @@ function extractSchemeCode(text: string): string | null {
  * @returns ExtractedMetadata object with all extracted fields
  */
 export function extractMetadata(input: MetadataInput): ExtractedMetadata {
-  const { filename, filepath, firstPageText, fullText } = input;
+  const { filename, filepath, firstPageText, fullText, documentTypeOverride } = input;
 
   // PRIORITY 1: Extract from file path (most reliable)
   const pathInfo = filepath ? extractFromPath(filepath) : { amcName: null, schemeName: null };
@@ -681,8 +683,8 @@ export function extractMetadata(input: MetadataInput): ExtractedMetadata {
   const { growth: isinGrowth, dividend: isinDividend } = extractISINs(searchTextForIds);
   const schemeCode = extractSchemeCode(searchTextForIds);
 
-  // Doc type: filename takes precedence over content.
-  const docType = filenameDocType || contentDocType;
+  // Doc type: a source-declared override, then filename, then content.
+  const docType = documentTypeOverride || filenameDocType || contentDocType;
 
   // Addenda often have administrative filenames. Their title is authoritative.
   const fundName = pathInfo.schemeName

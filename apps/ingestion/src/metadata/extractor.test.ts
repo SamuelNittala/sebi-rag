@@ -217,6 +217,43 @@ describe("Metadata Extractor", () => {
     });
   });
 
+  describe("source document type override", () => {
+    const factsheetWithAddendumReference: MetadataInput = {
+      filename: "mirae-flexi-cap-p34-35.pdf",
+      firstPageText: "Mirae Asset Flexi Cap Fund\nPursuant to notice cum addendum no. 70/2026, the TER stands revised.",
+    };
+
+    test("content heuristics classify an addendum reference as Addendum without an override", () => {
+      expect(extractMetadata(factsheetWithAddendumReference).docType).toBe("Addendum");
+    });
+
+    test("an override wins over content heuristics", () => {
+      const result = extractMetadata({ ...factsheetWithAddendumReference, documentTypeOverride: "Factsheet" });
+
+      expect(result.docType).toBe("Factsheet");
+    });
+
+    test("an override wins over the filename", () => {
+      const result = extractMetadata({
+        filename: "Mirae_Notice_Cum_Addendum_SID_2026.pdf",
+        firstPageText: "Scheme Information Document",
+        documentTypeOverride: "KIM",
+      });
+
+      expect(result.docType).toBe("KIM");
+    });
+
+    test("an undefined override keeps filename then content precedence", () => {
+      expect(extractMetadata({ ...factsheetWithAddendumReference, documentTypeOverride: undefined }).docType)
+        .toBe("Addendum");
+      expect(extractMetadata({
+        filename: "HDFC_Fund_SID_2024.pdf",
+        firstPageText: "This is a Key Information Memorandum",
+        documentTypeOverride: undefined,
+      }).docType).toBe("SID");
+    });
+  });
+
   describe("AMC name extraction", () => {
     test("extracts HDFC Asset Management", () => {
       const input: MetadataInput = {

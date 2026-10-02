@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { join, resolve } from "node:path";
 
-import { parseCompareArgs } from "./compare-pdf-parsers.ts";
+import { parseAccessScopeManifestYaml } from "../apps/pipeline/src/config/access-scope-manifest.ts";
+import { parseCompareArgs, resolveCompareDocumentType } from "./compare-pdf-parsers.ts";
 
 const repoRoot = resolve(import.meta.dir, "..");
 
@@ -13,6 +14,8 @@ describe("parseCompareArgs", () => {
     expect(args.doclingUrl).toBe("http://localhost:8090");
     expect(args.doclingVersion).toBeNull();
     expect(args.pageRange).toBeNull();
+    expect(args.sourceKey).toBeNull();
+    expect(args.documentType).toBeNull();
     expect(args.outDir).toBe("/scratch/mf-rag-parse-compare/2026-10-02T10-20-30Z");
   });
 
@@ -36,5 +39,33 @@ describe("parseCompareArgs", () => {
     expect(() => parseCompareArgs([], { tmpRoot: "/scratch", now: new Date() })).toThrow(/--pdf/);
     expect(() => parseCompareArgs(["--pdf", "a.pdf", "--bogus"], { tmpRoot: "/scratch", now: new Date() })).toThrow(/--bogus/);
     expect(() => parseCompareArgs(["--pdf"], { tmpRoot: "/scratch", now: new Date() })).toThrow(/--pdf/);
+  });
+
+  test("parses --source and --document-type and validates the document type", () => {
+    const now = { tmpRoot: "/scratch", now: new Date() };
+    expect(parseCompareArgs(["--pdf", "a.pdf", "--source", "mirae-mf-2026-factsheets"], now).sourceKey)
+      .toBe("mirae-mf-2026-factsheets");
+    expect(parseCompareArgs(["--pdf", "a.pdf", "--document-type", "Factsheet"], now).documentType).toBe("Factsheet");
+    expect(() => parseCompareArgs(["--pdf", "a.pdf", "--document-type", "Brochure"], now)).toThrow(/--document-type/);
+    expect(() => parseCompareArgs(["--pdf", "a.pdf", "--document-type", "Factsheet", "--source", "x"], now))
+      .toThrow(/--source.*--document-type|--document-type.*--source/);
+  });
+});
+
+describe("resolveCompareDocumentType", () => {
+  test("uses the scope source's declared document type, an explicit flag, or none", async () => {
+    const manifest = parseAccessScopeManifestYaml(
+      await Bun.file(join(repoRoot, "config/access-scopes/117-mirae-mf.yml")).text(),
+      "117-mirae-mf.yml",
+    );
+
+    expect(resolveCompareDocumentType(manifest, { sourceKey: "mirae-mf-2026-factsheets", documentType: null }))
+      .toBe("Factsheet");
+    expect(resolveCompareDocumentType(manifest, { sourceKey: "mirae-mf-2026-addenda", documentType: null }))
+      .toBeNull();
+    expect(resolveCompareDocumentType(manifest, { sourceKey: null, documentType: "KIM" })).toBe("KIM");
+    expect(resolveCompareDocumentType(manifest, { sourceKey: null, documentType: null })).toBeNull();
+    expect(() => resolveCompareDocumentType(manifest, { sourceKey: "missing", documentType: null }))
+      .toThrow(/missing/);
   });
 });

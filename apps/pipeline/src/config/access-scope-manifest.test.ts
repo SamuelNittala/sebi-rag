@@ -392,6 +392,53 @@ describe("access-scope manifest validation", () => {
     expect(() => parseAccessScopeManifestYaml(yaml)).toThrow(expected);
   });
 
+  test.each(["SID", "KIM", "Factsheet", "AnnualReport", "Addendum", "FAQ"] as const)(
+    "accepts documentType: %s on a source",
+    (documentType) => {
+      const yaml = validManifest().replace(
+        "    review:\n      policy: risk_based\n",
+        `    review:\n      policy: risk_based\n    documentType: ${documentType}\n`,
+      );
+
+      const source = parseAccessScopeManifestYaml(yaml).sources[0]!;
+      expect(source.documentType).toBe(documentType);
+      expect(Object.hasOwn(source, "parse")).toBe(false);
+    },
+  );
+
+  test("omits documentType when a source does not declare one", () => {
+    const source = parseAccessScopeManifestYaml(validManifest()).sources[0]!;
+
+    expect(Object.hasOwn(source, "documentType")).toBe(false);
+  });
+
+  test.each([
+    ["an unknown document type", "documentType: Brochure"],
+    ["the Unknown sentinel", "documentType: Unknown"],
+    ["a lowercase document type", "documentType: factsheet"],
+    ["a non-string document type", "documentType: 1"],
+    ["an empty document type", "documentType: \"\""],
+  ])("rejects %s", (_name, line) => {
+    const yaml = validManifest().replace(
+      "    review:\n      policy: risk_based\n",
+      `    review:\n      policy: risk_based\n    ${line}\n`,
+    );
+
+    expect(() => parseAccessScopeManifestYaml(yaml)).toThrow(/documentType/i);
+  });
+
+  test("the committed Mirae factsheet source declares Factsheet without enabling Docling", async () => {
+    const configDirectory = new URL("../../../../config/access-scopes/", import.meta.url);
+    const desiredState = await loadAccessScopeManifests(configDirectory);
+    const sources = desiredState.accessScopes.flatMap((scope) => scope.sources);
+    const factsheets = sources.find((source) => String(source.sourceKey) === "mirae-mf-2026-factsheets")!;
+
+    expect(factsheets.documentType).toBe("Factsheet");
+    expect(Object.hasOwn(factsheets, "parse")).toBe(false);
+    expect(sources.filter((source) => Object.hasOwn(source, "documentType"))
+      .map((source) => String(source.sourceKey))).toEqual(["mirae-mf-2026-factsheets"]);
+  });
+
   test("rejects an empty manifest file", () => {
     expect(() => parseAccessScopeManifestYaml("", "empty.yml"))
       .toThrow(/manifest|object/i);

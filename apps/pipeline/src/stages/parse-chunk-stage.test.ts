@@ -5,8 +5,10 @@ import type { ArtifactDescriptor } from "@mf-rag/types";
 import { StageRegistry } from "../runtime/stage-registry.ts";
 import { createParserRoutingAdapter, type ParseDocumentAdapter } from "./parse-document.ts";
 import {
+  ChunkInspectDocumentStage,
   citationMetadataForSourceDocument,
   createParseChunkStageRegistrations,
+  type ChunkInspectDocumentAdapter,
 } from "./chunk-inspect-document.ts";
 
 const checksum = (character: string) => character.repeat(64);
@@ -100,6 +102,58 @@ describe("parse/chunk stage registration", () => {
         .rejects.toMatchObject({ code: "DOCLING_PARSER_NOT_CONFIGURED", classification: "deterministic" });
       expect((await router.execute(input("unpdf"))).artifact.producerVersion).toBe("unpdf");
       expect(calls).toEqual(["unpdf:unpdf:version-1"]);
+    });
+  });
+
+  describe("chunk stage source document type", () => {
+    const parsedArtifact: ArtifactDescriptor = {
+      key: "parsed/1", uri: "memory://parsed", sha256: checksum("e"), byteSize: 1,
+      mediaType: "application/json", producerVersion: "parse-v1",
+    };
+    const context = {
+      pipelineRunId: "run-1",
+      documentVersionId: "version-1",
+      accessScopeId: "scope-1",
+      sourceId: "source-1",
+      inputChecksum: checksum("e"),
+      signal: new AbortController().signal,
+    };
+    const trustedContext = {
+      accessScopeId: "scope-1",
+      accessScopeKey: "mirae-mf",
+      externalCode: "117",
+      configRevisionId: "revision-1",
+      configRevisionChecksum: checksum("f"),
+      classification: { knowledgeDomain: "mutual_fund" as const, sourceCollection: "mirae_mf" as const, amcSlug: "mirae-asset" },
+    };
+    const run = async (documentType?: "Factsheet") => {
+      const received: Parameters<ChunkInspectDocumentAdapter["execute"]>[0][] = [];
+      const stage = new ChunkInspectDocumentStage({
+        repository: {
+          loadInput: async () => ({
+            sourceDocumentId: "document-1",
+            parsedArtifact,
+            trustedContext,
+            ...(documentType ? { documentType } : {}),
+          }),
+        },
+        adapter: {
+          execute: async (input) => {
+            received.push(input);
+            return { reviewRunId: "review-1", outputChecksum: checksum("1") };
+          },
+        },
+      });
+      await stage.execute(context);
+      return received[0]!;
+    };
+
+    test("passes the source's declared document type to the chunk adapter", async () => {
+      expect((await run("Factsheet")).documentType).toBe("Factsheet");
+    });
+
+    test("passes no document type when the source declares none", async () => {
+      expect((await run()).documentType).toBeUndefined();
     });
   });
 });

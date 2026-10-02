@@ -159,6 +159,13 @@ export interface SourceParseConfig {
   readonly parser: SourceParser;
 }
 
+/**
+ * Document types a source may declare. Matches the ingestion metadata
+ * `DocType` union minus the `Unknown` sentinel, which is never a declaration.
+ */
+export const sourceDocumentTypes = ["SID", "KIM", "Factsheet", "AnnualReport", "Addendum", "FAQ"] as const;
+export type SourceDocumentType = (typeof sourceDocumentTypes)[number];
+
 export interface SourceManifest {
   readonly sourceKey: SourceKey;
   readonly connector: SourceConnectorKind;
@@ -169,6 +176,11 @@ export interface SourceManifest {
   readonly review: SourceReviewConfig;
   /** Omitted for unpdf so checksums of sources without a parse block stay stable. */
   readonly parse?: SourceParseConfig;
+  /**
+   * Overrides filename/content docType detection for every document of the
+   * source. Omitted when undeclared so existing checksums stay stable.
+   */
+  readonly documentType?: SourceDocumentType;
 }
 
 export interface AccessScopeClassification {

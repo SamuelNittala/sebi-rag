@@ -95,6 +95,9 @@ sources:
       maxRedirects: 3
     review:
       policy: risk_based
+    # Factsheets cite "notice cum addendum no. ..." on many pages, which the
+    # content heuristic would classify as Addendum; declare the type instead.
+    documentType: Factsheet
 
   - key: mirae-mf-kims
     connector: website_pdf
