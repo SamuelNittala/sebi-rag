@@ -151,6 +151,14 @@ export interface SourceReviewConfig {
   readonly policy: "risk_based";
 }
 
+export const sourceParsers = ["unpdf", "docling"] as const;
+export type SourceParser = (typeof sourceParsers)[number];
+
+/** Per-source PDF parser selection; an absent config means unpdf. */
+export interface SourceParseConfig {
+  readonly parser: SourceParser;
+}
+
 export interface SourceManifest {
   readonly sourceKey: SourceKey;
   readonly connector: SourceConnectorKind;
@@ -159,6 +167,8 @@ export interface SourceManifest {
   readonly schedule: SourceSchedule;
   readonly fetch: SourceFetchConstraints;
   readonly review: SourceReviewConfig;
+  /** Omitted for unpdf so checksums of sources without a parse block stay stable. */
+  readonly parse?: SourceParseConfig;
 }
 
 export interface AccessScopeClassification {

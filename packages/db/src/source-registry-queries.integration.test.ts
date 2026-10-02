@@ -92,6 +92,30 @@ integrationDescribe("source registry control plane", () => {
     expect(await db.select().from(schema.sources)).toHaveLength(1);
   });
 
+  test("reconcile persists parse_config, null when the manifest omits parse", async () => {
+    const withParse = (parse?: { parser: "unpdf" | "docling" }): DesiredSourceRegistry => {
+      const registry = desiredRegistry(["factsheets", "scheme-documents"]);
+      const scope = registry.accessScopes[0]!;
+      return {
+        version: 1,
+        accessScopes: [{
+          ...scope,
+          sources: scope.sources.map((source) => (
+            source.sourceKey === "factsheets" && parse ? { ...source, parse } : source
+          )),
+        }],
+      };
+    };
+    const parseConfigs = async () => Object.fromEntries((await db.select().from(schema.sources))
+      .map((source) => [source.sourceKey, source.parseConfig]));
+
+    await reconcileSourceRegistry(db, withParse({ parser: "docling" }));
+    expect(await parseConfigs()).toEqual({ factsheets: { parser: "docling" }, "scheme-documents": null });
+
+    await reconcileSourceRegistry(db, withParse());
+    expect(await parseConfigs()).toEqual({ factsheets: null, "scheme-documents": null });
+  });
+
   test("a claimed run resolves fetch rules from its immutable revision and rejects revision drift", async () => {
     const first = await reconcileSourceRegistry(db, desiredRegistry());
     const [source] = await db.select().from(schema.sources);

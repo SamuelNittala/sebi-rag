@@ -173,6 +173,7 @@ export async function reconcileSourceRegistry(
           discoveryConfig: desiredSource.discovery,
           fetchConfig: desiredSource.fetch,
           reviewConfig: desiredSource.review,
+          parseConfig: desiredSource.parse ?? null,
           enabled: desiredSource.enabled,
           configRevisionId: revision.id,
         }).onConflictDoUpdate({
@@ -182,6 +183,7 @@ export async function reconcileSourceRegistry(
             discoveryConfig: desiredSource.discovery,
             fetchConfig: desiredSource.fetch,
             reviewConfig: desiredSource.review,
+            parseConfig: desiredSource.parse ?? null,
             enabled: desiredSource.enabled,
             configRevisionId: revision.id,
             updatedAt: reconciledAt,
@@ -370,5 +372,6 @@ function canonicalSource(source: SourceManifest): SourceManifest {
     schedule: source.schedule,
     fetch: source.fetch,
     review: source.review,
+    ...(source.parse ? { parse: { parser: source.parse.parser } } : {}),
   };
 }

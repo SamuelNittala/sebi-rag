@@ -381,14 +381,14 @@ async function withTemporaryPdf<T>(filename: string, bytes: Uint8Array, operatio
   }
 }
 
-function assertBytesMatchDescriptor(bytes: Uint8Array, descriptor: ArtifactDescriptor): void {
+export function assertBytesMatchDescriptor(bytes: Uint8Array, descriptor: ArtifactDescriptor): void {
   const checksum = sha256Hex(bytes);
   if (bytes.byteLength !== descriptor.byteSize || checksum !== descriptor.sha256) {
     throw deterministicParseError("RAW_ARTIFACT_CHECKSUM_MISMATCH", "Raw artifact bytes do not match their immutable descriptor.");
   }
 }
 
-function canonicalHttpUrl(value: string): string {
+export function canonicalHttpUrl(value: string): string {
   const url = new URL(value);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw deterministicParseError("INVALID_SOURCE_URL", "Canonical source URL must use HTTP or HTTPS.");
@@ -400,16 +400,16 @@ function canonicalHttpUrl(value: string): string {
   return url.toString();
 }
 
-function sha256Hex(bytes: Uint8Array): string {
+export function sha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function assertCanonical(value: string, label: string): void {
+export function assertCanonical(value: string, label: string): void {
   if (!value.trim() || value !== value.trim() || /[\u0000-\u001f\u007f]/.test(value)) {
     throw new Error(`${label} must be a canonical non-empty value.`);
   }
 }
 
-function deterministicParseError(code: string, message: string): Error {
+export function deterministicParseError(code: string, message: string): Error {
   return Object.assign(new Error(message), { code, classification: "deterministic" as const });
 }

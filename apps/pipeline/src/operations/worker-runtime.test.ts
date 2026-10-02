@@ -7,8 +7,12 @@ import { validateWorkerModuleUrl } from "./process-role.ts";
 import {
   createWorkerRuntime,
   loadImmutableWorkerRuntimeConfig,
+  parseIdentity,
+  verifyDoclingParserVersion,
   verifyEmbeddingModelAvailable,
 } from "./worker-runtime.ts";
+
+const DOCLING_VERSION = "docling-2.132.0+norm-1+opts-3f9a1c2b7d10";
 
 const checksum = (value: string) => value.repeat(64);
 
@@ -92,6 +96,94 @@ describe("immutable pipeline worker composition", () => {
       .toThrow(/query/);
     expect(() => validateWorkerModuleUrl("https://example.test/worker.ts"))
       .toThrow(/local file URL/);
+  });
+
+  test("leaves Docling unconfigured by default and requires its version iff the URL is set", () => {
+    const unset = loadImmutableWorkerRuntimeConfig(environment());
+    expect(unset.doclingServiceUrl).toBeNull();
+    expect(unset.doclingParserVersion).toBeNull();
+
+    const configured = loadImmutableWorkerRuntimeConfig({
+      ...environment(),
+      PIPELINE_DOCLING_SERVICE_URL: "http://docling:8090/",
+      PIPELINE_DOCLING_PARSER_VERSION: DOCLING_VERSION,
+    });
+    expect(configured).toMatchObject({
+      doclingServiceUrl: "http://docling:8090",
+      doclingParserVersion: DOCLING_VERSION,
+      doclingParseDeadlineMs: 1_800_000,
+      doclingMaxResponseBytes: 50_000_000,
+    });
+    expect(loadImmutableWorkerRuntimeConfig({
+      ...environment(),
+      PIPELINE_DOCLING_SERVICE_URL: "http://docling:8090",
+      PIPELINE_DOCLING_PARSER_VERSION: DOCLING_VERSION,
+      PIPELINE_DOCLING_PARSE_DEADLINE_MS: "60000",
+      PIPELINE_DOCLING_MAX_RESPONSE_BYTES: "1000",
+    })).toMatchObject({ doclingParseDeadlineMs: 60_000, doclingMaxResponseBytes: 1_000 });
+
+    expect(() => loadImmutableWorkerRuntimeConfig({
+      ...environment(),
+      PIPELINE_DOCLING_SERVICE_URL: "http://docling:8090",
+    })).toThrow("PIPELINE_DOCLING_PARSER_VERSION");
+    expect(() => loadImmutableWorkerRuntimeConfig({
+      ...environment(),
+      PIPELINE_DOCLING_PARSER_VERSION: DOCLING_VERSION,
+    })).toThrow("PIPELINE_DOCLING_SERVICE_URL");
+    expect(() => loadImmutableWorkerRuntimeConfig({
+      ...environment(),
+      PIPELINE_DOCLING_SERVICE_URL: "http://user:pass@docling:8090",
+      PIPELINE_DOCLING_PARSER_VERSION: DOCLING_VERSION,
+    })).toThrow("PIPELINE_DOCLING_SERVICE_URL");
+  });
+
+  test("parse identity is unchanged without Docling and changes with the Docling version", () => {
+    const base = parseIdentity(loadImmutableWorkerRuntimeConfig(environment()));
+    const docling = (version: string) => parseIdentity(loadImmutableWorkerRuntimeConfig({
+      ...environment(),
+      PIPELINE_DOCLING_SERVICE_URL: "http://docling:8090",
+      PIPELINE_DOCLING_PARSER_VERSION: version,
+    }));
+
+    expect(base.componentVersion).toBe(parseIdentity(loadImmutableWorkerRuntimeConfig(environment())).componentVersion);
+    expect(docling(DOCLING_VERSION).componentVersion).not.toBe(base.componentVersion);
+    expect(docling("docling-2.133.0+norm-1+opts-3f9a1c2b7d10").componentVersion)
+      .not.toBe(docling(DOCLING_VERSION).componentVersion);
+  });
+
+  test("stage startup verifies the Docling service parser version and fails closed on mismatch", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: (request) => new URL(request.url).pathname === "/health"
+        ? Response.json({ status: "ok", parserVersion: DOCLING_VERSION })
+        : new Response("not found", { status: 404 }),
+    });
+    try {
+      await expect(verifyDoclingParserVersion(server.url.href, DOCLING_VERSION)).resolves.toBeUndefined();
+      await expect(verifyDoclingParserVersion(server.url.href, "docling-9.9.9+norm-1+opts-000000000000"))
+        .rejects.toThrow(/PIPELINE_DOCLING_PARSER_VERSION/);
+
+      const env = {
+        ...environment(),
+        PIPELINE_DOCLING_SERVICE_URL: server.url.href,
+        PIPELINE_DOCLING_PARSER_VERSION: "docling-9.9.9+norm-1+opts-000000000000",
+      };
+      const overrides = {
+        verifyCurrentConfig: async () => {},
+        verifyEmbeddingModel: async () => {},
+        publisher: { publish: async () => ({ generationId: crypto.randomUUID(), outputChecksum: checksum("c") }) },
+      };
+      const input = { role: "stage-worker" as const, database: {} as Database, artifactStore: {} as ArtifactStore };
+      await expect(createWorkerRuntime(input, env, overrides)).rejects.toThrow(/PIPELINE_DOCLING_PARSER_VERSION/);
+      await expect(createWorkerRuntime(input, { ...env, PIPELINE_DOCLING_PARSER_VERSION: DOCLING_VERSION }, overrides))
+        .resolves.toMatchObject({ role: "stage-worker" });
+      // The discovery worker never calls the Docling service.
+      await expect(createWorkerRuntime({ ...input, role: "discovery-worker" }, env, overrides))
+        .resolves.toMatchObject({ role: "discovery-worker" });
+    } finally {
+      server.stop(true);
+    }
+    await expect(verifyDoclingParserVersion(server.url.href, DOCLING_VERSION)).rejects.toThrow();
   });
 
   test("requires the exact configured embedding model before stage claims", async () => {

@@ -11,7 +11,9 @@ import {
 
 import { createEmbedder, type Embedder } from "../../../ingestion/src/embedding/embedder.ts";
 import { publishApprovedReviewRun } from "../../../ingestion/src/review/review-publisher.ts";
+import { fetchDoclingHealth } from "../../../ingestion/src/parsers/docling-client.ts";
 import { ChunkInspectStage } from "../../../ingestion/src/stages/chunk-inspect-stage.ts";
+import { DoclingParseStage } from "../../../ingestion/src/stages/docling-parse-stage.ts";
 import { ParsePdfStage } from "../../../ingestion/src/stages/parse-pdf-stage.ts";
 import type { ArtifactStore } from "../artifacts/artifact-store.ts";
 import { WebsitePdfConnector } from "../connectors/website-pdf-connector.ts";
@@ -38,6 +40,7 @@ import {
 import { FetchDocumentStage } from "../stages/fetch-document.ts";
 import {
   createDatabaseParseDocumentRepository,
+  createParserRoutingAdapter,
   ParseDocumentStage,
 } from "../stages/parse-document.ts";
 import {
@@ -75,6 +78,12 @@ export interface ImmutableWorkerRuntimeConfig {
   readonly parseMaxPages: number;
   readonly parseMaxTextChars: number;
   readonly tableOutputMaxBytes: number;
+  /** Null when Docling is not deployed; sources selecting it then fail with DOCLING_PARSER_NOT_CONFIGURED. */
+  readonly doclingServiceUrl: string | null;
+  /** Required iff doclingServiceUrl is set; must equal the service's /health parserVersion. */
+  readonly doclingParserVersion: string | null;
+  readonly doclingParseDeadlineMs: number;
+  readonly doclingMaxResponseBytes: number;
 }
 
 export interface WorkerRuntimeInput {
@@ -95,6 +104,7 @@ export interface WorkerCompositionOverrides {
   readonly publisher?: ScheduledDocumentPublisher;
   readonly verifyCurrentConfig?: (database: Database, expectedChecksum: string) => Promise<void>;
   readonly verifyEmbeddingModel?: (baseUrl: string, model: string) => Promise<void>;
+  readonly verifyDoclingParser?: (baseUrl: string, parserVersion: string) => Promise<void>;
 }
 
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -111,6 +121,18 @@ export function loadImmutableWorkerRuntimeConfig(
   if (!RELEASE_IDENTITY.test(releaseIdentity)) {
     throw new Error("PIPELINE_RELEASE_DIGEST must use sha256:<64 lowercase hex>.");
   }
+  const doclingServiceUrl = env.PIPELINE_DOCLING_SERVICE_URL?.trim()
+    ? canonicalUrl(env.PIPELINE_DOCLING_SERVICE_URL.trim(), "PIPELINE_DOCLING_SERVICE_URL")
+    : null;
+  const doclingParserVersion = env.PIPELINE_DOCLING_PARSER_VERSION?.trim()
+    ? required(env.PIPELINE_DOCLING_PARSER_VERSION, "PIPELINE_DOCLING_PARSER_VERSION")
+    : null;
+  if (doclingServiceUrl && !doclingParserVersion) {
+    throw new Error("PIPELINE_DOCLING_PARSER_VERSION is required when PIPELINE_DOCLING_SERVICE_URL is set.");
+  }
+  if (doclingParserVersion && !doclingServiceUrl) {
+    throw new Error("PIPELINE_DOCLING_SERVICE_URL is required when PIPELINE_DOCLING_PARSER_VERSION is set.");
+  }
   return {
     owner: required(env.PIPELINE_WORKER_ID, "PIPELINE_WORKER_ID"),
     releaseIdentity,
@@ -123,7 +145,7 @@ export function loadImmutableWorkerRuntimeConfig(
     chunkComponentVersion: required(env.PIPELINE_CHUNK_COMPONENT_VERSION, "PIPELINE_CHUNK_COMPONENT_VERSION"),
     reviewComponentVersion: required(env.PIPELINE_REVIEW_COMPONENT_VERSION, "PIPELINE_REVIEW_COMPONENT_VERSION"),
     publishComponentVersion: required(env.PIPELINE_PUBLISH_COMPONENT_VERSION, "PIPELINE_PUBLISH_COMPONENT_VERSION"),
-    embeddingBaseUrl: canonicalUrl(required(env.OLLAMA_BASE_URL, "OLLAMA_BASE_URL")),
+    embeddingBaseUrl: canonicalUrl(required(env.OLLAMA_BASE_URL, "OLLAMA_BASE_URL"), "OLLAMA_BASE_URL"),
     embeddingModel: required(env.EMBEDDING_MODEL, "EMBEDDING_MODEL"),
     embeddingBatchSize: integer(env.EMBEDDING_BATCH_SIZE, 10, "EMBEDDING_BATCH_SIZE"),
     claimBatchSize: integer(env.PIPELINE_CLAIM_BATCH_SIZE, 10, "PIPELINE_CLAIM_BATCH_SIZE"),
@@ -134,6 +156,10 @@ export function loadImmutableWorkerRuntimeConfig(
     parseMaxPages: integer(env.PIPELINE_PARSE_MAX_PAGES, 500, "PIPELINE_PARSE_MAX_PAGES"),
     parseMaxTextChars: integer(env.PIPELINE_PARSE_MAX_TEXT_CHARS, 10_000_000, "PIPELINE_PARSE_MAX_TEXT_CHARS"),
     tableOutputMaxBytes: integer(env.PIPELINE_TABLE_OUTPUT_MAX_BYTES, 10_000_000, "PIPELINE_TABLE_OUTPUT_MAX_BYTES"),
+    doclingServiceUrl,
+    doclingParserVersion,
+    doclingParseDeadlineMs: integer(env.PIPELINE_DOCLING_PARSE_DEADLINE_MS, 1_800_000, "PIPELINE_DOCLING_PARSE_DEADLINE_MS"),
+    doclingMaxResponseBytes: integer(env.PIPELINE_DOCLING_MAX_RESPONSE_BYTES, 50_000_000, "PIPELINE_DOCLING_MAX_RESPONSE_BYTES"),
   };
 }
 
@@ -155,7 +181,20 @@ export async function createWorkerRuntime(
     config.embeddingBaseUrl,
     config.embeddingModel,
   );
+  if (config.doclingServiceUrl && config.doclingParserVersion) {
+    await (overrides.verifyDoclingParser ?? verifyDoclingParserVersion)(
+      config.doclingServiceUrl,
+      config.doclingParserVersion,
+    );
+  }
   return createStageRuntime(input, config, retryPolicy, overrides);
+}
+
+export async function verifyDoclingParserVersion(baseUrl: string, parserVersion: string): Promise<void> {
+  const health = await fetchDoclingHealth(baseUrl, AbortSignal.timeout(10_000));
+  if (health.parserVersion !== parserVersion) {
+    throw new Error("Docling service parserVersion does not match PIPELINE_DOCLING_PARSER_VERSION.");
+  }
 }
 
 export async function verifyEmbeddingModelAvailable(baseUrl: string, model: string): Promise<void> {
@@ -229,9 +268,20 @@ function createStageRuntime(
     maxTextChars: config.parseMaxTextChars,
     maxTableOutputBytes: config.tableOutputMaxBytes,
   });
+  const doclingAdapter = config.doclingServiceUrl && config.doclingParserVersion
+    ? new DoclingParseStage({ artifactStore: input.artifactStore }, {
+      serviceUrl: config.doclingServiceUrl,
+      parserVersion: config.doclingParserVersion,
+      producerVersion: `${config.parseArtifactVersion}+${config.doclingParserVersion}`,
+      deadlineMs: config.doclingParseDeadlineMs,
+      maxPages: config.parseMaxPages,
+      maxTextChars: config.parseMaxTextChars,
+      maxResponseBytes: config.doclingMaxResponseBytes,
+    })
+    : null;
   const parse = new ParseDocumentStage({
     repository: createDatabaseParseDocumentRepository(input.database),
-    adapter: parseAdapter,
+    adapter: createParserRoutingAdapter({ unpdf: parseAdapter, docling: doclingAdapter }),
   });
   const chunkAdapter = new ChunkInspectStage({
     artifactStore: input.artifactStore,
@@ -324,13 +374,15 @@ function pipelineImplementationVersion(config: ImmutableWorkerRuntimeConfig): st
   ])).digest("hex")}`;
 }
 
-function parseIdentity(config: ImmutableWorkerRuntimeConfig): StageImplementationIdentityInput {
+export function parseIdentity(config: ImmutableWorkerRuntimeConfig): StageImplementationIdentityInput {
   return stageIdentity(
     config,
     config.parseComponentVersion,
     config.parserVersion,
     config.tableExtractorVersion,
     config.parseArtifactVersion,
+    // Appended only when configured so unpdf-only deployments keep their identity.
+    ...(config.doclingParserVersion ? [config.doclingParserVersion] : []),
   );
 }
 
@@ -363,10 +415,15 @@ function integer(value: string | undefined, fallback: number, name: string): num
   return parsed;
 }
 
-function canonicalUrl(value: string): string {
-  const url = new URL(value);
+function canonicalUrl(value: string, name: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} must be an HTTP(S) URL without inline credentials.`);
+  }
   if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password) {
-    throw new Error("OLLAMA_BASE_URL must be an HTTP(S) URL without inline credentials.");
+    throw new Error(`${name} must be an HTTP(S) URL without inline credentials.`);
   }
   return url.href.replace(/\/$/, "");
 }

@@ -29,6 +29,7 @@ import type {
   SourceDiscoveryConfig,
   DesiredSourceRegistry,
   SourceFetchConstraints,
+  SourceParseConfig,
   SourceReviewConfig,
   VisibilityScope,
   DocumentPipelineStage,
@@ -782,6 +783,8 @@ export const sources = pgTable(
     discoveryConfig: jsonb("discovery_config").$type<SourceDiscoveryConfig>().notNull(),
     fetchConfig: jsonb("fetch_config").$type<SourceFetchConstraints>().notNull(),
     reviewConfig: jsonb("review_config").$type<SourceReviewConfig>().notNull(),
+    /** Null means the default unpdf parser. */
+    parseConfig: jsonb("parse_config").$type<SourceParseConfig>(),
     enabled: boolean("enabled").default(false).notNull(),
     configRevisionId: uuid("config_revision_id")
       .notNull()

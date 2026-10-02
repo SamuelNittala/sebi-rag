@@ -363,6 +363,35 @@ describe("access-scope manifest validation", () => {
       .toThrow(/organization|unrecognized/i);
   });
 
+  test.each(["docling", "unpdf"] as const)("accepts parse.parser: %s on a source", (parser) => {
+    const yaml = validManifest().replace(
+      "    review:\n      policy: risk_based\n",
+      `    review:\n      policy: risk_based\n    parse:\n      parser: ${parser}\n`,
+    );
+
+    expect(parseAccessScopeManifestYaml(yaml).sources[0]?.parse).toEqual({ parser });
+  });
+
+  test("omits parse when a source has no parse block (unpdf by default)", () => {
+    const source = parseAccessScopeManifestYaml(validManifest()).sources[0]!;
+
+    expect(source.parse).toBeUndefined();
+    expect(Object.hasOwn(source, "parse")).toBe(false);
+  });
+
+  test.each([
+    ["an unknown parser", "parse:\n      parser: tika", /parser/i],
+    ["extra parse keys", "parse:\n      parser: docling\n      ocr: true", /ocr|unrecognized/i],
+    ["an empty parse block", "parse: {}", /parser/i],
+  ])("rejects %s", (_name, block, expected) => {
+    const yaml = validManifest().replace(
+      "    review:\n      policy: risk_based\n",
+      `    review:\n      policy: risk_based\n    ${block}\n`,
+    );
+
+    expect(() => parseAccessScopeManifestYaml(yaml)).toThrow(expected);
+  });
+
   test("rejects an empty manifest file", () => {
     expect(() => parseAccessScopeManifestYaml("", "empty.yml"))
       .toThrow(/manifest|object/i);

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
+import type { ArtifactDescriptor } from "@mf-rag/types";
+
 import { StageRegistry } from "../runtime/stage-registry.ts";
+import { createParserRoutingAdapter, type ParseDocumentAdapter } from "./parse-document.ts";
 import {
   citationMetadataForSourceDocument,
   createParseChunkStageRegistrations,
@@ -59,5 +62,44 @@ describe("parse/chunk stage registration", () => {
     await registry.get("PARSE").handler(context);
     await registry.get("CHUNK_AND_INSPECT").handler(context);
     expect(calls).toEqual(["PARSE", "CHUNK_AND_INSPECT"]);
+  });
+
+  describe("parser routing", () => {
+    const artifact = (name: string): ArtifactDescriptor => ({
+      key: `parsed/${name}`, uri: `memory://${name}`, sha256: checksum("d"), byteSize: 1,
+      mediaType: "application/json", producerVersion: name,
+    });
+    const recording = (name: string, calls: string[]): ParseDocumentAdapter => ({
+      execute: async (input) => {
+        calls.push(`${name}:${input.parser}:${input.documentVersionId}`);
+        return { artifact: artifact(name) };
+      },
+    });
+    const input = (parser: "unpdf" | "docling") => ({
+      documentVersionId: "version-1",
+      rawArtifact: artifact("raw"),
+      filename: "factsheet.pdf",
+      canonicalUrl: "https://example.com/factsheet.pdf",
+      parser,
+    });
+
+    test("sends docling inputs to the Docling stage and unpdf inputs to ParsePdfStage", async () => {
+      const calls: string[] = [];
+      const router = createParserRoutingAdapter({ unpdf: recording("unpdf", calls), docling: recording("docling", calls) });
+
+      expect((await router.execute(input("docling"))).artifact.producerVersion).toBe("docling");
+      expect((await router.execute(input("unpdf"))).artifact.producerVersion).toBe("unpdf");
+      expect(calls).toEqual(["docling:docling:version-1", "unpdf:unpdf:version-1"]);
+    });
+
+    test("fails deterministically when Docling is selected but not configured", async () => {
+      const calls: string[] = [];
+      const router = createParserRoutingAdapter({ unpdf: recording("unpdf", calls), docling: null });
+
+      await expect(router.execute(input("docling")))
+        .rejects.toMatchObject({ code: "DOCLING_PARSER_NOT_CONFIGURED", classification: "deterministic" });
+      expect((await router.execute(input("unpdf"))).artifact.producerVersion).toBe("unpdf");
+      expect(calls).toEqual(["unpdf:unpdf:version-1"]);
+    });
   });
 });

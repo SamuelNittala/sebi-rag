@@ -169,6 +169,13 @@
             "when": 1786478400000,
             "tag": "0023_widen_version_columns",
             "breakpoints": true
+        },
+        {
+            "idx": 24,
+            "version": "7",
+            "when": 1786564800000,
+            "tag": "0024_source_parse_config",
+            "breakpoints": true
         }
     ]
 }

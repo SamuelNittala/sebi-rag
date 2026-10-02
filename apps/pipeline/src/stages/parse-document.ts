@@ -4,9 +4,10 @@ import {
   documentVersions,
   eq,
   sourceDocuments,
+  sources,
   type Database,
 } from "@mf-rag/db";
-import type { ArtifactDescriptor } from "@mf-rag/types";
+import { sourceParsers, type ArtifactDescriptor, type SourceParser } from "@mf-rag/types";
 
 import type { StageHandlerContext, StageHandlerResult } from "../runtime/stage-registry.ts";
 
@@ -16,6 +17,7 @@ export interface ParseDocumentAdapter {
     readonly rawArtifact: ArtifactDescriptor;
     readonly filename: string;
     readonly canonicalUrl: string;
+    readonly parser: SourceParser;
     readonly signal?: AbortSignal;
   }): Promise<{ readonly artifact: ArtifactDescriptor }>;
 }
@@ -25,7 +27,27 @@ export interface ParseDocumentRepository {
     readonly rawArtifact: ArtifactDescriptor;
     readonly filename: string;
     readonly canonicalUrl: string;
+    readonly parser: SourceParser;
   }>;
+}
+
+/**
+ * Routes each PARSE input to the parser its source selects. `docling: null`
+ * means the worker has no Docling service configured.
+ */
+export function createParserRoutingAdapter(adapters: {
+  readonly unpdf: ParseDocumentAdapter;
+  readonly docling: ParseDocumentAdapter | null;
+}): ParseDocumentAdapter {
+  return {
+    async execute(input) {
+      if (input.parser === "unpdf") return adapters.unpdf.execute(input);
+      if (!adapters.docling) {
+        throw deterministicError("DOCLING_PARSER_NOT_CONFIGURED", "Source selects Docling but PIPELINE_DOCLING_SERVICE_URL is not set.");
+      }
+      return adapters.docling.execute(input);
+    },
+  };
 }
 
 /** Thin durable-worker adapter; parsing behavior remains in the ingestion package. */
@@ -45,6 +67,7 @@ export class ParseDocumentStage {
       rawArtifact: input.rawArtifact,
       filename: input.filename,
       canonicalUrl: input.canonicalUrl,
+      parser: input.parser,
       signal: context.signal,
     });
     return {
@@ -61,9 +84,11 @@ export function createDatabaseParseDocumentRepository(db: Database): ParseDocume
         version: documentVersions,
         document: sourceDocuments,
         artifact: artifacts,
+        parseConfig: sources.parseConfig,
       }).from(documentVersions)
         .innerJoin(sourceDocuments, eq(sourceDocuments.id, documentVersions.sourceDocumentId))
         .innerJoin(artifacts, eq(artifacts.id, documentVersions.rawArtifactId))
+        .innerJoin(sources, eq(sources.id, documentVersions.sourceId))
         .where(and(
           eq(documentVersions.id, context.documentVersionId),
           eq(documentVersions.accessScopeId, context.accessScopeId),
@@ -78,10 +103,15 @@ export function createDatabaseParseDocumentRepository(db: Database): ParseDocume
         mediaType: row.artifact.mediaType,
         producerVersion: row.artifact.producerVersion,
       };
+      const parser = row.parseConfig?.parser ?? "unpdf";
+      if (!sourceParsers.includes(parser)) {
+        throw deterministicError("UNKNOWN_SOURCE_PARSER", "Source parse configuration names an unknown parser.");
+      }
       return {
         rawArtifact,
         filename: filenameFromUrl(row.document.canonicalUrl, row.document.logicalDocumentKey),
         canonicalUrl: row.document.canonicalUrl,
+        parser,
       };
     },
   };
