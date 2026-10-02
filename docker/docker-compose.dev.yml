@@ -55,6 +55,11 @@ x-pipeline-environment: &pipeline-environment
   PIPELINE_PARSE_MAX_PAGES: ${PIPELINE_PARSE_MAX_PAGES:-500}
   PIPELINE_PARSE_MAX_TEXT_CHARS: ${PIPELINE_PARSE_MAX_TEXT_CHARS:-10000000}
   PIPELINE_TABLE_OUTPUT_MAX_BYTES: ${PIPELINE_TABLE_OUTPUT_MAX_BYTES:-10000000}
+  # Unset by default (Docling sources then fail closed). For a local Docling run
+  # start the `docling` profile and set both, e.g. http://docling:8090 and the
+  # service's /health parserVersion.
+  PIPELINE_DOCLING_SERVICE_URL: ${PIPELINE_DOCLING_SERVICE_URL:-}
+  PIPELINE_DOCLING_PARSER_VERSION: ${PIPELINE_DOCLING_PARSER_VERSION:-}
   OLLAMA_BASE_URL: http://ollama:11434
   EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
   EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-10}
@@ -162,6 +167,26 @@ services:
       reranker:
         condition: service_started
     restart: "no"
+
+  # Opt-in locally: docker compose --profile docling up -d docling
+  docling:
+    build:
+      context: ..
+      dockerfile: docker/docling.Dockerfile
+      target: runtime
+    image: mf-rag-docling:local
+    profiles: ["docling"]
+    environment:
+      DOCLING_NUM_THREADS: ${DOCLING_NUM_THREADS:-4}
+      # Pins OpenMP threads Docling does not set itself; ~2x faster under a cpus limit.
+      OMP_NUM_THREADS: ${DOCLING_NUM_THREADS:-4}
+    ports:
+      - "127.0.0.1:8090:8090"
+    mem_limit: 6g
+    cpus: 4
+    networks:
+      - mf-rag-dev
+    restart: unless-stopped
 
   migrate:
     <<: *app-service
