@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mf-rag.internal/contracts/docling-parse-v1.schema.json",
+  "title": "Docling parse response v1",
+  "description": "Body of a 200 response from POST /v1/parse, media type application/vnd.mf-rag.docling-parse+json;version=1. Cross-field rules JSON Schema cannot express (contiguous chunkIndex, pages sorted and within 1..pageCount, pages[].pageNumber == index + 1, len(pages) == pageCount, bbox page within chunk pages, l < r and b < t, parserVersion embedding doclingVersion/normalizerVersion/pipelineOptionsSha256[0:12], hasTable == (stats.tables > 0), flagCounts equal to per-chunk flag counts, no text line equal to one of the chunk headings) are enforced by apps/ingestion/src/parsers/docling-contract.ts and the Python contract test.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "producer", "source", "pageCount", "pages", "chunks", "diagnostics"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "producer": { "$ref": "#/$defs/producer" },
+    "source": { "$ref": "#/$defs/source" },
+    "pageCount": { "type": "integer", "minimum": 1 },
+    "pages": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/page" } },
+    "chunks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/chunk" } },
+    "diagnostics": { "$ref": "#/$defs/diagnostics" }
+  },
+  "$defs": {
+    "semver": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "count": { "type": "integer", "minimum": 0 },
+    "cleanText": {
+      "description": "Non-empty, trimmed, no U+0000.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\s)[^\\u0000]*(?<!\\s)$"
+    },
+    "heading": {
+      "description": "Non-empty, trimmed, single line, no U+0000.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\s)[^\\u0000\\n\\r]*(?<!\\s)$"
+    },
+    "chunkType": { "enum": ["text", "table", "picture", "key_value"] },
+    "flag": {
+      "enum": [
+        "ordinal_joined",
+        "kv_lines_joined",
+        "table_span_collapsed",
+        "kv_panel_detected",
+        "table_header_promoted",
+        "heading_from_table_title",
+        "table_rows_split",
+        "picture_text_recovered",
+        "riskometer_text_extracted",
+        "chart_pairs_extracted",
+        "chart_multi_series_unparsed",
+        "chart_unpaired",
+        "mixed_chunk_split"
+      ]
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parserVersion",
+        "serviceVersion",
+        "doclingVersion",
+        "doclingCoreVersion",
+        "doclingIbmModelsVersion",
+        "normalizerVersion",
+        "pipelineOptionsSha256"
+      ],
+      "properties": {
+        "parserVersion": {
+          "description": "docling-<doclingVersion>+norm-<normalizerVersion>+opts-<first 12 hex of pipelineOptionsSha256>",
+          "type": "string",
+          "pattern": "^docling-(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\+norm-[1-9][0-9]*\\+opts-[0-9a-f]{12}$"
+        },
+        "serviceVersion": { "$ref": "#/$defs/semver" },
+        "doclingVersion": { "$ref": "#/$defs/semver" },
+        "doclingCoreVersion": { "$ref": "#/$defs/semver" },
+        "doclingIbmModelsVersion": { "$ref": "#/$defs/semver" },
+        "normalizerVersion": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "pipelineOptionsSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "byteSize"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byteSize": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pageNumber", "width", "height", "text", "hasTable", "stats"],
+      "properties": {
+        "pageNumber": { "type": "integer", "minimum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "text": { "description": "Reading-order page text; may be empty.", "type": "string", "pattern": "^[^\\u0000]*$" },
+        "hasTable": { "type": "boolean" },
+        "stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["textItems", "tables", "pictures", "pictureTextChars", "bodyTextChars"],
+          "properties": {
+            "textItems": { "$ref": "#/$defs/count" },
+            "tables": { "$ref": "#/$defs/count" },
+            "pictures": { "$ref": "#/$defs/count" },
+            "pictureTextChars": { "$ref": "#/$defs/count" },
+            "bodyTextChars": { "$ref": "#/$defs/count" }
+          }
+        }
+      }
+    },
+    "bbox": {
+      "description": "Docling BOTTOMLEFT points, normalized so l < r and b < t.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "l", "t", "r", "b"],
+      "properties": {
+        "page": { "type": "integer", "minimum": 1 },
+        "l": { "type": "number" },
+        "t": { "type": "number" },
+        "r": { "type": "number" },
+        "b": { "type": "number" }
+      }
+    },
+    "picture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "confidence", "pairCount"],
+      "properties": {
+        "classification": { "description": "Top DocumentFigureClassifier class.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "pairCount": { "$ref": "#/$defs/count" }
+      }
+    },
+    "chunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunkIndex", "type", "text", "headings", "pages", "bboxes", "itemRefs", "flags", "picture"],
+      "properties": {
+        "chunkIndex": { "type": "integer", "minimum": 0 },
+        "type": { "$ref": "#/$defs/chunkType" },
+        "text": { "$ref": "#/$defs/cleanText" },
+        "headings": { "type": "array", "items": { "$ref": "#/$defs/heading" } },
+        "pages": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "integer", "minimum": 1 } },
+        "bboxes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/bbox" } },
+        "itemRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^#/(texts|tables|pictures|key_value_items|form_items)/(0|[1-9][0-9]*)$" }
+        },
+        "flags": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/flag" } },
+        "picture": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/picture" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "picture" } } },
+          "then": {
+            "properties": {
+              "picture": { "$ref": "#/$defs/picture" },
+              "flags": {
+                "items": {
+                  "enum": [
+                    "ordinal_joined",
+                    "picture_text_recovered",
+                    "riskometer_text_extracted",
+                    "chart_pairs_extracted",
+                    "chart_multi_series_unparsed",
+                    "chart_unpaired"
+                  ]
+                },
+                "contains": { "const": "picture_text_recovered" }
+              }
+            },
+            "allOf": [
+              {
+                "properties": {
+                  "flags": {
+                    "description": "At most one picture outcome.",
+                    "contains": {
+                      "enum": ["riskometer_text_extracted", "chart_pairs_extracted", "chart_multi_series_unparsed", "chart_unpaired"]
+                    },
+                    "minContains": 0,
+                    "maxContains": 1
+                  }
+                }
+              },
+              {
+                "if": { "properties": { "flags": { "contains": { "const": "chart_pairs_extracted" } } } },
+                "then": { "properties": { "picture": { "properties": { "pairCount": { "minimum": 1 } } } } },
+                "else": { "properties": { "picture": { "properties": { "pairCount": { "const": 0 } } } } }
+              }
+            ]
+          },
+          "else": { "properties": { "picture": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "text" } } },
+          "then": { "properties": { "flags": { "items": { "enum": ["ordinal_joined", "kv_lines_joined", "mixed_chunk_split"] } } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "table" } } },
+          "then": {
+            "properties": {
+              "flags": {
+                "items": {
+                  "enum": [
+                    "ordinal_joined",
+                    "mixed_chunk_split",
+                    "table_span_collapsed",
+                    "table_header_promoted",
+                    "heading_from_table_title",
+                    "table_rows_split"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "key_value" } } },
+          "then": {
+            "properties": {
+              "flags": {
+                "items": {
+                  "enum": [
+                    "ordinal_joined",
+                    "mixed_chunk_split",
+                    "table_span_collapsed",
+                    "kv_panel_detected",
+                    "heading_from_table_title",
+                    "table_rows_split"
+                  ]
+                },
+                "contains": { "const": "kv_panel_detected" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["droppedPictures", "flagCounts", "conversionStatus", "conversionMs"],
+      "properties": {
+        "droppedPictures": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["logo", "signature", "stamp", "qrCode", "barCode", "noText"],
+          "properties": {
+            "logo": { "$ref": "#/$defs/count" },
+            "signature": { "$ref": "#/$defs/count" },
+            "stamp": { "$ref": "#/$defs/count" },
+            "qrCode": { "$ref": "#/$defs/count" },
+            "barCode": { "$ref": "#/$defs/count" },
+            "noText": { "$ref": "#/$defs/count" }
+          }
+        },
+        "flagCounts": {
+          "description": "Number of chunks carrying each flag; flags with zero chunks are omitted.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/flag" },
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "conversionStatus": { "const": "success" },
+        "conversionMs": { "$ref": "#/$defs/count" }
+      }
+    }
+  }
+}

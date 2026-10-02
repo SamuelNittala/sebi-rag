@@ -1,0 +1,790 @@
+{
+  "schemaVersion": 1,
+  "producer": {
+    "parserVersion": "docling-2.132.0+norm-1+opts-da9fca75f112",
+    "serviceVersion": "1.0.0",
+    "doclingVersion": "2.132.0",
+    "doclingCoreVersion": "2.99.0",
+    "doclingIbmModelsVersion": "4.0.3",
+    "normalizerVersion": "1",
+    "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
+  },
+  "source": {
+    "sha256": "c613102c954aa7e63f6ae548aae136367769ea0eb783da4a73306696338b31a1",
+    "byteSize": 487589
+  },
+  "pageCount": 2,
+  "pages": [
+    {
+      "pageNumber": 1,
+      "width": 594.96,
+      "height": 841.92,
+      "text": "MIRAE ASSET FLEXI CAP FUND\nAn open ended dynamic equity scheme investing across large cap, mid cap, small cap stocks.\n3\nProduct Labelling This product is suitable for investors who are seeking*\nTo generate long term appreciation/income\nInvestments in equity and equity related instruments across market capitalization spectrum of large cap, mid cap and Small cap companies/Entities\n*Investors should consult their financial advisers if they are not clear about the suitability of the product.\nMonthly Factsheet as on 31st August 2026\nFund Details\nDate of Inception/ Allotment: 24th February 2023\nBenchmark Name ^ : Nifty 500 (TRI)\nNAV Growth: Direct ₹17.243; Regular ₹16.373\nNAV IDCW: Direct ₹17.192; Regular ₹16.379\nNet AUM: ₹4,506.259 Cr.\nAAUM: ₹4,474.120 Cr.\nFund Manager Details\nName of Fund Managers:\nMr. Varun Goel\nTotal Experience: 19 years\nManaging Since: 3rd April 2024\nMinimum Investment\nLump sum Amount:\n₹5,000/- and in multiples of ₹1/- thereafter.\nMinimum Additional Application Amount:\n₹1,000/- per application and in multiples of ₹1/- thereafter.\nSIP Amount:\nDaily, Monthly and Quarterly: Minimum of ₹99/- (multiples of ₹1/- thereafter), minimum 5 in case of Daily / Monthly / Quarterly option.\nLoad Structure\nExit Load: Please refer to page no. 16\nBase Expense Ratio^^\nRegular Plan: 1.62%\nDirect Plan: 0.43%\nQuantitative Measures / Risk Measures*\n1. Standard Deviation: 14.25%\n2. Beta: 0.90\n3. Sharpe Ratio: 0.50\n4. Information Ratio: -0.14\n*One liner/brief inference provided in the table on Page No. 117\nFor Fund Performance: Returns (%) for less than 1 year calculated on simple annualized basis, others are CAGR - Compounded Annualized Growth returns.\nNote: For computation of since inception returns (%) the allotment NAV has been taken as ₹10.00.\nNote: 1. Different Plans under the scheme has different expense structure. The reference and details provided herein are of Regular Plan & Direct Plan - Growth Option.\nFund Performance\nReturns for last 1 year, Scheme Returns Regular (%) = 6.62%. Returns for last 1 year, Scheme Returns Direct (%) = 8.15%. Returns for last 1 year, Benchmark Returns ^ (%) = 5.34%\nReturns for last 3 years, Scheme Returns Regular (%) = 12.15%. Returns for last 3 years, Scheme Returns Direct (%) = 13.78%. Returns for last 3 years, Benchmark Returns ^ (%) = 12.54%\nReturns for last 5 years, Scheme Returns Regular (%) = --. Returns for last 5 years, Scheme Returns Direct (%) = --. Returns for last 5 years, Benchmark Returns ^ (%) = --\nReturns since inception, Scheme Returns Regular (%) = 15.05%. Returns since inception, Scheme Returns Direct (%) = 16.75%. Returns since inception, Benchmark Returns ^ (%) = 15.49%\nAbsolute returns for each F.Y. last 5 years\nRegular Direct Benchmark\nFY 23\nFY 24\nFY 25\nFY 26\nFYTD 27\nYears\n^\nReturns %\n60%\n40%\n20%\n0%\n-20%\n-1%\n-1%\n0%\n35%\n37%\n40%\n7%\n9%\n6%\n0%\n1%\n-3%\n15%\n15%\n15%\nPortfolio Data\n1. ICICI Bank Ltd., %age of net assets = 5.74%\n2. HDFC Bank Ltd., %age of net assets = 5.21%\n3. Reliance Industries Ltd., %age of net assets = 3.96%\n4. State Bank of India, %age of net assets = 2.62%\n5. Axis Bank Ltd., %age of net assets = 2.35%\n6. Bharti Airtel Ltd., %age of net assets = 2.09%\n7. Larsen & Toubro Ltd., %age of net assets = 2.04%\n8. Mahindra & Mahindra Ltd., %age of net assets = 1.96%\n9. Lenskart Solutions Ltd., %age of net assets = 1.76%\n10. L&T Finance Ltd., %age of net assets = 1.71%\nOther Holdings, %age of net assets = 70.56%\nTotal, %age of net assets = 100.00%\nScheme Riskometer\nThe risk of the scheme is Very High\nBenchmark Riskometer\nNifty 500 (TRI)\nThe risk of the benchmark is Very High\nMajor Risk Factors*\nConcentration Risk\nGovernance Risk\nLiquidity Risk\nMarket Risk\nFor detailed explanation refer the Important Link on page no. 118\nQuantitative Measures / Risk Measures*\nPortfolio Turnover Ratio (Annualized)\na) Equity Turnover:\n40.70%\nb) Gross Exposure Turnover:\n(Equity + Debt + Derivatives)\n40.72%\n*One liner/brief inference provided in the table on Page No. 117",
+      "hasTable": true,
+      "stats": {
+        "textItems": 42,
+        "tables": 5,
+        "pictures": 4,
+        "pictureTextChars": 288,
+        "bodyTextChars": 3607
+      }
+    },
+    {
+      "pageNumber": 2,
+      "width": 594.96,
+      "height": 841.92,
+      "text": "MIRAE ASSET FLEXI CAP FUND\nAn open ended dynamic equity scheme investing across large cap, mid cap, small cap stocks.\nAllocation of Net Assets by Sectors\nBanks: 16.61%\nPharmaceuticals & Biotechnology: 6.79%\nCapital Markets: 6.28%\nFinance: 5.93%\nPetroleum Products: 4.69%\nIT - Software: 4.45%\nAutomobiles: 4.17%\nRetailing: 3.95%\nTelecom - Services: 3.72%\nInsurance: 3.44%\nOthers: 39.39%\nIndustrywise classification as recommended by AMFI\nMajor Changes w.r.t. previous month\n1. Major changes (Top 10 changes in Holding in portfolio of the scheme)\nTenneco Clean Air India Ltd., Name of securities reduced = --. Tenneco Clean Air India Ltd., Total Weightage (%) = 1.32%\nFoseco India Ltd., Name of securities reduced = --. Foseco India Ltd., Total Weightage (%) = 1.26%\n--, Name of securities reduced = Divi's Laboratories Ltd.. --, Total Weightage (%) = 1.24%\nK.P.R. Mill Ltd., Name of securities reduced = --. K.P.R. Mill Ltd., Total Weightage (%) = 1.03%\nMolbio Diagnostics Ltd., Name of securities reduced = --. Molbio Diagnostics Ltd., Total Weightage (%) = 1.02%\nDevyani International Ltd., Name of securities reduced = --. Devyani International Ltd., Total Weightage (%) = 1.01%\nLife Insurance Corporation of India, Name of securities reduced = --. Life Insurance Corporation of India, Total Weightage (%) = 1.00%\nShiprocket Ltd., Name of securities reduced = --. Shiprocket Ltd., Total Weightage (%) = 0.90%\n--, Name of securities reduced = Cummins India Ltd.. --, Total Weightage (%) = 0.71%\n--, Name of securities reduced = Welspun Corp Ltd.. --, Total Weightage (%) = 0.05%\n3. Changes in Risk-o-Meter of the Scheme\nScheme, Previous Month = Very High. Scheme, Current Month = Very High\nBenchmark, Previous Month = Very High. Benchmark, Current Month = Very High\nAllocation of Net Assets by Asset Class\n99.42%\n0.58%\nEquity Holdings Cash & Other Receivables\n2. Changes in Expense Ratio of the Scheme^^\nDirect, Previous Month = 0.43%. Direct, Current Month = 0.43%\nRegular, Previous Month = 1.62%. Regular, Current Month = 1.62%\n4. Changes in Credit Quality of the Scheme\n--, Previous Month Rating = --. --, Current Month Rating = --\n--, Previous Month Rating = --. --, Current Month Rating = --\nFor the latest and detailed AAUM disclosures, please visit: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/other-disclosure\n^^ The Expense Ratio are Base Expense ratio Excluding statutory levies\n3 Pursuant to notice cum addendum no. 75/2026, the product labelling of the scheme has been changed with effect from August 25, 2026.\n** Thinly Traded / Non Traded Security, # Unlisted Security, $ Less Than 0.01% of Net Asset Value, A** Awaiting Listing\nThe performance of other funds managed by the same fund manager is given in the respective page of the schemes and on page No. 91, 96, 100",
+      "hasTable": true,
+      "stats": {
+        "textItems": 12,
+        "tables": 4,
+        "pictures": 3,
+        "pictureTextChars": 397,
+        "bodyTextChars": 2372
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "chunkIndex": 0,
+      "type": "text",
+      "text": "An open ended dynamic equity scheme investing across large cap, mid cap, small cap stocks.\n3",
+      "headings": [
+        "MIRAE ASSET FLEXI CAP FUND"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 45.15,
+          "t": 801.08,
+          "r": 460.81,
+          "b": 775.83
+        }
+      ],
+      "itemRefs": [
+        "#/texts/1",
+        "#/texts/2"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 1,
+      "type": "text",
+      "text": "- To generate long term appreciation/income\n- Investments in equity and equity related instruments across market capitalization spectrum of large cap, mid cap and Small cap companies/Entities\n*Investors should consult their financial advisers if they are not clear about the suitability of the product.",
+      "headings": [
+        "Product Labelling This product is suitable for investors who are seeking*"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 140.8,
+          "t": 767.45,
+          "r": 560.23,
+          "b": 718.2
+        }
+      ],
+      "itemRefs": [
+        "#/texts/4",
+        "#/texts/5",
+        "#/texts/6"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 2,
+      "type": "key_value",
+      "text": "Date of Inception/ Allotment: 24th February 2023\nBenchmark Name ^ : Nifty 500 (TRI)\nNAV Growth: Direct ₹17.243; Regular ₹16.373\nNAV IDCW: Direct ₹17.192; Regular ₹16.379\nNet AUM: ₹4,506.259 Cr.\nAAUM: ₹4,474.120 Cr.",
+      "headings": [
+        "Monthly Factsheet as on 31st August 2026",
+        "Fund Details"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 19.95,
+          "t": 687.18,
+          "r": 156.7,
+          "b": 564.07
+        }
+      ],
+      "itemRefs": [
+        "#/tables/0"
+      ],
+      "flags": [
+        "ordinal_joined",
+        "heading_from_table_title",
+        "kv_panel_detected",
+        "table_span_collapsed"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 3,
+      "type": "text",
+      "text": "- Mr. Varun Goel\nTotal Experience: 19 years\nManaging Since: 3rd April 2024",
+      "headings": [
+        "Name of Fund Managers:"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 23.3,
+          "t": 519.26,
+          "r": 119.53,
+          "b": 488.62
+        }
+      ],
+      "itemRefs": [
+        "#/texts/10",
+        "#/texts/11",
+        "#/texts/12"
+      ],
+      "flags": [
+        "ordinal_joined"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 4,
+      "type": "text",
+      "text": "₹5,000/- and in multiples of ₹1/- thereafter.\nMinimum Additional Application Amount:\n₹1,000/- per application and in multiples of ₹1/- thereafter.",
+      "headings": [
+        "Lump sum Amount:"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 23.3,
+          "t": 437.51,
+          "r": 154.52,
+          "b": 404.58
+        }
+      ],
+      "itemRefs": [
+        "#/texts/15",
+        "#/texts/16",
+        "#/texts/17"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 5,
+      "type": "text",
+      "text": "Daily, Monthly and Quarterly: Minimum of ₹99/- (multiples of ₹1/- thereafter), minimum 5 in case of Daily / Monthly / Quarterly option.",
+      "headings": [
+        "SIP Amount:"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 23.3,
+          "t": 386.52,
+          "r": 151.11,
+          "b": 352.2
+        }
+      ],
+      "itemRefs": [
+        "#/texts/19"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 6,
+      "type": "text",
+      "text": "Exit Load: Please refer to page no. 16",
+      "headings": [
+        "Load Structure"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 23.3,
+          "t": 313.76,
+          "r": 143.49,
+          "b": 307.2
+        }
+      ],
+      "itemRefs": [
+        "#/texts/21"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 7,
+      "type": "key_value",
+      "text": "Regular Plan: 1.62%\nDirect Plan: 0.43%",
+      "headings": [
+        "Load Structure",
+        "Base Expense Ratio^^"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 20.08,
+          "t": 292.66,
+          "r": 156.8,
+          "b": 241.88
+        }
+      ],
+      "itemRefs": [
+        "#/tables/1"
+      ],
+      "flags": [
+        "mixed_chunk_split",
+        "heading_from_table_title",
+        "kv_panel_detected"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 8,
+      "type": "key_value",
+      "text": "1. Standard Deviation: 14.25%\n2. Beta: 0.90\n3. Sharpe Ratio: 0.50\n4. Information Ratio: -0.14\n*One liner/brief inference provided in the table on Page No. 117",
+      "headings": [
+        "Quantitative Measures / Risk Measures*"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 21.97,
+          "t": 200.05,
+          "r": 154.94,
+          "b": 128.56
+        }
+      ],
+      "itemRefs": [
+        "#/tables/2"
+      ],
+      "flags": [
+        "mixed_chunk_split",
+        "kv_panel_detected",
+        "table_span_collapsed"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 9,
+      "type": "text",
+      "text": "For Fund Performance: Returns (%) for less than 1 year calculated on simple annualized basis, others are CAGR - Compounded Annualized Growth returns.\nNote: For computation of since inception returns (%) the allotment NAV has been taken as ₹10.00.\nNote: 1. Different Plans under the scheme has different expense structure. The reference and details provided herein are of Regular Plan & Direct Plan - Growth Option.",
+      "headings": [
+        "Quantitative Measures / Risk Measures*"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 24.74,
+          "t": 63.51,
+          "r": 420.37,
+          "b": 42.81
+        }
+      ],
+      "itemRefs": [
+        "#/texts/23",
+        "#/texts/24",
+        "#/texts/25"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 10,
+      "type": "table",
+      "text": "Returns for last 1 year, Scheme Returns Regular (%) = 6.62%. Returns for last 1 year, Scheme Returns Direct (%) = 8.15%. Returns for last 1 year, Benchmark Returns ^ (%) = 5.34%\nReturns for last 3 years, Scheme Returns Regular (%) = 12.15%. Returns for last 3 years, Scheme Returns Direct (%) = 13.78%. Returns for last 3 years, Benchmark Returns ^ (%) = 12.54%\nReturns for last 5 years, Scheme Returns Regular (%) = --. Returns for last 5 years, Scheme Returns Direct (%) = --. Returns for last 5 years, Benchmark Returns ^ (%) = --\nReturns since inception, Scheme Returns Regular (%) = 15.05%. Returns since inception, Scheme Returns Direct (%) = 16.75%. Returns since inception, Benchmark Returns ^ (%) = 15.49%",
+      "headings": [
+        "Fund Performance"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 166.46,
+          "t": 667.69,
+          "r": 429.9,
+          "b": 562.89
+        }
+      ],
+      "itemRefs": [
+        "#/tables/3"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 11,
+      "type": "picture",
+      "text": "Absolute returns for each F.Y. last 5 years\nRegular Direct Benchmark\nFY 23\nFY 24\nFY 25\nFY 26\nFYTD 27\nYears\n^\nReturns %\n60%\n40%\n20%\n0%\n-20%\n-1%\n-1%\n0%\n35%\n37%\n40%\n7%\n9%\n6%\n0%\n1%\n-3%\n15%\n15%\n15%",
+      "headings": [
+        "Fund Performance"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 165.51,
+          "t": 551.39,
+          "r": 431.08,
+          "b": 382.43
+        }
+      ],
+      "itemRefs": [
+        "#/pictures/0"
+      ],
+      "flags": [
+        "picture_text_recovered",
+        "chart_multi_series_unparsed"
+      ],
+      "picture": {
+        "classification": "bar_chart",
+        "confidence": 0.9921,
+        "pairCount": 0
+      }
+    },
+    {
+      "chunkIndex": 12,
+      "type": "table",
+      "text": "1. ICICI Bank Ltd., %age of net assets = 5.74%\n2. HDFC Bank Ltd., %age of net assets = 5.21%\n3. Reliance Industries Ltd., %age of net assets = 3.96%\n4. State Bank of India, %age of net assets = 2.62%\n5. Axis Bank Ltd., %age of net assets = 2.35%\n6. Bharti Airtel Ltd., %age of net assets = 2.09%\n7. Larsen & Toubro Ltd., %age of net assets = 2.04%\n8. Mahindra & Mahindra Ltd., %age of net assets = 1.96%\n9. Lenskart Solutions Ltd., %age of net assets = 1.76%\n10. L&T Finance Ltd., %age of net assets = 1.71%\nOther Holdings, %age of net assets = 70.56%\nTotal, %age of net assets = 100.00%",
+      "headings": [
+        "Portfolio Data"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 169.17,
+          "t": 351.47,
+          "r": 430.23,
+          "b": 193.07
+        }
+      ],
+      "itemRefs": [
+        "#/tables/4"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 13,
+      "type": "picture",
+      "text": "Scheme Riskometer\nThe risk of the scheme is Very High",
+      "headings": [
+        "Portfolio Data"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 438.82,
+          "t": 688.84,
+          "r": 576.95,
+          "b": 599.9
+        }
+      ],
+      "itemRefs": [
+        "#/pictures/2"
+      ],
+      "flags": [
+        "picture_text_recovered",
+        "riskometer_text_extracted"
+      ],
+      "picture": {
+        "classification": "pie_chart",
+        "confidence": 0.4527,
+        "pairCount": 0
+      }
+    },
+    {
+      "chunkIndex": 14,
+      "type": "picture",
+      "text": "Benchmark Riskometer\nNifty 500 (TRI)\nThe risk of the benchmark is Very High",
+      "headings": [
+        "Portfolio Data"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 438.96,
+          "t": 591.62,
+          "r": 574.95,
+          "b": 493.88
+        }
+      ],
+      "itemRefs": [
+        "#/pictures/3"
+      ],
+      "flags": [
+        "picture_text_recovered",
+        "riskometer_text_extracted"
+      ],
+      "picture": {
+        "classification": "pie_chart",
+        "confidence": 0.7514,
+        "pairCount": 0
+      }
+    },
+    {
+      "chunkIndex": 15,
+      "type": "text",
+      "text": "1. Concentration Risk\n2. Governance Risk\n3. Liquidity Risk\n4. Market Risk\nFor detailed explanation refer the Important Link on page no. 118",
+      "headings": [
+        "Major Risk Factors*"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 441.18,
+          "t": 460.74,
+          "r": 567.08,
+          "b": 401.26
+        }
+      ],
+      "itemRefs": [
+        "#/texts/64",
+        "#/texts/65",
+        "#/texts/66",
+        "#/texts/67",
+        "#/texts/68"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 16,
+      "type": "text",
+      "text": "1. Portfolio Turnover Ratio (Annualized)\na) Equity Turnover: 40.70%\nb) Gross Exposure Turnover:\n(Equity + Debt + Derivatives)\n40.72%\n*One liner/brief inference provided in the table on Page No. 117",
+      "headings": [
+        "Quantitative Measures / Risk Measures*"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 442.39,
+          "t": 354.26,
+          "r": 575.0,
+          "b": 292.51
+        }
+      ],
+      "itemRefs": [
+        "#/texts/70",
+        "#/texts/71",
+        "#/texts/72",
+        "#/texts/73",
+        "#/texts/74",
+        "#/texts/75",
+        "#/texts/76"
+      ],
+      "flags": [
+        "kv_lines_joined"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 17,
+      "type": "text",
+      "text": "An open ended dynamic equity scheme investing across large cap, mid cap, small cap stocks.",
+      "headings": [
+        "MIRAE ASSET FLEXI CAP FUND"
+      ],
+      "pages": [
+        2
+      ],
+      "bboxes": [
+        {
+          "page": 2,
+          "l": 45.15,
+          "t": 801.08,
+          "r": 460.81,
+          "b": 791.82
+        }
+      ],
+      "itemRefs": [
+        "#/texts/80"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 18,
+      "type": "picture",
+      "text": "Allocation of Net Assets by Sectors\nBanks: 16.61%\nPharmaceuticals & Biotechnology: 6.79%\nCapital Markets: 6.28%\nFinance: 5.93%\nPetroleum Products: 4.69%\nIT - Software: 4.45%\nAutomobiles: 4.17%\nRetailing: 3.95%\nTelecom - Services: 3.72%\nInsurance: 3.44%\nOthers: 39.39%\nIndustrywise classification as recommended by AMFI",
+      "headings": [
+        "MIRAE ASSET FLEXI CAP FUND"
+      ],
+      "pages": [
+        2
+      ],
+      "bboxes": [
+        {
+          "page": 2,
+          "l": 19.26,
+          "t": 777.33,
+          "r": 294.65,
+          "b": 578.71
+        }
+      ],
+      "itemRefs": [
+        "#/pictures/5"
+      ],
+      "flags": [
+        "picture_text_recovered",
+        "chart_pairs_extracted"
+      ],
+      "picture": {
+        "classification": "bar_chart",
+        "confidence": 0.9992,
+        "pairCount": 11
+      }
+    },
+    {
+      "chunkIndex": 19,
+      "type": "table",
+      "text": "Tenneco Clean Air India Ltd., Name of securities reduced = --. Tenneco Clean Air India Ltd., Total Weightage (%) = 1.32%\nFoseco India Ltd., Name of securities reduced = --. Foseco India Ltd., Total Weightage (%) = 1.26%\n--, Name of securities reduced = Divi's Laboratories Ltd.. --, Total Weightage (%) = 1.24%\nK.P.R. Mill Ltd., Name of securities reduced = --. K.P.R. Mill Ltd., Total Weightage (%) = 1.03%\nMolbio Diagnostics Ltd., Name of securities reduced = --. Molbio Diagnostics Ltd., Total Weightage (%) = 1.02%\nDevyani International Ltd., Name of securities reduced = --. Devyani International Ltd., Total Weightage (%) = 1.01%\nLife Insurance Corporation of India, Name of securities reduced = --. Life Insurance Corporation of India, Total Weightage (%) = 1.00%\nShiprocket Ltd., Name of securities reduced = --. Shiprocket Ltd., Total Weightage (%) = 0.90%\n--, Name of securities reduced = Cummins India Ltd.. --, Total Weightage (%) = 0.71%\n--, Name of securities reduced = Welspun Corp Ltd.. --, Total Weightage (%) = 0.05%",
+      "headings": [
+        "1. Major changes (Top 10 changes in Holding in portfolio of the scheme)"
+      ],
+      "pages": [
+        2
+      ],
+      "bboxes": [
+        {
+          "page": 2,
+          "l": 18.61,
+          "t": 534.39,
+          "r": 350.69,
+          "b": 357.38
+        }
+      ],
+      "itemRefs": [
+        "#/tables/5"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 20,
+      "type": "table",
+      "text": "Scheme, Previous Month = Very High. Scheme, Current Month = Very High\nBenchmark, Previous Month = Very High. Benchmark, Current Month = Very High",
+      "headings": [
+        "3. Changes in Risk-o-Meter of the Scheme"
+      ],
+      "pages": [
+        2
+      ],
+      "bboxes": [
+        {
+          "page": 2,
+          "l": 18.51,
+          "t": 330.82,
+          "r": 351.01,
+          "b": 283.51
+        }
+      ],
+      "itemRefs": [
+        "#/tables/6"
+      ],
+      "flags": [
+        "mixed_chunk_split",
+        "table_header_promoted"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 21,
+      "type": "picture",
+      "text": "Allocation of Net Assets by Asset Class\n99.42%\n0.58%\nEquity Holdings Cash & Other Receivables",
+      "headings": [
+        "3. Changes in Risk-o-Meter of the Scheme"
+      ],
+      "pages": [
+        2
+      ],
+      "bboxes": [
+        {
+          "page": 2,
+          "l": 302.16,
+          "t": 777.05,
+          "r": 577.61,
+          "b": 577.58
+        }
+      ],
+      "itemRefs": [
+        "#/pictures/6"
+      ],
+      "flags": [
+        "picture_text_recovered",
+        "chart_unpaired"
+      ],
+      "picture": {
+        "classification": "pie_chart",
+        "confidence": 0.9985,
+        "pairCount": 0
+      }
+    },
+    {
+      "chunkIndex": 22,
+      "type": "table",
+      "text": "Direct, Previous Month = 0.43%. Direct, Current Month = 0.43%\nRegular, Previous Month = 1.62%. Regular, Current Month = 1.62%",
+      "headings": [
+        "2. Changes in Expense Ratio of the Scheme^^"
+      ],
+      "pages": [
+        2
+      ],
+      "bboxes": [
+        {
+          "page": 2,
+          "l": 356.71,
+          "t": 534.54,
+          "r": 578.42,
+          "b": 485.54
+        }
+      ],
+      "itemRefs": [
+        "#/tables/7"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 23,
+      "type": "table",
+      "text": "--, Previous Month Rating = --. --, Current Month Rating = --\n--, Previous Month Rating = --. --, Current Month Rating = --",
+      "headings": [
+        "4. Changes in Credit Quality of the Scheme"
+      ],
+      "pages": [
+        2
+      ],
+      "bboxes": [
+        {
+          "page": 2,
+          "l": 356.47,
+          "t": 460.42,
+          "r": 578.8,
+          "b": 402.25
+        }
+      ],
+      "itemRefs": [
+        "#/tables/8"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 24,
+      "type": "text",
+      "text": "For the latest and detailed AAUM disclosures, please visit: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/other-disclosure\n^^ The Expense Ratio are Base Expense ratio Excluding statutory levies\n3 Pursuant to notice cum addendum no. 75/2026, the product labelling of the scheme has been changed with effect from August 25, 2026.\n** Thinly Traded / Non Traded Security, # Unlisted Security, $ Less Than 0.01% of Net Asset Value, A** Awaiting Listing\nThe performance of other funds managed by the same fund manager is given in the respective page of the schemes and on page No. 91, 96, 100",
+      "headings": [
+        "4. Changes in Credit Quality of the Scheme"
+      ],
+      "pages": [
+        2
+      ],
+      "bboxes": [
+        {
+          "page": 2,
+          "l": 24.74,
+          "t": 85.79,
+          "r": 410.98,
+          "b": 44.16
+        }
+      ],
+      "itemRefs": [
+        "#/texts/114",
+        "#/texts/115",
+        "#/texts/116",
+        "#/texts/117",
+        "#/texts/118"
+      ],
+      "flags": [],
+      "picture": null
+    }
+  ],
+  "diagnostics": {
+    "droppedPictures": {
+      "logo": 2,
+      "signature": 0,
+      "stamp": 0,
+      "qrCode": 0,
+      "barCode": 0,
+      "noText": 0
+    },
+    "flagCounts": {
+      "chart_multi_series_unparsed": 1,
+      "chart_pairs_extracted": 1,
+      "chart_unpaired": 1,
+      "heading_from_table_title": 2,
+      "kv_lines_joined": 1,
+      "kv_panel_detected": 3,
+      "mixed_chunk_split": 8,
+      "ordinal_joined": 2,
+      "picture_text_recovered": 5,
+      "riskometer_text_extracted": 2,
+      "table_header_promoted": 1,
+      "table_span_collapsed": 2
+    },
+    "conversionStatus": "success",
+    "conversionMs": 0
+  }
+}
