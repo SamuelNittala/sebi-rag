@@ -1,0 +1,9 @@
+# Docling parse service (python/docling_service). Top-level pins; the full
+# resolution (CPU-only torch) lives in requirements.lock:
+#   uv pip compile requirements.txt --python-version 3.12 --universal --torch-backend cpu -o requirements.lock
+# Install with: uv pip install --torch-backend cpu -r requirements.lock
+docling==2.132.0
+docling-core[chunking]==2.99.0
+docling-ibm-models==4.0.3
+flask==3.0.0
+gunicorn==23.0.0

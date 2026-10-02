@@ -1,0 +1,7 @@
+# Build context is the repo root; send only the service and its fixtures.
+*
+!python/docling_service/
+python/docling_service/.venv/
+**/__pycache__/
+**/.pytest_cache/
+!tests/fixtures/docling/
