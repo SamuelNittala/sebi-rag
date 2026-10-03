@@ -12,6 +12,31 @@
  *   as sets per page over candidate chunk text. A chunk's tokens count for every
  *   page it covers, so a multi-page chunk can mask a gap on one of its pages.
  *   Plain integers are ignored (page numbers, counts and years are too noisy).
+ * - A token absent from the other side's page set is classified, in order:
+ *   1. Axis ticks: of the absent percentages on the page, the longest chain of
+ *      at least 4 evenly spaced values (`0%, 10%, 20%, 30%`), as chart axis
+ *      labels one parser drops. Checked first so tick labels are not mistaken
+ *      for fragments (`0%` would otherwise be a left cut of `10%`).
+ *   2. Covered fragment: it is a piece of a longer value on the other side's
+ *      same page, produced by a chunk boundary/overlap cutting a number. Checked
+ *      against the other side's raw chunk text: every maximal digit run
+ *      (`\d[\d,.]*\d`) of a chunk on that page is a candidate cover. With
+ *      `core` the token without `₹`, sign and `%`:
+ *      - left cut: the run is longer and ends with `core` (`1,784.42` in
+ *        `81,784.42`, `736.00` in `1,12,736.00`, `01%` in `2.01%`);
+ *      - right cut: the run is longer and starts with `core` (`₹1,00` in
+ *        `₹1,000`, `₹9` in `₹99`); not for percentages, whose `%` proves the
+ *        number ended;
+ *      - same run: only for plain decimals, whose unit was cut off (`1.58` vs
+ *        `1.58%`);
+ *      and the run keeps the token's unit: a `%` right after it for a
+ *      percentage, a currency marker right before it for a rupee amount (so
+ *      rupee amounts are never left cuts). A run extended on both sides does
+ *      not cover (`1.5` is not covered by `11.58`).
+ *      Dates: covered by an other-side date with the same month and year whose
+ *      longer day ends with the token's day (`9 jul 2019` by `29 jul 2019`).
+ *   3. Missing: everything else (true gaps).
+ *   Covered fragments carry the covering value; all three lists are reported.
  * - Output is deterministic: rule codes, chunk types, pages and tokens sorted.
  */
 
@@ -64,12 +89,25 @@ export interface FindingTotals {
   readonly blocking: number;
 }
 
+/** A token one side has only as a fragment of the other side's longer value (`coveredBy`). */
+export interface CoveredFragment {
+  readonly token: string;
+  readonly coveredBy: string;
+}
+
 export interface PageTokenGap {
   readonly pageNumber: number;
   readonly unpdfCount: number;
   readonly doclingCount: number;
+  /** True gaps: unpdf tokens Docling lacks, excluding covered fragments and axis ticks. */
   readonly missingFromDocling: readonly string[];
   readonly missingFromUnpdf: readonly string[];
+  /** unpdf tokens that are fragments of a longer Docling value on the page. */
+  readonly coveredInDocling: readonly CoveredFragment[];
+  readonly coveredInUnpdf: readonly CoveredFragment[];
+  /** unpdf chart-axis percentages Docling lacks. */
+  readonly axisTicksMissingFromDocling: readonly string[];
+  readonly axisTicksMissingFromUnpdf: readonly string[];
 }
 
 export interface ParserComparison {
@@ -87,6 +125,10 @@ export interface ParserComparison {
       readonly docling: number;
       readonly missingFromDocling: number;
       readonly missingFromUnpdf: number;
+      readonly coveredInDocling: number;
+      readonly coveredInUnpdf: number;
+      readonly axisTicksMissingFromDocling: number;
+      readonly axisTicksMissingFromUnpdf: number;
     };
   };
   readonly doclingDiagnostics: DoclingParserDiagnostics | null;
@@ -151,18 +193,24 @@ export function compareParserInspections(input: {
   readonly unpdf: ComparisonSideInput;
   readonly docling: ComparisonSideInput;
 }): ParserComparison {
-  const unpdfTokens = tokensByPage(input.unpdf.candidates);
-  const doclingTokens = tokensByPage(input.docling.candidates);
-  const pageNumbers = [...new Set([...unpdfTokens.keys(), ...doclingTokens.keys()])].sort((a, b) => a - b);
+  const unpdfPages = indexPages(input.unpdf.candidates);
+  const doclingPages = indexPages(input.docling.candidates);
+  const pageNumbers = [...new Set([...unpdfPages.keys(), ...doclingPages.keys()])].sort((a, b) => a - b);
   const pages = pageNumbers.map((pageNumber): PageTokenGap => {
-    const unpdf = unpdfTokens.get(pageNumber) ?? new Set<string>();
-    const docling = doclingTokens.get(pageNumber) ?? new Set<string>();
+    const unpdf = unpdfPages.get(pageNumber) ?? EMPTY_PAGE;
+    const docling = doclingPages.get(pageNumber) ?? EMPTY_PAGE;
+    const fromDocling = classifyAbsent([...unpdf.tokens].filter((token) => !docling.tokens.has(token)), docling);
+    const fromUnpdf = classifyAbsent([...docling.tokens].filter((token) => !unpdf.tokens.has(token)), unpdf);
     return {
       pageNumber,
-      unpdfCount: unpdf.size,
-      doclingCount: docling.size,
-      missingFromDocling: [...unpdf].filter((token) => !docling.has(token)).sort(),
-      missingFromUnpdf: [...docling].filter((token) => !unpdf.has(token)).sort(),
+      unpdfCount: unpdf.tokens.size,
+      doclingCount: docling.tokens.size,
+      missingFromDocling: fromDocling.missing,
+      missingFromUnpdf: fromUnpdf.missing,
+      coveredInDocling: fromDocling.covered,
+      coveredInUnpdf: fromUnpdf.covered,
+      axisTicksMissingFromDocling: fromDocling.axisTicks,
+      axisTicksMissingFromUnpdf: fromUnpdf.axisTicks,
     };
   });
   const sum = (pick: (page: PageTokenGap) => number) => pages.reduce((total, page) => total + pick(page), 0);
@@ -181,6 +229,10 @@ export function compareParserInspections(input: {
         docling: sum((page) => page.doclingCount),
         missingFromDocling: sum((page) => page.missingFromDocling.length),
         missingFromUnpdf: sum((page) => page.missingFromUnpdf.length),
+        coveredInDocling: sum((page) => page.coveredInDocling.length),
+        coveredInUnpdf: sum((page) => page.coveredInUnpdf.length),
+        axisTicksMissingFromDocling: sum((page) => page.axisTicksMissingFromDocling.length),
+        axisTicksMissingFromUnpdf: sum((page) => page.axisTicksMissingFromUnpdf.length),
       },
     },
     doclingDiagnostics: input.docling.parserDiagnostics ?? null,
@@ -188,17 +240,115 @@ export function compareParserInspections(input: {
   };
 }
 
-function tokensByPage(candidates: readonly ComparisonCandidate[]): Map<number, Set<string>> {
-  const byPage = new Map<number, Set<string>>();
+/** One side's view of a page: its token set and the raw text of every chunk covering it. */
+export interface PageText {
+  readonly tokens: ReadonlySet<string>;
+  readonly texts: readonly string[];
+}
+
+const EMPTY_PAGE: PageText = { tokens: new Set(), texts: [] };
+
+function indexPages(candidates: readonly ComparisonCandidate[]): Map<number, { tokens: Set<string>; texts: string[] }> {
+  const byPage = new Map<number, { tokens: Set<string>; texts: string[] }>();
   for (const candidate of candidates) {
     const tokens = extractNumericTokens(candidate.text);
     for (const pageNumber of candidate.pageNumbers) {
-      const set = byPage.get(pageNumber) ?? new Set<string>();
-      for (const token of tokens) set.add(token);
-      byPage.set(pageNumber, set);
+      const page = byPage.get(pageNumber) ?? { tokens: new Set<string>(), texts: [] };
+      for (const token of tokens) page.tokens.add(token);
+      page.texts.push(candidate.text);
+      byPage.set(pageNumber, page);
     }
   }
   return byPage;
+}
+
+/** Splits tokens absent from `other`'s page into axis ticks, covered fragments and true gaps (each sorted). */
+export function classifyAbsent(absent: readonly string[], other: PageText): {
+  missing: string[];
+  covered: CoveredFragment[];
+  axisTicks: string[];
+} {
+  const sorted = [...absent].sort(compareText);
+  const ticks = axisTickTokens(sorted);
+  const covered: CoveredFragment[] = [];
+  const missing: string[] = [];
+  for (const token of sorted.filter((candidate) => !ticks.has(candidate))) {
+    const coveredBy = findFragmentCover(token, other);
+    if (coveredBy) covered.push({ token, coveredBy });
+    else missing.push(token);
+  }
+  return { missing, covered, axisTicks: sorted.filter((token) => ticks.has(token)) };
+}
+
+const NUMBER_RUN = /\d(?:[\d,.]*\d)?/g;
+const CURRENCY_BEFORE = /(?:₹|\bRs\.?|\bINR)\s*[-−–]?$/i;
+const PERCENT_AFTER = /^\s*%/;
+
+/** The other side's value `token` is a chunk-boundary fragment of (smallest, for determinism), or null. */
+export function findFragmentCover(token: string, other: PageText): string | null {
+  const date = parseDateToken(token);
+  if (date) return dateCover(date, other.tokens);
+  const kind = token.startsWith("₹") ? "rupee" : token.endsWith("%") ? "percent" : "decimal";
+  const core = token.replace(/[₹%\-]/g, "");
+  const covers: string[] = [];
+  for (const text of other.texts) {
+    for (const match of text.matchAll(NUMBER_RUN)) {
+      const run = match[0];
+      const start = match.index;
+      const currency = CURRENCY_BEFORE.test(text.slice(Math.max(0, start - 8), start));
+      const percent = PERCENT_AFTER.test(text.slice(start + run.length, start + run.length + 3));
+      if ((kind === "percent" && !percent) || (kind === "rupee" && !currency)) continue;
+      const longer = run.length > core.length;
+      const leftCut = longer && run.endsWith(core) && kind !== "rupee";
+      const rightCut = longer && run.startsWith(core) && kind !== "percent";
+      const sameRun = run === core && kind === "decimal";
+      if (leftCut || rightCut || sameRun) covers.push(`${currency ? "₹" : ""}${run}${percent ? "%" : ""}`);
+    }
+  }
+  return covers.sort(compareText)[0] ?? null;
+}
+
+interface DateParts {
+  readonly day: number;
+  readonly month: number;
+  readonly year: string;
+}
+
+function parseDateToken(token: string): DateParts | null {
+  const named = /^(\d{1,2}) ([a-z]{3}) (\d{4})$/.exec(token);
+  if (named) return { day: Number(named[1]), month: MONTHS.indexOf(named[2] as (typeof MONTHS)[number]) + 1, year: named[3]! };
+  const numeric = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(token);
+  if (numeric) return { day: Number(numeric[1]), month: Number(numeric[2]), year: numeric[3]! };
+  return null;
+}
+
+function dateCover(date: DateParts, otherTokens: ReadonlySet<string>): string | null {
+  const covers = [...otherTokens].filter((candidate) => {
+    const other = parseDateToken(candidate);
+    return other !== null && other.month === date.month && other.year === date.year
+      && other.day !== date.day && String(other.day).endsWith(String(date.day));
+  });
+  return covers.sort(compareText)[0] ?? null;
+}
+
+/** Tokens of the longest chain of >= 4 evenly spaced percentages (chart axis labels), or none. */
+function axisTickTokens(tokens: readonly string[]): Set<string> {
+  const valueOf = (token: string) => Math.round(Number(token.slice(0, -1)) * 1000);
+  const percents = tokens.filter((token) => /^-?\d+(?:\.\d+)?%$/.test(token));
+  const values = [...new Set(percents.map(valueOf))].sort((a, b) => a - b);
+  const present = new Set(values);
+  let best: number[] = [];
+  for (let i = 0; i < values.length; i += 1) {
+    for (let j = i + 1; j < values.length; j += 1) {
+      const step = values[j]! - values[i]!;
+      const chain = [values[i]!];
+      while (present.has(chain[chain.length - 1]! + step)) chain.push(chain[chain.length - 1]! + step);
+      if (chain.length > best.length) best = chain;
+    }
+  }
+  if (best.length < 4) return new Set();
+  const chain = new Set(best);
+  return new Set(percents.filter((token) => chain.has(valueOf(token))));
 }
 
 function chunkSummary(candidates: readonly ComparisonCandidate[]): ChunkSummary {
@@ -259,11 +409,12 @@ export function renderComparisonMarkdown(
     `unpdf: \`${context.parserVersions.unpdf}\` · Docling: \`${context.parserVersions.docling}\``,
     "",
     "Numeric tokens are percentages, rupee amounts, plain decimals and dates, compared per page over inspected chunk text.",
+    "Missing counts are true gaps; tokens one side has only as fragments of a longer value on the other side (chunk-boundary cuts) and chart axis ticks are counted separately.",
     "",
     "## Summary",
     "",
-    "| Document | unpdf chunks | Docling chunks | unpdf findings | Docling findings | unpdf blocking | Docling blocking | Tokens missing from Docling | Tokens missing from unpdf |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Document | unpdf chunks | Docling chunks | unpdf findings | Docling findings | unpdf blocking | Docling blocking | Tokens missing from Docling | Tokens missing from unpdf | Fragments covered by Docling | Fragments covered by unpdf | Axis ticks missing from Docling | Axis ticks missing from unpdf |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...comparisons.map((c) => row([
       documentLabel(c),
       c.chunks.unpdf.total,
@@ -274,6 +425,10 @@ export function renderComparisonMarkdown(
       c.findings.totals.docling.blocking,
       c.numericTokens.totals.missingFromDocling,
       c.numericTokens.totals.missingFromUnpdf,
+      c.numericTokens.totals.coveredInDocling,
+      c.numericTokens.totals.coveredInUnpdf,
+      c.numericTokens.totals.axisTicksMissingFromDocling,
+      c.numericTokens.totals.axisTicksMissingFromUnpdf,
     ])),
   ];
   for (const comparison of comparisons) lines.push("", ...documentSection(comparison));
@@ -282,7 +437,10 @@ export function renderComparisonMarkdown(
 
 function documentSection(c: ParserComparison): string[] {
   const types = [...new Set([...Object.keys(c.chunks.unpdf.byType), ...Object.keys(c.chunks.docling.byType)])].sort(compareText);
-  const gaps = c.numericTokens.pages.filter((page) => page.missingFromDocling.length + page.missingFromUnpdf.length > 0);
+  const gaps = c.numericTokens.pages.filter((page) =>
+    page.missingFromDocling.length + page.missingFromUnpdf.length
+      + page.axisTicksMissingFromDocling.length + page.axisTicksMissingFromUnpdf.length > 0);
+  const fragmentPages = c.numericTokens.pages.filter((page) => page.coveredInDocling.length + page.coveredInUnpdf.length > 0);
   const lines = [
     `## ${escapeCell(documentLabel(c))}`,
     "",
@@ -320,19 +478,46 @@ function documentSection(c: ParserComparison): string[] {
     "",
     "### Numeric tokens",
     "",
-    `Distinct per-page tokens: unpdf ${totals.unpdf}, Docling ${totals.docling}; missing from Docling ${totals.missingFromDocling}, missing from unpdf ${totals.missingFromUnpdf}.`,
+    `Distinct per-page tokens: unpdf ${totals.unpdf}, Docling ${totals.docling}; missing from Docling ${totals.missingFromDocling}, missing from unpdf ${totals.missingFromUnpdf}; fragments covered by Docling ${totals.coveredInDocling}, by unpdf ${totals.coveredInUnpdf}; axis ticks missing from Docling ${totals.axisTicksMissingFromDocling}, from unpdf ${totals.axisTicksMissingFromUnpdf}.`,
     "",
   );
   if (gaps.length === 0) {
     lines.push("No per-page gaps.");
   } else {
     lines.push(
-      "| Page | Missing from Docling | Missing from unpdf |",
+      "| Page | Missing from Docling | Missing from unpdf | Axis ticks missing from Docling | Axis ticks missing from unpdf |",
+      "| --- | --- | --- | --- | --- |",
+      ...gaps.map((page) => row([
+        page.pageNumber,
+        page.missingFromDocling.join(", "),
+        page.missingFromUnpdf.join(", "),
+        page.axisTicksMissingFromDocling.join(", "),
+        page.axisTicksMissingFromUnpdf.join(", "),
+      ])),
+    );
+  }
+  if (fragmentPages.length > 0) {
+    lines.push(
+      "",
+      "#### Covered fragments",
+      "",
+      `Tokens present on one side only as a piece of a longer value on the other side's same page (count, then up to ${FRAGMENT_EXAMPLES} examples as \`fragment ⊂ value\`; the full list is in report.json).`,
+      "",
+      "| Page | Covered by Docling | Covered by unpdf |",
       "| --- | --- | --- |",
-      ...gaps.map((page) => row([page.pageNumber, page.missingFromDocling.join(", "), page.missingFromUnpdf.join(", ")])),
+      ...fragmentPages.map((page) => row([page.pageNumber, fragmentCell(page.coveredInDocling), fragmentCell(page.coveredInUnpdf)])),
     );
   }
   return lines;
+}
+
+const FRAGMENT_EXAMPLES = 3;
+
+function fragmentCell(fragments: readonly CoveredFragment[]): string {
+  if (fragments.length === 0) return "";
+  const examples = fragments.slice(0, FRAGMENT_EXAMPLES).map((fragment) => `${fragment.token} ⊂ ${fragment.coveredBy}`);
+  const more = fragments.length > FRAGMENT_EXAMPLES ? `, +${fragments.length - FRAGMENT_EXAMPLES} more` : "";
+  return `${fragments.length}: ${examples.join(", ")}${more}`;
 }
 
 function documentLabel(c: ParserComparison): string {

@@ -132,16 +132,21 @@ describe("compareParserInspections", () => {
         { text: "Sharpe 1.07", pageNumbers: [3] },
       ]),
     });
+    const none = { coveredInDocling: [], coveredInUnpdf: [], axisTicksMissingFromDocling: [], axisTicksMissingFromUnpdf: [] };
     expect(comparison.numericTokens.pages).toEqual([
-      { pageNumber: 1, unpdfCount: 3, doclingCount: 2, missingFromDocling: ["0.95"], missingFromUnpdf: [] },
-      { pageNumber: 2, unpdfCount: 1, doclingCount: 2, missingFromDocling: [], missingFromUnpdf: ["24 feb 2023"] },
-      { pageNumber: 3, unpdfCount: 0, doclingCount: 1, missingFromDocling: [], missingFromUnpdf: ["1.07"] },
+      { pageNumber: 1, unpdfCount: 3, doclingCount: 2, missingFromDocling: ["0.95"], missingFromUnpdf: [], ...none },
+      { pageNumber: 2, unpdfCount: 1, doclingCount: 2, missingFromDocling: [], missingFromUnpdf: ["24 feb 2023"], ...none },
+      { pageNumber: 3, unpdfCount: 0, doclingCount: 1, missingFromDocling: [], missingFromUnpdf: ["1.07"], ...none },
     ]);
     expect(comparison.numericTokens.totals).toEqual({
       unpdf: 4,
       docling: 5,
       missingFromDocling: 1,
       missingFromUnpdf: 2,
+      coveredInDocling: 0,
+      coveredInUnpdf: 0,
+      axisTicksMissingFromDocling: 0,
+      axisTicksMissingFromUnpdf: 0,
     });
   });
 
@@ -190,6 +195,120 @@ describe("compareParserInspections", () => {
   });
 });
 
+describe("chunk-boundary fragments", () => {
+  /** Classifies unpdf-only chunk text against Docling text on page 1. */
+  function againstDocling(unpdfText: string, doclingText: string) {
+    const page = compareParserInspections({
+      filename: "a.pdf",
+      pageRange: null,
+      unpdf: side([{ text: unpdfText, pageNumbers: [1] }]),
+      docling: side([{ text: doclingText, pageNumbers: [1] }]),
+    }).numericTokens.pages[0]!;
+    return { missing: page.missingFromDocling, covered: page.coveredInDocling, axisTicks: page.axisTicksMissingFromDocling };
+  }
+
+  test.each([
+    ["left cut inside a digit group", "1,784.42", "Net assets 81,784.42 lakh", "81,784.42"],
+    ["left cut keeping a leading zero", "0,573.143", "Units 20,573.143", "20,573.143"],
+    ["left cut at an Indian digit-group comma", "736.00", "Value 1,12,736.00", "1,12,736.00"],
+    ["left cut of a leading-zero decimal", "007.20", "NAV 2,007.20", "2,007.20"],
+    ["left cut of a shorter decimal", "09.55", "NAV 109.55", "109.55"],
+    ["plain decimal whose percent sign was cut off", "1.58", "TER 1.58%", "1.58%"],
+    ["percentage left cut after a decimal point", "01%", "Yield 2.01 %", "2.01%"],
+    ["rupee right cut inside a group", "₹1,00", "Minimum ₹ 1,000 and multiples", "₹1,000"],
+    ["rupee right cut to one digit", "₹9", "Fee Rs. 99 only", "₹99"],
+  ])("%s: %s is covered by %s", (_label, fragmentText, doclingText, coveredBy) => {
+    const unpdfText = fragmentText.startsWith("₹") ? `amount ${fragmentText} end` : `value ${fragmentText} end`;
+    const result = againstDocling(unpdfText, doclingText);
+    expect(result.missing).toEqual([]);
+    expect(result.covered).toHaveLength(1);
+    expect(result.covered[0]!.coveredBy).toBe(coveredBy);
+  });
+
+  test("a date whose day lost its leading digit is covered by the same month and year", () => {
+    const result = againstDocling("allotted 9th July 2019 onwards", "allotted 29th July 2019 onwards");
+    expect(result).toEqual({ missing: [], covered: [{ token: "9 jul 2019", coveredBy: "29 jul 2019" }], axisTicks: [] });
+  });
+
+  test("a genuinely absent value stays missing", () => {
+    expect(againstDocling("return 12.34% in FY", "return 9.10% in FY").missing).toEqual(["12.34%"]);
+  });
+
+  test("a value inside a longer number on both sides is not covered (1.5 vs 11.58)", () => {
+    expect(againstDocling("beta 1.5 here", "beta 11.58 here")).toEqual({ missing: ["1.5"], covered: [], axisTicks: [] });
+  });
+
+  test("a percentage is not covered by a number without a percent sign, nor by a right cut", () => {
+    expect(againstDocling("weight 2.01% here", "weight 12.01 here").missing).toEqual(["2.01%"]);
+    expect(againstDocling("weight 1.5% here", "weight 1.58% here").missing).toEqual(["1.5%"]);
+  });
+
+  test("a rupee amount needs a currency marker on the covering value and is never a left cut", () => {
+    expect(againstDocling("pay ₹1,00 now", "units 1,000 now").missing).toEqual(["₹1,00"]);
+    expect(againstDocling("pay ₹1,000 now", "pay ₹ 81,000 now").missing).toEqual(["₹1,000"]);
+  });
+
+  test("a date with a different month or a non-suffix day stays missing", () => {
+    expect(againstDocling("on 9 July 2019", "on 29 June 2019").missing).toEqual(["9 jul 2019"]);
+    expect(againstDocling("on 2 July 2019", "on 29 July 2019").missing).toEqual(["2 jul 2019"]);
+  });
+
+  test("covers both directions and keeps fragments out of the missing totals", () => {
+    const comparison = compareParserInspections({
+      filename: "a.pdf",
+      pageRange: null,
+      unpdf: side([{ text: "₹1,00 and ₹1,000 and 81,784.42 and 3.3%", pageNumbers: [1] }]),
+      docling: side([{ text: "₹1,000 and 1,784.42 and 81,784.42", pageNumbers: [1] }]),
+    });
+    const page = comparison.numericTokens.pages[0]!;
+    expect(page.coveredInDocling).toEqual([{ token: "₹1,00", coveredBy: "₹1,000" }]);
+    expect(page.coveredInUnpdf).toEqual([{ token: "1,784.42", coveredBy: "81,784.42" }]);
+    expect(page.missingFromDocling).toEqual(["3.3%"]);
+    expect(page.missingFromUnpdf).toEqual([]);
+    expect(comparison.numericTokens.totals).toMatchObject({
+      missingFromDocling: 1,
+      missingFromUnpdf: 0,
+      coveredInDocling: 1,
+      coveredInUnpdf: 1,
+    });
+  });
+});
+
+describe("chart axis ticks", () => {
+  test("labels >= 4 evenly spaced percentages as axis ticks, keeping other gaps missing", () => {
+    const page = compareParserInspections({
+      filename: "a.pdf",
+      pageRange: null,
+      unpdf: side([{ text: "0% 10% 20% 30% 40% 50% and 12.34%", pageNumbers: [1] }]),
+      docling: side([{ text: "chart", pageNumbers: [1] }]),
+    }).numericTokens.pages[0]!;
+    expect(page.axisTicksMissingFromDocling).toEqual(["0%", "10%", "20%", "30%", "40%", "50%"]);
+    expect(page.missingFromDocling).toEqual(["12.34%"]);
+  });
+
+  test("axis ticks are detected before fragment coverage", () => {
+    const page = compareParserInspections({
+      filename: "a.pdf",
+      pageRange: null,
+      unpdf: side([{ text: "0% 10% 20% 30% 40% 50%", pageNumbers: [1] }]),
+      docling: side([{ text: "weights 1.10% 28.50% 0.30%", pageNumbers: [1] }]),
+    }).numericTokens.pages[0]!;
+    expect(page.axisTicksMissingFromDocling).toEqual(["0%", "10%", "20%", "30%", "40%", "50%"]);
+    expect(page.coveredInDocling).toEqual([]);
+  });
+
+  test("three evenly spaced or unevenly spaced percentages are not axis ticks", () => {
+    const missing = (text: string) => compareParserInspections({
+      filename: "a.pdf",
+      pageRange: null,
+      unpdf: side([{ text, pageNumbers: [1] }]),
+      docling: side([]),
+    }).numericTokens.pages[0]!;
+    expect(missing("10% 20% 30%").axisTicksMissingFromDocling).toEqual([]);
+    expect(missing("1% 3% 7% 12%").axisTicksMissingFromDocling).toEqual([]);
+  });
+});
+
 describe("unpdf table extraction status", () => {
   test("is carried into the comparison and flagged in markdown when it failed", () => {
     const comparison = compareParserInspections({
@@ -219,9 +338,23 @@ describe("renderComparisonMarkdown", () => {
     });
     const markdown = renderComparisonMarkdown([comparison], { parserVersions: { unpdf: "u1", docling: "d1" } });
     expect(markdown).toContain("# Parser comparison");
-    expect(markdown).toContain("| fund.pdf | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 0 |");
+    expect(markdown).toContain("| fund.pdf | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |");
     expect(markdown).toContain("| TOKEN_LIMIT | warning | 1 | 0 | -1 |");
-    expect(markdown).toContain("| 1 | 0.95 |  |");
+    expect(markdown).toContain("| 1 | 0.95 |  |  |  |");
+    expect(markdown).not.toContain("#### Covered fragments");
+  });
+
+  test("renders covered fragments with a count and at most three examples", () => {
+    const comparison = compareParserInspections({
+      filename: "fund.pdf",
+      pageRange: null,
+      unpdf: side([{ text: "₹1,00 ₹2,00 ₹3,00 ₹4,00 | ₹1,000 ₹2,000 ₹3,000 ₹4,000", pageNumbers: [2] }]),
+      docling: side([{ text: "₹1,000 ₹2,000 ₹3,000 ₹4,000", pageNumbers: [2] }]),
+    });
+    const markdown = renderComparisonMarkdown([comparison], { parserVersions: { unpdf: "u1", docling: "d1" } });
+    expect(markdown).toContain("| fund.pdf | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 0 |");
+    expect(markdown).toContain("| 2 | 4: ₹1,00 ⊂ ₹1,000, ₹2,00 ⊂ ₹2,000, ₹3,00 ⊂ ₹3,000, +1 more |  |");
+    expect(markdown).toContain("No per-page gaps.");
     expect(markdown).toContain("Docling: `d1`");
   });
 });
