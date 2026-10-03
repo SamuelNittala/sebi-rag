@@ -57,6 +57,23 @@ describe("parseWithDocling", () => {
     expect(seen[0]!.body).toEqual(pdf);
   });
 
+  test("disables Bun's 300 s fetch timeout so long conversions are bounded only by the caller's deadline", async () => {
+    const baseUrl = serve(() => Response.json(validBody(), { headers: { "content-type": DOCLING_PARSE_MEDIA_TYPE } }));
+    const realFetch = globalThis.fetch;
+    const inits: (RequestInit & { timeout?: unknown })[] = [];
+    globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      inits.push(init ?? {});
+      return realFetch(input, init);
+    }) as typeof fetch;
+    try {
+      await parseWithDocling(pdf, options(baseUrl));
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+    expect(inits).toHaveLength(1);
+    expect(inits[0]!.timeout).toBe(false);
+  });
+
   test("maps a 422 service code to a deterministic error with the same code", async () => {
     const baseUrl = serve(() => Response.json({ code: "PDF_PAGE_LIMIT_EXCEEDED" }, { status: 422 }));
 

@@ -108,7 +108,9 @@ export async function fetchDoclingHealth(baseUrl: string, signal?: AbortSignal):
 async function request(url: string, init: RequestInit & { signal?: AbortSignal }): Promise<Response> {
   init.signal?.throwIfAborted();
   try {
-    return await fetch(url, { ...init, redirect: "manual" });
+    // Bun aborts fetch after 300 s by default; a large factsheet converts for longer,
+    // so the caller's signal (PIPELINE_DOCLING_PARSE_DEADLINE_MS) is the only deadline.
+    return await fetch(url, { ...init, redirect: "manual", timeout: false } as RequestInit);
   } catch (error) {
     if (init.signal?.aborted) throw init.signal.reason;
     throw transient("DOCLING_SERVICE_UNAVAILABLE", "Docling service is unreachable.", error);
