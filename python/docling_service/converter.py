@@ -50,6 +50,9 @@ class Settings:
     document_timeout_s: float = 1700.0
     max_upload_bytes: int = 26_214_400
     max_pages: int = 500
+    # gunicorn gthread pool size (the CMD passes the same variable to --threads).
+    # One thread stays free for /health; the rest may hold or wait for a parse.
+    http_threads: int = 12
 
     @staticmethod
     def from_env() -> "Settings":
@@ -59,6 +62,7 @@ class Settings:
             document_timeout_s=float(os.environ.get("DOCLING_DOCUMENT_TIMEOUT_S", "1700")),
             max_upload_bytes=int(os.environ.get("DOCLING_MAX_UPLOAD_BYTES", "26214400")),
             max_pages=int(os.environ.get("DOCLING_MAX_PAGES", "500")),
+            http_threads=int(os.environ.get("DOCLING_HTTP_THREADS", "12")),
         )
 
     @property
@@ -158,15 +162,19 @@ class ConversionError(Exception):
 
 def count_pages(pdf: bytes) -> int:
     import pypdfium2
+    # PDFium is not thread-safe; Docling serializes its own PDFium calls on this lock,
+    # and a queued request counts pages while another request converts.
+    from docling.utils.locks import pypdfium2_lock
 
-    try:
-        document = pypdfium2.PdfDocument(pdf)
-    except pypdfium2.PdfiumError as error:
-        raise ConversionError("DOCLING_CONVERSION_FAILED") from error
-    try:
-        return len(document)
-    finally:
-        document.close()
+    with pypdfium2_lock:
+        try:
+            document = pypdfium2.PdfDocument(pdf)
+        except pypdfium2.PdfiumError as error:
+            raise ConversionError("DOCLING_CONVERSION_FAILED") from error
+        try:
+            return len(document)
+        finally:
+            document.close()
 
 
 def convert_pdf(converter: DocumentConverter, pdf: bytes) -> DoclingDocument:

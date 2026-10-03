@@ -30,6 +30,7 @@ COPY --from=models /opt/docling-models /opt/docling-models
 ENV DOCLING_MODELS_DIR=/opt/docling-models \
     HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1 \
+    DOCLING_HTTP_THREADS=12 \
     PORT=8090
 WORKDIR /srv/python
 COPY python/docling_service /srv/python/docling_service
@@ -48,4 +49,6 @@ USER docling
 EXPOSE 8090
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
   CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'], timeout=4)"
-CMD ["sh", "-c", "exec gunicorn -w 1 -b 0.0.0.0:${PORT} --timeout 3600 --graceful-timeout 30 'docling_service.app:create_app()'"]
+# One process (models loaded once, ~4 GiB peak per conversion), gthread so /health
+# answers during a conversion; the app converts one parse at a time and queues the rest.
+CMD ["sh", "-c", "exec gunicorn -k gthread -w 1 --threads ${DOCLING_HTTP_THREADS} -b 0.0.0.0:${PORT} --timeout 3600 --graceful-timeout 30 'docling_service.app:create_app()'"]
