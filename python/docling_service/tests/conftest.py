@@ -7,6 +7,18 @@ from docling_core.types.doc import DoclingDocument
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "docling"
 FIXTURE_STEM = "mirae-flexi-cap-p34-35"
+# Single-page slices of mirae-sep-2026.pdf: p88 header-less Fund Performance rows, p10 as-of page footer.
+FUND_PERFORMANCE_STEM = "mirae-fund-performance-p88"
+FUND_FACTS_STEM = "mirae-fund-facts-p10"
+# mirae-sep-2026.pdf p98: merged header/data rows and fund values inside row labels.
+FUND_PERFORMANCE_P98_STEM = "mirae-fund-performance-p98"
+# mirae-passive-aug-2026.pdf p34: page-footer footnotes, as-of line only in a section header.
+PASSIVE_ETF_STEM = "mirae-passive-etf-p34"
+# mirae-sep-2026.pdf p104: number-heavy SIP performance rows that need a row split under the TS token measure.
+SIP_PERFORMANCE_STEM = "mirae-sip-performance-p104"
+GOLDEN_STEMS = (
+    FIXTURE_STEM, FUND_PERFORMANCE_STEM, FUND_FACTS_STEM, FUND_PERFORMANCE_P98_STEM, PASSIVE_ETF_STEM, SIP_PERFORMANCE_STEM,
+)
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "contract" / "docling-parse-v1.schema.json"
 
 
@@ -14,10 +26,24 @@ def models_dir() -> Path:
     return Path(os.environ.get("DOCLING_MODELS_DIR", "/opt/docling-models"))
 
 
+def load_doc(stem: str) -> DoclingDocument:
+    return DoclingDocument.load_from_json(FIXTURES / f"{stem}.docling.json")
+
+
 @pytest.fixture
 def fixture_doc() -> DoclingDocument:
     """Fresh copy per test: normalizers repair the document in place."""
-    return DoclingDocument.load_from_json(FIXTURES / f"{FIXTURE_STEM}.docling.json")
+    return load_doc(FIXTURE_STEM)
+
+
+@pytest.fixture
+def fund_performance_doc() -> DoclingDocument:
+    return load_doc(FUND_PERFORMANCE_STEM)
+
+
+@pytest.fixture
+def fund_performance_p98_doc() -> DoclingDocument:
+    return load_doc(FUND_PERFORMANCE_P98_STEM)
 
 
 def item(doc: DoclingDocument, ref: str):
@@ -42,10 +68,15 @@ def chunker():
 
 
 @pytest.fixture(scope="session")
-def fixture_wire(chunker) -> dict:
+def wires(chunker) -> dict[str, dict]:
     from docling_service.tools.fixtures import wire_for
 
-    return wire_for(FIXTURES / f"{FIXTURE_STEM}.docling.json", chunker)
+    return {stem: wire_for(FIXTURES / f"{stem}.docling.json", chunker) for stem in GOLDEN_STEMS}
+
+
+@pytest.fixture(scope="session")
+def fixture_wire(wires) -> dict:
+    return wires[FIXTURE_STEM]
 
 
 def assert_wire_contract(wire: dict) -> None:

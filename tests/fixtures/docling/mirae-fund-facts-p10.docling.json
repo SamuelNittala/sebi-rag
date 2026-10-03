@@ -1,0 +1,3925 @@
+{
+  "schema_name": "DoclingDocument",
+  "version": "1.10.0",
+  "name": "mirae-fund-facts-p10",
+  "origin": {
+    "mimetype": "application/pdf",
+    "binary_hash": 1244456265239779762,
+    "filename": "mirae-fund-facts-p10.pdf"
+  },
+  "furniture": {
+    "self_ref": "#/furniture",
+    "children": [],
+    "content_layer": "furniture",
+    "name": "_root_",
+    "label": "unspecified"
+  },
+  "body": {
+    "self_ref": "#/body",
+    "children": [
+      {
+        "$ref": "#/texts/0"
+      },
+      {
+        "$ref": "#/texts/1"
+      },
+      {
+        "$ref": "#/pictures/0"
+      },
+      {
+        "$ref": "#/tables/0"
+      },
+      {
+        "$ref": "#/texts/8"
+      },
+      {
+        "$ref": "#/texts/9"
+      }
+    ],
+    "content_layer": "body",
+    "name": "_root_",
+    "label": "unspecified"
+  },
+  "groups": [],
+  "texts": [
+    {
+      "self_ref": "#/texts/0",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "section_header",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 38.402342149902346,
+            "t": 807.148106448828,
+            "r": 302.28029613198714,
+            "b": 789.1293571996092,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            27
+          ]
+        }
+      ],
+      "orig": "Mirae Asset Equity Snapshot",
+      "text": "Mirae Asset Equity Snapshot",
+      "level": 1
+    },
+    {
+      "self_ref": "#/texts/1",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "section_header",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 38.402342149902346,
+            "t": 785.1299826357811,
+            "r": 89.7781981853987,
+            "b": 777.1017013718432,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            11
+          ]
+        }
+      ],
+      "orig": "August 2026",
+      "text": "August 2026",
+      "level": 1
+    },
+    {
+      "self_ref": "#/texts/2",
+      "parent": {
+        "$ref": "#/tables/0"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "footnote",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 47.999998,
+            "t": 73.61344940356912,
+            "r": 352.7167972045914,
+            "b": 68.20782476957515,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            121
+          ]
+        }
+      ],
+      "orig": "** Market Cap classifications are according to the half yearly data provided by AMFI*Data includes \"Partly Paid Shares\" .",
+      "text": "** Market Cap classifications are according to the half yearly data provided by AMFI*Data includes \"Partly Paid Shares\" ."
+    },
+    {
+      "self_ref": "#/texts/3",
+      "parent": {
+        "$ref": "#/tables/0"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "footnote",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 47.999998,
+            "t": 66.11344971606923,
+            "r": 112.81109849451448,
+            "b": 61.852512504570086,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            26
+          ]
+        }
+      ],
+      "orig": "^ Portfolio Turnover Ratio",
+      "text": "^ Portfolio Turnover Ratio"
+    },
+    {
+      "self_ref": "#/texts/4",
+      "parent": {
+        "$ref": "#/tables/0"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "footnote",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 47.999998,
+            "t": 58.61626252837891,
+            "r": 299.4763083574687,
+            "b": 53.20782539457514,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            98
+          ]
+        }
+      ],
+      "orig": "~This is exposure to unhedged derivatives. Its contra entry is within Cash & Other Receivables (%)",
+      "text": "~This is exposure to unhedged derivatives. Its contra entry is within Cash & Other Receivables (%)"
+    },
+    {
+      "self_ref": "#/texts/5",
+      "parent": {
+        "$ref": "#/tables/0"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "footnote",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 47.999998,
+            "t": 50.36345037231922,
+            "r": 400.4757735084861,
+            "b": 44.957825738325255,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            138
+          ]
+        }
+      ],
+      "orig": "For the latest and detailed AAUM disclosures, please visit: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/other-disclosure",
+      "text": "For the latest and detailed AAUM disclosures, please visit: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/other-disclosure"
+    },
+    {
+      "self_ref": "#/texts/6",
+      "parent": {
+        "$ref": "#/tables/0"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "footnote",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 47.999998,
+            "t": 42.8634506848191,
+            "r": 341.2530807417701,
+            "b": 37.45782605082513,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            113
+          ]
+        }
+      ],
+      "orig": "Please visit the website for more details: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/addendum",
+      "text": "Please visit the website for more details: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/addendum"
+    },
+    {
+      "self_ref": "#/texts/7",
+      "parent": {
+        "$ref": "#/tables/0"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "footnote",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 47.999998,
+            "t": 34.275013759687454,
+            "r": 369.1342614955307,
+            "b": 27.285951474653302,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            120
+          ]
+        }
+      ],
+      "orig": "2 Pursuant to notice cum addendum no. 75/2026, the Type of the scheme has been changed with effect from August 25, 2026.",
+      "text": "2 Pursuant to notice cum addendum no. 75/2026, the Type of the scheme has been changed with effect from August 25, 2026."
+    },
+    {
+      "self_ref": "#/texts/8",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "furniture",
+      "label": "page_footer",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 40.792967050292965,
+            "t": 16.21501440437487,
+            "r": 46.66592503578637,
+            "b": 12.355561440185511,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            2
+          ]
+        }
+      ],
+      "orig": "10",
+      "text": "10"
+    },
+    {
+      "self_ref": "#/texts/9",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "furniture",
+      "label": "page_footer",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 470.074202913574,
+            "t": 35.7004823949585,
+            "r": 544.9128795652728,
+            "b": 28.45782642582526,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            29
+          ]
+        }
+      ],
+      "orig": "Data as on 31 st August, 2026",
+      "text": "Data as on 31 st August, 2026"
+    }
+  ],
+  "pictures": [
+    {
+      "self_ref": "#/pictures/0",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "body",
+      "meta": {
+        "classification": {
+          "predictions": [
+            {
+              "confidence": 0.999504804611206,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "logo"
+            },
+            {
+              "confidence": 0.0001420774933649227,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "full_page_image"
+            },
+            {
+              "confidence": 9.573992429068312e-05,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "page_thumbnail"
+            },
+            {
+              "confidence": 6.025430775480345e-05,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "icon"
+            },
+            {
+              "confidence": 4.008565520052798e-05,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "other"
+            },
+            {
+              "confidence": 3.79416233045049e-05,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "stamp"
+            },
+            {
+              "confidence": 2.4738414140301757e-05,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "screenshot_from_manual"
+            },
+            {
+              "confidence": 2.3839735149522312e-05,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "calendar"
+            },
+            {
+              "confidence": 1.9071878341492265e-05,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "screenshot_from_computer"
+            },
+            {
+              "confidence": 6.9541201810352504e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "qr_code"
+            },
+            {
+              "confidence": 6.285412382567301e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "photograph"
+            },
+            {
+              "confidence": 5.783130745840026e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "bar_chart"
+            },
+            {
+              "confidence": 5.619086095975945e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "flow_chart"
+            },
+            {
+              "confidence": 5.344539658835856e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "geographical_map"
+            },
+            {
+              "confidence": 4.7931266635714564e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "signature"
+            },
+            {
+              "confidence": 3.6097460451856023e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "music"
+            },
+            {
+              "confidence": 3.1728072826808784e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "table"
+            },
+            {
+              "confidence": 2.7969394977844786e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "engineering_drawing"
+            },
+            {
+              "confidence": 2.765783165159519e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "line_chart"
+            },
+            {
+              "confidence": 2.3542283997812774e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "bar_code"
+            },
+            {
+              "confidence": 1.2021091606584378e-06,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "chemistry_structure"
+            },
+            {
+              "confidence": 6.557337428603205e-07,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "crossword_puzzle"
+            },
+            {
+              "confidence": 1.4139925497147487e-07,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "pie_chart"
+            },
+            {
+              "confidence": 7.090919496022252e-08,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "scatter_plot"
+            },
+            {
+              "confidence": 3.327842534872616e-08,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "topographical_map"
+            },
+            {
+              "confidence": 2.8032853816029046e-09,
+              "created_by": "DocumentPictureClassifier",
+              "class_name": "box_plot"
+            }
+          ]
+        }
+      },
+      "label": "picture",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 474.5204335811696,
+            "t": 810.9555253163127,
+            "r": 571.9569304360351,
+            "b": 780.106507658999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ],
+      "captions": [],
+      "references": [],
+      "footnotes": [],
+      "annotations": [
+        {
+          "kind": "classification",
+          "provenance": "DocumentPictureClassifier",
+          "predicted_classes": [
+            {
+              "class_name": "logo",
+              "confidence": 0.999504804611206
+            },
+            {
+              "class_name": "full_page_image",
+              "confidence": 0.0001420774933649227
+            },
+            {
+              "class_name": "page_thumbnail",
+              "confidence": 9.573992429068312e-05
+            },
+            {
+              "class_name": "icon",
+              "confidence": 6.025430775480345e-05
+            },
+            {
+              "class_name": "other",
+              "confidence": 4.008565520052798e-05
+            },
+            {
+              "class_name": "stamp",
+              "confidence": 3.79416233045049e-05
+            },
+            {
+              "class_name": "screenshot_from_manual",
+              "confidence": 2.4738414140301757e-05
+            },
+            {
+              "class_name": "calendar",
+              "confidence": 2.3839735149522312e-05
+            },
+            {
+              "class_name": "screenshot_from_computer",
+              "confidence": 1.9071878341492265e-05
+            },
+            {
+              "class_name": "qr_code",
+              "confidence": 6.9541201810352504e-06
+            },
+            {
+              "class_name": "photograph",
+              "confidence": 6.285412382567301e-06
+            },
+            {
+              "class_name": "bar_chart",
+              "confidence": 5.783130745840026e-06
+            },
+            {
+              "class_name": "flow_chart",
+              "confidence": 5.619086095975945e-06
+            },
+            {
+              "class_name": "geographical_map",
+              "confidence": 5.344539658835856e-06
+            },
+            {
+              "class_name": "signature",
+              "confidence": 4.7931266635714564e-06
+            },
+            {
+              "class_name": "music",
+              "confidence": 3.6097460451856023e-06
+            },
+            {
+              "class_name": "table",
+              "confidence": 3.1728072826808784e-06
+            },
+            {
+              "class_name": "engineering_drawing",
+              "confidence": 2.7969394977844786e-06
+            },
+            {
+              "class_name": "line_chart",
+              "confidence": 2.765783165159519e-06
+            },
+            {
+              "class_name": "bar_code",
+              "confidence": 2.3542283997812774e-06
+            },
+            {
+              "class_name": "chemistry_structure",
+              "confidence": 1.2021091606584378e-06
+            },
+            {
+              "class_name": "crossword_puzzle",
+              "confidence": 6.557337428603205e-07
+            },
+            {
+              "class_name": "pie_chart",
+              "confidence": 1.4139925497147487e-07
+            },
+            {
+              "class_name": "scatter_plot",
+              "confidence": 7.090919496022252e-08
+            },
+            {
+              "class_name": "topographical_map",
+              "confidence": 3.327842534872616e-08
+            },
+            {
+              "class_name": "box_plot",
+              "confidence": 2.8032853816029046e-09
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "self_ref": "#/tables/0",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [
+        {
+          "$ref": "#/texts/2"
+        },
+        {
+          "$ref": "#/texts/3"
+        },
+        {
+          "$ref": "#/texts/4"
+        },
+        {
+          "$ref": "#/texts/5"
+        },
+        {
+          "$ref": "#/texts/6"
+        },
+        {
+          "$ref": "#/texts/7"
+        }
+      ],
+      "content_layer": "body",
+      "label": "table",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 38.44552515598791,
+            "t": 761.3652278519314,
+            "r": 571.8147891230469,
+            "b": 207.45556321781544,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ],
+      "captions": [],
+      "references": [],
+      "footnotes": [
+        {
+          "$ref": "#/texts/2"
+        },
+        {
+          "$ref": "#/texts/3"
+        },
+        {
+          "$ref": "#/texts/4"
+        },
+        {
+          "$ref": "#/texts/5"
+        },
+        {
+          "$ref": "#/texts/6"
+        },
+        {
+          "$ref": "#/texts/7"
+        }
+      ],
+      "data": {
+        "table_cells": [
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 90.50249633643568,
+              "r": 100.89040533401007,
+              "b": 96.08999599449237,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 0,
+            "end_row_offset_idx": 1,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Fund Name",
+            "column_header": true,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 218.5429633940428,
+              "t": 90.50249633643568,
+              "r": 276.99785606299616,
+              "b": 105.86624555733897,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 0,
+            "end_row_offset_idx": 1,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "Mirae Asset Large Cap Fund",
+            "column_header": true,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 337.96873591796873,
+              "t": 90.50249633643568,
+              "r": 416.0510921441112,
+              "b": 105.86624555733897,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 0,
+            "end_row_offset_idx": 1,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "Mirae Asset Large & Midcap Fund",
+            "column_header": true,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 465.72654309472654,
+              "t": 90.50249633643568,
+              "r": 546.8014032461815,
+              "b": 104.34374565051291,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 0,
+            "end_row_offset_idx": 1,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "Mirae Asset Great Consumer Fund",
+            "column_header": true,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 124.90874490467297,
+              "r": 117.40161999604277,
+              "b": 132.11624446358894,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 1,
+            "end_row_offset_idx": 2,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Type of Scheme",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 189.33983961083968,
+              "t": 125.34608831250023,
+              "r": 306.1989559315553,
+              "b": 148.57147824414074,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 1,
+            "end_row_offset_idx": 2,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "An open-ended equity scheme predominantly investing across large cap stocks. 2",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 318.5859242255859,
+              "t": 125.34608831250023,
+              "r": 435.44504054630204,
+              "b": 148.57147824414074,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 1,
+            "end_row_offset_idx": 2,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "An open-ended equity scheme predominantly investing across large cap and mid cap stocks. 2",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 452.91795362841776,
+              "t": 125.34608831250023,
+              "r": 559.6166111012674,
+              "b": 141.15585355664075,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 1,
+            "end_row_offset_idx": 2,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "An open-ended equity scheme investing in consumption theme. 2",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 164.7299932440627,
+              "r": 146.00654987917065,
+              "b": 170.33999290074235,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 2,
+            "end_row_offset_idx": 3,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Tier-1 Benchmark Index",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 224.36717815136717,
+              "t": 165.7581960000001,
+              "r": 271.174099982981,
+              "b": 172.51522725000018,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 2,
+            "end_row_offset_idx": 3,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "Nifty 100 (TRI)",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 330.79686121679686,
+              "t": 165.7581960000001,
+              "r": 423.22946399734093,
+              "b": 172.51522725000018,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 2,
+            "end_row_offset_idx": 3,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "Nifty Large Midcap 250 (TRI)",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 449.03904379003905,
+              "t": 165.7581960000001,
+              "r": 563.4829143034477,
+              "b": 172.51522725000018,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 2,
+            "end_row_offset_idx": 3,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "Nifty India Consumption Index (TRI)",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 188.7299922440626,
+              "r": 146.00654987917065,
+              "b": 194.33999190074235,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 3,
+            "end_row_offset_idx": 4,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Tier-2 Benchmark Index",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 246.57421222607405,
+              "t": 192.81678875,
+              "r": 248.97186845807403,
+              "b": 193.4531168750001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 3,
+            "end_row_offset_idx": 4,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "-",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 375.8202968408203,
+              "t": 192.81678875,
+              "r": 378.2179530728203,
+              "b": 193.4531168750001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 3,
+            "end_row_offset_idx": 4,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "-",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 505.0663889555662,
+              "t": 192.81678875,
+              "r": 507.4640451875662,
+              "b": 193.4531168750001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 3,
+            "end_row_offset_idx": 4,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "-",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 216.50249108643573,
+              "r": 111.5553880972846,
+              "b": 223.61624065108902,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 4,
+            "end_row_offset_idx": 5,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Fund Manager",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 220.16015082666,
+              "t": 217.50819384375006,
+              "r": 275.3694206161193,
+              "b": 222.83788134375015,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 4,
+            "end_row_offset_idx": 5,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "Mr. Gaurav Misra",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 345.199208116699,
+              "t": 213.75819400000012,
+              "r": 408.83188993018297,
+              "b": 226.5878811875001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 4,
+            "end_row_offset_idx": 5,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "Mr. Neelesh Surana Mr. Ankit Jain",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 470.43748039843746,
+              "t": 217.50819384375006,
+              "r": 542.0787374038816,
+              "b": 222.83788134375015,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 4,
+            "end_row_offset_idx": 5,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "Mr. Siddhant Chhabria",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 245.00248989893578,
+              "r": 111.9866078466683,
+              "b": 252.0149894697853,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 5,
+            "end_row_offset_idx": 6,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Inception Date",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 226.25390057275374,
+              "t": 244.70506792895515,
+              "r": 269.28976629443827,
+              "b": 253.57147386914073,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 5,
+            "end_row_offset_idx": 6,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "4 th April 2008",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 356.0976451625975,
+              "t": 244.70506792895515,
+              "r": 397.93116035938004,
+              "b": 253.65584886914064,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 5,
+            "end_row_offset_idx": 6,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "9 th July 2010",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 480.01170249951156,
+              "t": 244.70506792895515,
+              "r": 532.5186524265679,
+              "b": 252.22850511914078,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 5,
+            "end_row_offset_idx": 6,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "29 th March 2011",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 270.40873884217297,
+              "r": 124.06158934354404,
+              "b": 276.093738494263,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 6,
+            "end_row_offset_idx": 7,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Net AUM \u20b9 Crores",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 231.74999034375,
+              "t": 270.82498850000013,
+              "r": 263.7807753239796,
+              "b": 277.0195197500001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 6,
+            "end_row_offset_idx": 7,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "38,166.23",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 361.2656099472656,
+              "t": 270.82498850000013,
+              "r": 392.7620245247607,
+              "b": 277.0195197500001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 6,
+            "end_row_offset_idx": 7,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "45,811.35",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 492.2460769897459,
+              "t": 270.82498850000013,
+              "r": 520.2725744118211,
+              "b": 277.0195197500001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 6,
+            "end_row_offset_idx": 7,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "4,742.18",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 294.50248783643576,
+              "r": 118.96158887284095,
+              "b": 309.86623705733894,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 7,
+            "end_row_offset_idx": 8,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Asset Allocation Equity (%)",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 238.7578025517578,
+              "t": 299.3249873125002,
+              "r": 256.7753434658726,
+              "b": 304.59139356250023,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 7,
+            "end_row_offset_idx": 8,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "99.33",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 368.0038946665037,
+              "t": 299.3249873125002,
+              "r": 386.0214355806185,
+              "b": 304.58787793750014,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 7,
+            "end_row_offset_idx": 8,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "99.07",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 497.24997928125,
+              "t": 299.3249873125002,
+              "r": 515.2675201953649,
+              "b": 304.58787793750014,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 7,
+            "end_row_offset_idx": 8,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "99.22",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 326.75248649268576,
+              "r": 118.96158887284095,
+              "b": 342.11623571358894,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 8,
+            "end_row_offset_idx": 9,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Asset Allocation Non Equity (%)",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 240.76171246826155,
+              "t": 331.5749859687502,
+              "r": 254.77496582422165,
+              "b": 336.83787659375014,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 8,
+            "end_row_offset_idx": 9,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "0.17",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 370.0077970830078,
+              "t": 331.5749859687502,
+              "r": 384.02105043896796,
+              "b": 336.83787659375014,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 8,
+            "end_row_offset_idx": 9,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "0.17",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 499.2538891977537,
+              "t": 331.5749859687502,
+              "r": 513.2671425537139,
+              "b": 336.83787659375014,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 8,
+            "end_row_offset_idx": 9,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "0.00",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 361.61361296396683,
+              "r": 124.78158538161588,
+              "b": 377.3662342448389,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 9,
+            "end_row_offset_idx": 10,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "~ Asset Allocation Equity Futures(%)",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 240.76171246826155,
+              "t": 365.32498456250016,
+              "r": 254.77496582422165,
+              "b": 370.5878751875001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 9,
+            "end_row_offset_idx": 10,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "0.12",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 375.8202968408203,
+              "t": 368.3167814375,
+              "r": 378.2179530728203,
+              "b": 368.9531095625001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 9,
+            "end_row_offset_idx": 10,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "-",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 505.0663889555662,
+              "t": 368.3167814375,
+              "r": 507.4640451875662,
+              "b": 368.9531095625001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 9,
+            "end_row_offset_idx": 10,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "-",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 40.25248403018614,
+              "t": 380.5379462314744,
+              "r": 115.42162342161433,
+              "b": 409.6162329010889,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 10,
+            "end_row_offset_idx": 11,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Cash & Other Receivables(%) Details",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 240.76171246826155,
+              "t": 399.07498315625014,
+              "r": 254.77496582422165,
+              "b": 404.3378737812501,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 10,
+            "end_row_offset_idx": 11,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "0.50",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 370.0077970830078,
+              "t": 399.07498315625014,
+              "r": 384.02105043896796,
+              "b": 404.3378737812501,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 10,
+            "end_row_offset_idx": 11,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "0.76",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 499.2538891977537,
+              "t": 399.07498315625014,
+              "r": 513.2671425537139,
+              "b": 404.3378737812501,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 10,
+            "end_row_offset_idx": 11,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "0.78",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 40.15873403592343,
+              "t": 407.8566288681959,
+              "r": 102.60787937924552,
+              "b": 443.6952944626953,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 11,
+            "end_row_offset_idx": 12,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "**Large Cap Portfolios",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 235.55858768505843,
+              "t": 426.75818512500007,
+              "r": 259.9780724613279,
+              "b": 432.18982575000007,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 11,
+            "end_row_offset_idx": 12,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "85.77%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 364.8046722998047,
+              "t": 426.75818512500007,
+              "r": 389.22415707607416,
+              "b": 432.18982575000007,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 11,
+            "end_row_offset_idx": 12,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "46.99%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 494.0507644145506,
+              "t": 426.75818512500007,
+              "r": 518.4702491908203,
+              "b": 432.18982575000007,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 11,
+            "end_row_offset_idx": 12,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "64.88%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 450.4087313421729,
+              "r": 88.93917104877508,
+              "b": 457.5149809072851,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 12,
+            "end_row_offset_idx": 13,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Mid Cap",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 237.5624901015625,
+              "t": 450.7581841250002,
+              "r": 257.9776873196773,
+              "b": 456.1898247500002,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 12,
+            "end_row_offset_idx": 13,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "9.74%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 364.8046722998047,
+              "t": 450.7581841250002,
+              "r": 389.22415707607416,
+              "b": 456.1898247500002,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 12,
+            "end_row_offset_idx": 13,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "40.24%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 494.0507644145506,
+              "t": 450.7581841250002,
+              "r": 518.4702491908203,
+              "b": 456.1898247500002,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 12,
+            "end_row_offset_idx": 13,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "10.01%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 474.4087303421728,
+              "r": 96.20664974596346,
+              "b": 481.51497990728524,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 13,
+            "end_row_offset_idx": 14,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Small Cap",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 237.5624901015625,
+              "t": 474.7581831250001,
+              "r": 257.9776873196773,
+              "b": 480.1898237500001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 13,
+            "end_row_offset_idx": 14,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "3.94%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 365.07420728857403,
+              "t": 474.7581831250001,
+              "r": 388.95932166210895,
+              "b": 480.1898237500001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 13,
+            "end_row_offset_idx": 14,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "11.84%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 494.0507644145506,
+              "t": 474.7581831250001,
+              "r": 518.4702491908203,
+              "b": 480.1898237500001,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 13,
+            "end_row_offset_idx": 14,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "24.33%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 498.40872934217293,
+              "r": 108.14661168166815,
+              "b": 504.0974789940334,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 14,
+            "end_row_offset_idx": 15,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "No. of Stocks",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 243.76171234326154,
+              "t": 498.8249790000001,
+              "r": 251.7702967494162,
+              "b": 504.09138525000014,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 14,
+            "end_row_offset_idx": 15,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "73",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 373.0077969580078,
+              "t": 498.8249790000001,
+              "r": 381.01638136416244,
+              "b": 504.08786962500005,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 14,
+            "end_row_offset_idx": 15,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "82",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 502.25388907275374,
+              "t": 498.8249790000001,
+              "r": 510.2624734789084,
+              "b": 504.08786962500005,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 14,
+            "end_row_offset_idx": 15,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "40",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 522.4799783378127,
+              "r": 118.2378511361998,
+              "b": 529.616227901089,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 15,
+            "end_row_offset_idx": 16,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Top 10 Holdings",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 235.55858768505843,
+              "t": 523.5081810937501,
+              "r": 259.9780724613279,
+              "b": 528.9398217187501,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 15,
+            "end_row_offset_idx": 16,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "47.85%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 364.8046722998047,
+              "t": 523.5081810937501,
+              "r": 389.22415707607416,
+              "b": 528.9398217187501,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 15,
+            "end_row_offset_idx": 16,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "32.21%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 494.0507644145506,
+              "t": 523.5081810937501,
+              "r": 518.4702491908203,
+              "b": 528.9398217187501,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 15,
+            "end_row_offset_idx": 16,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "52.57%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 546.4087273421729,
+              "r": 109.29036853401159,
+              "b": 553.5149769072851,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 16,
+            "end_row_offset_idx": 17,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Top 5 Sectors",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 235.55858768505843,
+              "t": 547.5081800937502,
+              "r": 259.9780724613279,
+              "b": 552.9398207187502,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 16,
+            "end_row_offset_idx": 17,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "51.89%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 364.8046722998047,
+              "t": 547.5081800937502,
+              "r": 389.22415707607416,
+              "b": 552.9398207187502,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 16,
+            "end_row_offset_idx": 17,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "42.88%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 494.0507644145506,
+              "t": 547.5081800937502,
+              "r": 518.4702491908203,
+              "b": 552.9398207187502,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 16,
+            "end_row_offset_idx": 17,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "76.97%",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 570.5024763364357,
+              "r": 75.72044260775856,
+              "b": 576.0899759944924,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 17,
+            "end_row_offset_idx": 18,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Beta",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 240.76171246826155,
+              "t": 571.5749759687502,
+              "r": 254.77496582422165,
+              "b": 576.8413822187503,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 17,
+            "end_row_offset_idx": 18,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "0.93",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 370.0077970830078,
+              "t": 571.5749759687502,
+              "r": 384.02105043896796,
+              "b": 576.8378665937502,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 17,
+            "end_row_offset_idx": 18,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "0.97",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 499.2538891977537,
+              "t": 571.5749759687502,
+              "r": 513.2671425537139,
+              "b": 576.8378665937502,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 17,
+            "end_row_offset_idx": 18,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "0.97",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 40.252487390186,
+              "t": 587.1693925718305,
+              "r": 103.54912843625516,
+              "b": 610.6406003066406,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 18,
+            "end_row_offset_idx": 19,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "1 Year PTR^ Ratios",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 231.16405286816405,
+              "t": 595.5749749687501,
+              "r": 264.3796102591824,
+              "b": 600.83786559375,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 18,
+            "end_row_offset_idx": 19,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "0.42 times",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 360.41014498290997,
+              "t": 595.5749749687501,
+              "r": 393.6257023739284,
+              "b": 600.83786559375,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 18,
+            "end_row_offset_idx": 19,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "0.97 times",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 489.65622959765625,
+              "t": 595.5749749687501,
+              "r": 522.8717869886749,
+              "b": 600.83786559375,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 18,
+            "end_row_offset_idx": 19,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "0.49 times",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 59.07421628857421,
+              "t": 618.4087243421728,
+              "r": 122.64407994440383,
+              "b": 624.0899739944924,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 19,
+            "end_row_offset_idx": 20,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Information Ratio",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 239.56640001806622,
+              "t": 619.5749739687502,
+              "r": 255.9773049491242,
+              "b": 624.8378645937502,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 19,
+            "end_row_offset_idx": 20,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "-0.66",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 368.81248463281247,
+              "t": 619.5749739687502,
+              "r": 385.2233895638705,
+              "b": 624.8378645937502,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 19,
+            "end_row_offset_idx": 20,
+            "start_col_offset_idx": 2,
+            "end_col_offset_idx": 3,
+            "text": "-0.45",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 498.0585767475584,
+              "t": 619.5749739687502,
+              "r": 514.4694816786165,
+              "b": 624.8413802187503,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 19,
+            "end_row_offset_idx": 20,
+            "start_col_offset_idx": 3,
+            "end_col_offset_idx": 4,
+            "text": "-0.53",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          }
+        ],
+        "num_rows": 20,
+        "num_cols": 4,
+        "orientation": "rot_0",
+        "grid": [
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 90.50249633643568,
+                "r": 100.89040533401007,
+                "b": 96.08999599449237,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 0,
+              "end_row_offset_idx": 1,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Fund Name",
+              "column_header": true,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 218.5429633940428,
+                "t": 90.50249633643568,
+                "r": 276.99785606299616,
+                "b": 105.86624555733897,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 0,
+              "end_row_offset_idx": 1,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "Mirae Asset Large Cap Fund",
+              "column_header": true,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 337.96873591796873,
+                "t": 90.50249633643568,
+                "r": 416.0510921441112,
+                "b": 105.86624555733897,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 0,
+              "end_row_offset_idx": 1,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "Mirae Asset Large & Midcap Fund",
+              "column_header": true,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 465.72654309472654,
+                "t": 90.50249633643568,
+                "r": 546.8014032461815,
+                "b": 104.34374565051291,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 0,
+              "end_row_offset_idx": 1,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "Mirae Asset Great Consumer Fund",
+              "column_header": true,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 124.90874490467297,
+                "r": 117.40161999604277,
+                "b": 132.11624446358894,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 1,
+              "end_row_offset_idx": 2,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Type of Scheme",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 189.33983961083968,
+                "t": 125.34608831250023,
+                "r": 306.1989559315553,
+                "b": 148.57147824414074,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 1,
+              "end_row_offset_idx": 2,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "An open-ended equity scheme predominantly investing across large cap stocks. 2",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 318.5859242255859,
+                "t": 125.34608831250023,
+                "r": 435.44504054630204,
+                "b": 148.57147824414074,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 1,
+              "end_row_offset_idx": 2,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "An open-ended equity scheme predominantly investing across large cap and mid cap stocks. 2",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 452.91795362841776,
+                "t": 125.34608831250023,
+                "r": 559.6166111012674,
+                "b": 141.15585355664075,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 1,
+              "end_row_offset_idx": 2,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "An open-ended equity scheme investing in consumption theme. 2",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 164.7299932440627,
+                "r": 146.00654987917065,
+                "b": 170.33999290074235,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 2,
+              "end_row_offset_idx": 3,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Tier-1 Benchmark Index",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 224.36717815136717,
+                "t": 165.7581960000001,
+                "r": 271.174099982981,
+                "b": 172.51522725000018,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 2,
+              "end_row_offset_idx": 3,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "Nifty 100 (TRI)",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 330.79686121679686,
+                "t": 165.7581960000001,
+                "r": 423.22946399734093,
+                "b": 172.51522725000018,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 2,
+              "end_row_offset_idx": 3,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "Nifty Large Midcap 250 (TRI)",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 449.03904379003905,
+                "t": 165.7581960000001,
+                "r": 563.4829143034477,
+                "b": 172.51522725000018,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 2,
+              "end_row_offset_idx": 3,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "Nifty India Consumption Index (TRI)",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 188.7299922440626,
+                "r": 146.00654987917065,
+                "b": 194.33999190074235,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 3,
+              "end_row_offset_idx": 4,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Tier-2 Benchmark Index",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 246.57421222607405,
+                "t": 192.81678875,
+                "r": 248.97186845807403,
+                "b": 193.4531168750001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 3,
+              "end_row_offset_idx": 4,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "-",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 375.8202968408203,
+                "t": 192.81678875,
+                "r": 378.2179530728203,
+                "b": 193.4531168750001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 3,
+              "end_row_offset_idx": 4,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "-",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 505.0663889555662,
+                "t": 192.81678875,
+                "r": 507.4640451875662,
+                "b": 193.4531168750001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 3,
+              "end_row_offset_idx": 4,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "-",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 216.50249108643573,
+                "r": 111.5553880972846,
+                "b": 223.61624065108902,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 4,
+              "end_row_offset_idx": 5,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Fund Manager",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 220.16015082666,
+                "t": 217.50819384375006,
+                "r": 275.3694206161193,
+                "b": 222.83788134375015,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 4,
+              "end_row_offset_idx": 5,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "Mr. Gaurav Misra",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 345.199208116699,
+                "t": 213.75819400000012,
+                "r": 408.83188993018297,
+                "b": 226.5878811875001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 4,
+              "end_row_offset_idx": 5,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "Mr. Neelesh Surana Mr. Ankit Jain",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 470.43748039843746,
+                "t": 217.50819384375006,
+                "r": 542.0787374038816,
+                "b": 222.83788134375015,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 4,
+              "end_row_offset_idx": 5,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "Mr. Siddhant Chhabria",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 245.00248989893578,
+                "r": 111.9866078466683,
+                "b": 252.0149894697853,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 5,
+              "end_row_offset_idx": 6,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Inception Date",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 226.25390057275374,
+                "t": 244.70506792895515,
+                "r": 269.28976629443827,
+                "b": 253.57147386914073,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 5,
+              "end_row_offset_idx": 6,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "4 th April 2008",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 356.0976451625975,
+                "t": 244.70506792895515,
+                "r": 397.93116035938004,
+                "b": 253.65584886914064,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 5,
+              "end_row_offset_idx": 6,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "9 th July 2010",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 480.01170249951156,
+                "t": 244.70506792895515,
+                "r": 532.5186524265679,
+                "b": 252.22850511914078,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 5,
+              "end_row_offset_idx": 6,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "29 th March 2011",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 270.40873884217297,
+                "r": 124.06158934354404,
+                "b": 276.093738494263,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 6,
+              "end_row_offset_idx": 7,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Net AUM \u20b9 Crores",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 231.74999034375,
+                "t": 270.82498850000013,
+                "r": 263.7807753239796,
+                "b": 277.0195197500001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 6,
+              "end_row_offset_idx": 7,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "38,166.23",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 361.2656099472656,
+                "t": 270.82498850000013,
+                "r": 392.7620245247607,
+                "b": 277.0195197500001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 6,
+              "end_row_offset_idx": 7,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "45,811.35",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 492.2460769897459,
+                "t": 270.82498850000013,
+                "r": 520.2725744118211,
+                "b": 277.0195197500001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 6,
+              "end_row_offset_idx": 7,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "4,742.18",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 294.50248783643576,
+                "r": 118.96158887284095,
+                "b": 309.86623705733894,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 7,
+              "end_row_offset_idx": 8,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Asset Allocation Equity (%)",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 238.7578025517578,
+                "t": 299.3249873125002,
+                "r": 256.7753434658726,
+                "b": 304.59139356250023,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 7,
+              "end_row_offset_idx": 8,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "99.33",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 368.0038946665037,
+                "t": 299.3249873125002,
+                "r": 386.0214355806185,
+                "b": 304.58787793750014,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 7,
+              "end_row_offset_idx": 8,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "99.07",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 497.24997928125,
+                "t": 299.3249873125002,
+                "r": 515.2675201953649,
+                "b": 304.58787793750014,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 7,
+              "end_row_offset_idx": 8,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "99.22",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 326.75248649268576,
+                "r": 118.96158887284095,
+                "b": 342.11623571358894,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 8,
+              "end_row_offset_idx": 9,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Asset Allocation Non Equity (%)",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 240.76171246826155,
+                "t": 331.5749859687502,
+                "r": 254.77496582422165,
+                "b": 336.83787659375014,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 8,
+              "end_row_offset_idx": 9,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "0.17",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 370.0077970830078,
+                "t": 331.5749859687502,
+                "r": 384.02105043896796,
+                "b": 336.83787659375014,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 8,
+              "end_row_offset_idx": 9,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "0.17",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 499.2538891977537,
+                "t": 331.5749859687502,
+                "r": 513.2671425537139,
+                "b": 336.83787659375014,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 8,
+              "end_row_offset_idx": 9,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "0.00",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 361.61361296396683,
+                "r": 124.78158538161588,
+                "b": 377.3662342448389,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 9,
+              "end_row_offset_idx": 10,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "~ Asset Allocation Equity Futures(%)",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 240.76171246826155,
+                "t": 365.32498456250016,
+                "r": 254.77496582422165,
+                "b": 370.5878751875001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 9,
+              "end_row_offset_idx": 10,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "0.12",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 375.8202968408203,
+                "t": 368.3167814375,
+                "r": 378.2179530728203,
+                "b": 368.9531095625001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 9,
+              "end_row_offset_idx": 10,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "-",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 505.0663889555662,
+                "t": 368.3167814375,
+                "r": 507.4640451875662,
+                "b": 368.9531095625001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 9,
+              "end_row_offset_idx": 10,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "-",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 40.25248403018614,
+                "t": 380.5379462314744,
+                "r": 115.42162342161433,
+                "b": 409.6162329010889,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 10,
+              "end_row_offset_idx": 11,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Cash & Other Receivables(%) Details",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 240.76171246826155,
+                "t": 399.07498315625014,
+                "r": 254.77496582422165,
+                "b": 404.3378737812501,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 10,
+              "end_row_offset_idx": 11,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "0.50",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 370.0077970830078,
+                "t": 399.07498315625014,
+                "r": 384.02105043896796,
+                "b": 404.3378737812501,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 10,
+              "end_row_offset_idx": 11,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "0.76",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 499.2538891977537,
+                "t": 399.07498315625014,
+                "r": 513.2671425537139,
+                "b": 404.3378737812501,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 10,
+              "end_row_offset_idx": 11,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "0.78",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 40.15873403592343,
+                "t": 407.8566288681959,
+                "r": 102.60787937924552,
+                "b": 443.6952944626953,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 11,
+              "end_row_offset_idx": 12,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "**Large Cap Portfolios",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 235.55858768505843,
+                "t": 426.75818512500007,
+                "r": 259.9780724613279,
+                "b": 432.18982575000007,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 11,
+              "end_row_offset_idx": 12,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "85.77%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 364.8046722998047,
+                "t": 426.75818512500007,
+                "r": 389.22415707607416,
+                "b": 432.18982575000007,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 11,
+              "end_row_offset_idx": 12,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "46.99%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 494.0507644145506,
+                "t": 426.75818512500007,
+                "r": 518.4702491908203,
+                "b": 432.18982575000007,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 11,
+              "end_row_offset_idx": 12,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "64.88%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 450.4087313421729,
+                "r": 88.93917104877508,
+                "b": 457.5149809072851,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 12,
+              "end_row_offset_idx": 13,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Mid Cap",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 237.5624901015625,
+                "t": 450.7581841250002,
+                "r": 257.9776873196773,
+                "b": 456.1898247500002,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 12,
+              "end_row_offset_idx": 13,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "9.74%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 364.8046722998047,
+                "t": 450.7581841250002,
+                "r": 389.22415707607416,
+                "b": 456.1898247500002,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 12,
+              "end_row_offset_idx": 13,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "40.24%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 494.0507644145506,
+                "t": 450.7581841250002,
+                "r": 518.4702491908203,
+                "b": 456.1898247500002,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 12,
+              "end_row_offset_idx": 13,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "10.01%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 474.4087303421728,
+                "r": 96.20664974596346,
+                "b": 481.51497990728524,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 13,
+              "end_row_offset_idx": 14,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Small Cap",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 237.5624901015625,
+                "t": 474.7581831250001,
+                "r": 257.9776873196773,
+                "b": 480.1898237500001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 13,
+              "end_row_offset_idx": 14,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "3.94%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 365.07420728857403,
+                "t": 474.7581831250001,
+                "r": 388.95932166210895,
+                "b": 480.1898237500001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 13,
+              "end_row_offset_idx": 14,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "11.84%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 494.0507644145506,
+                "t": 474.7581831250001,
+                "r": 518.4702491908203,
+                "b": 480.1898237500001,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 13,
+              "end_row_offset_idx": 14,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "24.33%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 498.40872934217293,
+                "r": 108.14661168166815,
+                "b": 504.0974789940334,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 14,
+              "end_row_offset_idx": 15,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "No. of Stocks",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 243.76171234326154,
+                "t": 498.8249790000001,
+                "r": 251.7702967494162,
+                "b": 504.09138525000014,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 14,
+              "end_row_offset_idx": 15,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "73",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 373.0077969580078,
+                "t": 498.8249790000001,
+                "r": 381.01638136416244,
+                "b": 504.08786962500005,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 14,
+              "end_row_offset_idx": 15,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "82",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 502.25388907275374,
+                "t": 498.8249790000001,
+                "r": 510.2624734789084,
+                "b": 504.08786962500005,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 14,
+              "end_row_offset_idx": 15,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "40",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 522.4799783378127,
+                "r": 118.2378511361998,
+                "b": 529.616227901089,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 15,
+              "end_row_offset_idx": 16,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Top 10 Holdings",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 235.55858768505843,
+                "t": 523.5081810937501,
+                "r": 259.9780724613279,
+                "b": 528.9398217187501,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 15,
+              "end_row_offset_idx": 16,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "47.85%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 364.8046722998047,
+                "t": 523.5081810937501,
+                "r": 389.22415707607416,
+                "b": 528.9398217187501,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 15,
+              "end_row_offset_idx": 16,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "32.21%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 494.0507644145506,
+                "t": 523.5081810937501,
+                "r": 518.4702491908203,
+                "b": 528.9398217187501,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 15,
+              "end_row_offset_idx": 16,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "52.57%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 546.4087273421729,
+                "r": 109.29036853401159,
+                "b": 553.5149769072851,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 16,
+              "end_row_offset_idx": 17,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Top 5 Sectors",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 235.55858768505843,
+                "t": 547.5081800937502,
+                "r": 259.9780724613279,
+                "b": 552.9398207187502,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 16,
+              "end_row_offset_idx": 17,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "51.89%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 364.8046722998047,
+                "t": 547.5081800937502,
+                "r": 389.22415707607416,
+                "b": 552.9398207187502,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 16,
+              "end_row_offset_idx": 17,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "42.88%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 494.0507644145506,
+                "t": 547.5081800937502,
+                "r": 518.4702491908203,
+                "b": 552.9398207187502,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 16,
+              "end_row_offset_idx": 17,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "76.97%",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 570.5024763364357,
+                "r": 75.72044260775856,
+                "b": 576.0899759944924,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 17,
+              "end_row_offset_idx": 18,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Beta",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 240.76171246826155,
+                "t": 571.5749759687502,
+                "r": 254.77496582422165,
+                "b": 576.8413822187503,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 17,
+              "end_row_offset_idx": 18,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "0.93",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 370.0077970830078,
+                "t": 571.5749759687502,
+                "r": 384.02105043896796,
+                "b": 576.8378665937502,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 17,
+              "end_row_offset_idx": 18,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "0.97",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 499.2538891977537,
+                "t": 571.5749759687502,
+                "r": 513.2671425537139,
+                "b": 576.8378665937502,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 17,
+              "end_row_offset_idx": 18,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "0.97",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 40.252487390186,
+                "t": 587.1693925718305,
+                "r": 103.54912843625516,
+                "b": 610.6406003066406,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 18,
+              "end_row_offset_idx": 19,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "1 Year PTR^ Ratios",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 231.16405286816405,
+                "t": 595.5749749687501,
+                "r": 264.3796102591824,
+                "b": 600.83786559375,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 18,
+              "end_row_offset_idx": 19,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "0.42 times",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 360.41014498290997,
+                "t": 595.5749749687501,
+                "r": 393.6257023739284,
+                "b": 600.83786559375,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 18,
+              "end_row_offset_idx": 19,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "0.97 times",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 489.65622959765625,
+                "t": 595.5749749687501,
+                "r": 522.8717869886749,
+                "b": 600.83786559375,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 18,
+              "end_row_offset_idx": 19,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "0.49 times",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          [
+            {
+              "bbox": {
+                "l": 59.07421628857421,
+                "t": 618.4087243421728,
+                "r": 122.64407994440383,
+                "b": 624.0899739944924,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 19,
+              "end_row_offset_idx": 20,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Information Ratio",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 239.56640001806622,
+                "t": 619.5749739687502,
+                "r": 255.9773049491242,
+                "b": 624.8378645937502,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 19,
+              "end_row_offset_idx": 20,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "-0.66",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 368.81248463281247,
+                "t": 619.5749739687502,
+                "r": 385.2233895638705,
+                "b": 624.8378645937502,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 19,
+              "end_row_offset_idx": 20,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "-0.45",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 498.0585767475584,
+                "t": 619.5749739687502,
+                "r": 514.4694816786165,
+                "b": 624.8413802187503,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 19,
+              "end_row_offset_idx": 20,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "-0.53",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ]
+        ]
+      },
+      "annotations": []
+    }
+  ],
+  "key_value_items": [],
+  "form_items": [],
+  "pages": {
+    "1": {
+      "size": {
+        "width": 594.95996,
+        "height": 841.91998
+      },
+      "page_no": 1
+    }
+  }
+}

@@ -40,7 +40,7 @@ def test_health_reports_versions():
         "parserVersion": converter.parser_version(),
         "serviceVersion": "1.0.0",
         "doclingVersion": "2.132.0",
-        "normalizerVersion": "1",
+        "normalizerVersion": "2",
         "pipelineOptionsSha256": converter.pipeline_options_sha256(converter.build_pipeline_options()),
         "modelsLoaded": True,
     }

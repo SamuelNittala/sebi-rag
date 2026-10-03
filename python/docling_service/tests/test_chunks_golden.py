@@ -1,11 +1,12 @@
 import os
+import re
 
-from docling_service.tests.conftest import FIXTURE_STEM, FIXTURES, needs_tokenizer
+import pytest
+
+from docling_service.tests.conftest import FUND_FACTS_STEM, FUND_PERFORMANCE_STEM, GOLDEN_STEMS, FIXTURES, PASSIVE_ETF_STEM, needs_tokenizer
 from docling_service.tools.fixtures import dump_wire
 
 pytestmark = needs_tokenizer
-
-GOLDEN = FIXTURES / f"{FIXTURE_STEM}.wire.json"
 
 
 def _chunks(wire, **match):
@@ -16,11 +17,13 @@ def _reading_index(ref, wire_order):
     return wire_order.index(ref)
 
 
-def test_golden_is_byte_identical(fixture_wire):
-    rendered = dump_wire(fixture_wire)
+@pytest.mark.parametrize("stem", GOLDEN_STEMS)
+def test_golden_is_byte_identical(wires, stem):
+    golden = FIXTURES / f"{stem}.wire.json"
+    rendered = dump_wire(wires[stem])
     if os.environ.get("UPDATE_GOLDEN") == "1":
-        GOLDEN.write_text(rendered, encoding="utf-8")
-    assert GOLDEN.read_text(encoding="utf-8") == rendered
+        golden.write_text(rendered, encoding="utf-8")
+    assert golden.read_text(encoding="utf-8") == rendered
 
 
 def test_every_table_in_exactly_one_chunk_and_never_mixed(fixture_wire):
@@ -88,3 +91,64 @@ def test_page_stats(fixture_wire):
     assert (first["stats"]["tables"], first["stats"]["pictures"]) == (5, 4)
     assert (second["stats"]["tables"], second["stats"]["pictures"]) == (4, 3)
     assert first["hasTable"] and second["hasTable"]
+
+
+# A column index standing in for a missing column header (`NAV as on ..., 1 = ₹94.398`).
+INDEX_HEADER = re.compile(r"(?:^|, |\. )\d+ = ")
+
+
+@pytest.mark.parametrize("stem", GOLDEN_STEMS)
+def test_no_column_index_headers(wires, stem):
+    for chunk in wires[stem]["chunks"]:
+        assert not INDEX_HEADER.search(chunk["text"]), chunk["text"]
+
+
+def test_header_less_fund_performance_rows(wires):
+    texts = [c["text"] for c in wires[FUND_PERFORMANCE_STEM]["chunks"] if c["type"] == "table"]
+    lines = [line for text in texts for line in text.split("\n")]
+    assert "NAV as on 31st Aug 2026: ₹94.398" in lines
+    assert "Index Value 31st Aug 2026: Index Value of Scheme Benchmark is 15,036.720 and BSE Sensex (TRI) is 1,21,824.500" in lines
+    assert "Allotment Date: 29th March 2011" in lines
+    assert "Since Inception, Mirae Asset Great Consumer Fund = 15.65%" in "\n".join(lines)
+
+
+def test_as_of_page_footer_is_kept_as_last_text_chunk(wires):
+    wire = wires[FUND_FACTS_STEM]
+    footer = wire["chunks"][-1]
+    assert footer["type"] == "text"
+    assert footer["text"] == "Data as on 31st August, 2026"
+    assert footer["headings"] == []
+    assert footer["pages"] == [1]
+    assert footer["flags"] == ["ordinal_joined"]
+    page_text = wire["pages"][0]["text"]
+    assert page_text.endswith("Data as on 31st August, 2026")
+    # Page numbers and other footers stay furniture.
+    assert all(c["text"] not in {"10", "MIRAE ASSET INVESTMENT MANAGERS (INDIA) PRIVATE LIMITED"} for c in wire["chunks"])
+
+
+def test_plain_page_footers_are_still_dropped(fixture_wire):
+    texts = "\n".join(c["text"] for c in fixture_wire["chunks"])
+    assert "Past Performance is not an indicator or guarantee of future results." not in texts
+    assert all(not page["text"].endswith("future results.") for page in fixture_wire["pages"])
+
+
+def test_page_footer_footnotes_are_kept(wires):
+    # passive p34: Docling labels the scheme footnotes page_footer.
+    wire = wires[PASSIVE_ETF_STEM]
+    footer = wire["chunks"][-1]
+    assert footer["type"] == "text"
+    assert footer["headings"] == [] and footer["pages"] == [1]
+    lines = footer["text"].split("\n")
+    assert lines[0].startswith("Pursuant to clause 14.2.2 of Chapter 14 in SEBI master circular dated March 20, 2026")
+    assert lines[1] == "^^^Pursuant to notice cum addendum no. 51/2026, a Market Maker has been added w.e.f June 19, 2026."
+    assert "34" not in lines
+    assert "less than 6 months" in wire["pages"][0]["text"]
+
+
+def test_as_of_section_header_lands_in_a_chunk(wires):
+    # passive p34: `Monthly Factsheet as on 31 July, 2026` is a section header directly followed
+    # by another one, so HybridChunker puts it in no chunk.
+    wire = wires[PASSIVE_ETF_STEM]
+    holders = [c for c in wire["chunks"] if "Monthly Factsheet as on 31 July, 2026" in [c["text"], *c["headings"]]]
+    assert holders
+    assert holders[0]["type"] == "text" and holders[0]["pages"] == [1]

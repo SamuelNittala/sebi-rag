@@ -57,3 +57,31 @@ def test_repair_document_ordinals(fixture_doc):
     cells = [c.text for c in item(fixture_doc, "#/tables/0").data.table_cells]
     assert "Date of Inception/ Allotment: 24th February 2023" in cells
     assert changed == {"#/texts/7", "#/texts/12", "#/tables/0"}
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "Data as on 31st August, 2026",
+        "Monthly Factsheet as on 31 August, 2026",
+        "NAV as of Aug 31, 2026",
+        "Portfolio as at 31/08/2026",
+        "Data as on August 2026",
+    ],
+)
+def test_as_of_notes(raw):
+    assert text.is_as_of_note(raw)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "10",
+        "MIRAE ASSET INVESTMENT MANAGERS (INDIA) PRIVATE LIMITED",
+        "MUTUAL FUND FACTSHEET",
+        "Past Performance is not an indicator or guarantee of future results.",
+        "Data as on date of allotment",
+    ],
+)
+def test_not_as_of_notes(raw):
+    assert not text.is_as_of_note(raw)
