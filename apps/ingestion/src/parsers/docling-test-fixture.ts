@@ -40,7 +40,7 @@ export function minimalDoclingResponse(source: { sha256: string; byteSize: numbe
         chunkIndex: 0,
         type: "key_value",
         text: "Date of Inception/ Allotment: 24th February 2023",
-        headings: ["Fund Details"],
+        headings: ["MIRAE ASSET FLEXI CAP FUND", "Fund Details"],
         pages: [1],
         bboxes: [{ page: 1, l: 20.1, t: 610.2, r: 290.4, b: 480.7 }],
         itemRefs: ["#/tables/0"],

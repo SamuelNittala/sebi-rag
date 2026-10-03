@@ -1,8 +1,8 @@
 """Chunk size budget, measured the way the TypeScript side measures a chunk.
 
 Ingestion maps each wire chunk to candidate text `<scheme name>\\n<headings...>\\n<body>`
-(apps/ingestion/src/chunkers/docling-chunk-mapper.ts; the scheme line only when the body
-lacks it) and the chunk inspector (packages/core/src/chunk-inspection/index.ts) blocks a
+(apps/ingestion/src/chunkers/docling-chunk-mapper.ts; the scheme line only when a scheme was
+determined and the body lacks it) and the chunk inspector (packages/core/src/chunk-inspection/index.ts) blocks a
 candidate whose `estimateTokenCount` (round(whitespace words * 1.3),
 apps/ingestion/src/chunkers/semantic-chunker.ts) exceeds `maxTableTokens` for wire type
 `table`, else `maxTextTokens` (text, key_value, picture). The limits below are those
@@ -12,8 +12,9 @@ test_budget.py and apps/ingestion/src/chunkers/docling-golden-token-limits.test.
 HybridChunker's HuggingFace token limit (converter.CHUNK_MAX_TOKENS) is a different measure
 and excludes headings, so every emitted chunk is also held to this one.
 
-The scheme name comes from page text the mapper reads (`extractSchemeTitleLine`, at most
-160 characters), so bodies reserve SCHEME_PREFIX_RESERVE_TOKENS for it: the longest seen
+The scheme name comes from chunk headings (the chunk's own, else the page's single scheme;
+`extractSchemeTitleLine`, at most 160 characters), so bodies reserve SCHEME_PREFIX_RESERVE_TOKENS
+for it: the longest seen
 in the Sep 2026 active and Aug 2026 passive Mirae factsheets is 25 words (33 tokens).
 A chunk satisfies 1.3 * (heading words + body words) + reserve <= limit, so the rounded
 TS count stays within the limit whenever the scheme line costs at most the reserve.

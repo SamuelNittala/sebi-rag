@@ -18,9 +18,11 @@ PASSIVE_ETF_STEM = "mirae-passive-etf-p34"
 SIP_PERFORMANCE_STEM = "mirae-sip-performance-p104"
 # mirae-sep-2026.pdf p103: six stacked SIP sub-tables with fused cells and a fund title inside a header row.
 SIP_PERFORMANCE_P103_STEM = "mirae-sip-performance-p103"
+# mirae-passive-aug-2026.pdf p9: six category headers in a left label column beside one 59-item list.
+PASSIVE_OFFERINGS_STEM = "mirae-passive-offerings-p9"
 GOLDEN_STEMS = (
     FIXTURE_STEM, FUND_PERFORMANCE_STEM, FUND_FACTS_STEM, FUND_PERFORMANCE_P98_STEM, PASSIVE_ETF_STEM, SIP_PERFORMANCE_STEM,
-    SIP_PERFORMANCE_P103_STEM,
+    SIP_PERFORMANCE_P103_STEM, PASSIVE_OFFERINGS_STEM,
 )
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "contract" / "docling-parse-v1.schema.json"
 

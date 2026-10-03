@@ -28,6 +28,10 @@ headings + body): tables and key-value panels split between rows (`table_rows_sp
 title heading repeated on each part), text between lines (an over-long line by words),
 pictures between lines.
 
+A list beside a left label column of category headers (passive p9 `Our Passive Fund Offerings`,
+`lists.py`) yields one text chunk per category, headed [page title, category]; a category over
+the budget splits between items, each part repeating both headings.
+
 A table holding stacked sub-tables (SIP Performance pages: one Docling table per page, one
 sub-table per fund) yields one chunk group per sub-table, each headed by that sub-table's title,
 so a row-split continuation never carries another fund's title.
@@ -43,6 +47,7 @@ from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTok
 from docling_core.types.doc import ContentLayer, DocItem, DocItemLabel, DoclingDocument, PictureItem, RefItem, TableItem, TextItem
 
 from docling_service.normalize import budget
+from docling_service.normalize import lists as list_rules
 from docling_service.normalize import pictures as picture_rules
 from docling_service.normalize import tables as table_rules
 from docling_service.normalize import text as text_rules
@@ -162,6 +167,8 @@ def _units_from_chunker(doc: DoclingDocument, chunker: HybridChunker, order: dic
                 text = chunk.text
             seen.update(i.self_ref for i in run)
             units.append(_Unit("text", run, headings, order[run[0].self_ref], text=text, mixed=mixed))
+    units = _regroup_category_lists(units, doc, order, serializer)
+    _restore_page_title_headings(units, doc)
 
     covered = {i.self_ref for u in units for i in u.items}
     for item in doc.pictures + doc.tables:
@@ -177,6 +184,63 @@ def _units_from_chunker(doc: DoclingDocument, chunker: HybridChunker, order: dic
     units.sort(key=lambda u: u.order)
     _inherit_headings(units)
     return units
+
+
+def _regroup_category_lists(units: list[_Unit], doc: DoclingDocument, order: dict[str, int], serializer) -> list[_Unit]:
+    """Items of a list beside a label column (`lists.category_groups`) leave HybridChunker's text
+    units and become one text unit per category, headed [page title, category]; `_wire_chunks`
+    splits an over-budget category between items, repeating those headings."""
+    groups = list_rules.category_groups(doc)
+    if not groups:
+        return units
+    moved = {i.self_ref for g in groups for i in g.items}
+
+    def serialized(items: list[DocItem]) -> str:
+        return "\n".join(t for i in items if (t := serializer.serialize(item=i).text))
+
+    out: list[_Unit] = []
+    for unit in units:
+        kept = [i for i in unit.items if i.self_ref not in moved]
+        if len(kept) == len(unit.items):
+            out.append(unit)
+        elif kept:
+            out.append(_Unit(unit.kind, kept, unit.headings, order[kept[0].self_ref], text=serialized(kept), mixed=unit.mixed))
+    for group in groups:
+        headings = [h for h in (group.title, group.category) if h]
+        out.append(_Unit("text", list(group.items), headings, order[group.items[0].self_ref], text=serialized(group.items)))
+    return out
+
+
+def _restore_page_title_headings(units: list[_Unit], doc: DoclingDocument) -> None:
+    """A page that opens with exactly two consecutive section headers (`MIRAE ASSET NIFTY 50 ETF`
+    then `NSE Symbol: ...`; `MIRAE ASSET LONG TERM FUND 1` then `(Erstwhile known as ...)`)
+    loses the first from HybridChunker's headings (same level). Units on that page headed by
+    the second alone get the first back as parent heading. A dated as-of header ends the run
+    (`_as_of_header_units` handles those); longer runs (side-by-side scheme headers on Asset
+    Allocation pages, label columns) are left alone."""
+    leading: dict[int, list[str]] = {}
+    started: set[int] = set()
+    for item, _ in doc.iterate_items(with_groups=False):
+        if not getattr(item, "prov", None):
+            continue
+        page = item.prov[0].page_no
+        if page in started:
+            continue
+        if isinstance(item, PictureItem) and page not in leading:
+            continue  # a logo above the title
+        if (
+            isinstance(item, TextItem) and item.label in (DocItemLabel.SECTION_HEADER, DocItemLabel.TITLE)
+            and _clean_headings([item.text]) and not text_rules.is_as_of_note(item.text)
+        ):
+            leading.setdefault(page, []).append(_clean_headings([item.text])[0])
+            continue
+        started.add(page)
+    for unit in units:
+        if not unit.items or not unit.items[0].prov:
+            continue
+        run = leading.get(unit.items[0].prov[0].page_no, [])
+        if len(run) == 2 and run[0] != run[1] and _clean_headings(unit.headings or []) == run[1:]:
+            unit.headings = run
 
 
 def _inherit_headings(units: list[_Unit]) -> None:

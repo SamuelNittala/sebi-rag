@@ -137,7 +137,7 @@ describe("ChunkInspectStage with Docling artifacts", () => {
     expect(staged.report.inspectedChunkCount).toBe(2);
     expect(staged.candidates.every((candidate) => candidate.metadata.parser === "docling")).toBe(true);
     expect(staged.candidates[0]!.metadata.fundName).toBe("Mirae Asset Flexi Cap Fund");
-    expect(staged.candidates[0]!.text).toStartWith("Mirae Asset Flexi Cap Fund\nFund Details\n");
+    expect(staged.candidates[0]!.text).toStartWith("MIRAE ASSET FLEXI CAP FUND\nFund Details\n");
     expect(staged.candidates[0]!.metadata.parserDiagnostics).toEqual({ lowStructurePages: [2], uncoveredPages: [] });
   });
 

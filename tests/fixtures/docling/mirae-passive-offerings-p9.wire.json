@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "producer": {
+    "parserVersion": "docling-2.132.0+norm-4+opts-da9fca75f112",
+    "serviceVersion": "1.0.0",
+    "doclingVersion": "2.132.0",
+    "doclingCoreVersion": "2.99.0",
+    "doclingIbmModelsVersion": "4.0.3",
+    "normalizerVersion": "4",
+    "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
+  },
+  "source": {
+    "sha256": "f5dbaa76041a083384fd76b31c9c45ab1fcf940ba96505522b4017bb819966e5",
+    "byteSize": 66385
+  },
+  "pageCount": 1,
+  "pages": [
+    {
+      "pageNumber": 1,
+      "width": 930.0,
+      "height": 1315.92,
+      "text": "Our Passive Fund Offerings\nDomestic broad based offerings\nThematic offerings\nSmart-Beta offerings\nSectorial offerings\nCommodities offerings\nDebt offerings\nMirae Asset Nifty 50 ETF\nMirae Asset Nifty Next 50 ETF\nMirae Asset Nifty Midcap 150 ETF\nMirae Asset BSE Sensex ETF\nMirae Asset Nifty500 Multicap 50:25:25 ETF\nMirae Asset Nifty Smallcap 250 ETF\nMirae Asset Diversified Equity Allocator Passive FOF\nMirae Asset Nifty LargeMidcap 250 Index Fund\nMirae Asset Nifty 50 Index Fund\nMirae Asset Nifty Total Market Index Fund\nMirae Asset Nifty Financial Services ETF\nMirae Asset Nifty India Manufacturing ETF\nMirae Asset Nifty India New Age Consumption ETF\nMirae Asset BSE Select IPO ETF\nMirae Asset Nifty India Internet ETF\nMirae Asset Nifty Energy ETF\nMirae Asset Nifty India Infrastructure & Logistics ETF\nMirae Asset BSE India Defence ETF\nMirae Asset Nifty 100 ESG Sector Leaders ETF\nMirae Asset Nifty EV and New Age Automotive ETF\nMirae Asset Nifty 100 ESG Sector Leaders Fund of Fund\nMirae Asset Nifty India Manufacturing ETF Fund of Fund\nMirae Asset Nifty India New Age Consumption ETF Fund of Fund\nMirae Asset BSE Select IPO ETF Fund of Fund\nMirae Asset BSE India Defence ETF FOF\nMirae Asset Nifty 100 Low Volatility 30 ETF\nMirae Asset Nifty 200 Alpha 30 ETF\nMirae Asset Nifty Smallcap 250 Momentum Quality 100 ETF\nMirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF\nMirae Asset BSE 200 Equal Weight ETF\nMirae Asset Nifty50 Equal Weight ETF\nMirae Asset BSE 500 Dividend Leaders 50 ETF\nMirae Asset Nifty Top 20 Equal Weight ETF\nMirae Asset Nifty 500 Value 50 ETF\nMirae Asset BSE Midcap 150 Momentum 30 ETF\nMirae Asset Nifty Smallcap 250 Momentum Quality 100 ETF Fund Of Fund\nMirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund\nMirae Asset Nifty200 Alpha 30 ETF Fund of Fund\nMirae Asset BSE 200 Equal Weight ETF Fund of Fund\nMirae Asset Multi Factor Passive FOF\nMirae Asset BSE Midcap 150 Momentum 30 ETF FOF\nMirae Asset Nifty 500 Healthcare ETF\nMirae Asset Nifty Bank ETF\nMirae Asset Nifty IT ETF\nMirae Asset Nifty PSU Bank ETF\nMirae Asset Nifty Metal ETF\nMirae Asset Nifty Metal ETF FOF\nMirae Asset Gold ETF\nMirae Asset Silver ETF\nMirae Asset Gold ETF Fund of Fund\nMirae Asset Gold Silver Passive FoF\nMirae Asset Silver ETF FOF\nMirae Asset Nifty 8-13 yr G-Sec ETF\nMirae Asset Nifty 1D Rate Liquid ETF - IDCW\nMirae Asset Nifty 1D Rate Liquid ETF - Growth\nMirae Asset Nifty SDL Jun 2027 Index Fund\nMirae Asset Crisil IBX Gilt Index - April 2033 Index Fund\nMirae Asset Nifty SDL June 2028 Index Fund\nMirae Asset CRISIL-IBX Financial Services 9-12 Months Debt Index Fund",
+      "hasTable": false,
+      "stats": {
+        "textItems": 66,
+        "tables": 0,
+        "pictures": 0,
+        "pictureTextChars": 0,
+        "bodyTextChars": 2528
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "chunkIndex": 0,
+      "type": "text",
+      "text": "- Mirae Asset Nifty 50 ETF\n- Mirae Asset Nifty Next 50 ETF\n- Mirae Asset Nifty Midcap 150 ETF\n- Mirae Asset BSE Sensex ETF\n- Mirae Asset Nifty500 Multicap 50:25:25 ETF\n- Mirae Asset Nifty Smallcap 250 ETF\n- Mirae Asset Diversified Equity Allocator Passive FOF\n- Mirae Asset Nifty LargeMidcap 250 Index Fund\n- Mirae Asset Nifty 50 Index Fund\n- Mirae Asset Nifty Total Market Index Fund",
+      "headings": [
+        "Our Passive Fund Offerings",
+        "Domestic broad based offerings"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 375.0,
+          "t": 1213.13,
+          "r": 660.88,
+          "b": 1038.61
+        }
+      ],
+      "itemRefs": [
+        "#/texts/7",
+        "#/texts/8",
+        "#/texts/9",
+        "#/texts/10",
+        "#/texts/11",
+        "#/texts/12",
+        "#/texts/13",
+        "#/texts/14",
+        "#/texts/15",
+        "#/texts/16"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 1,
+      "type": "text",
+      "text": "- Mirae Asset Nifty Financial Services ETF\n- Mirae Asset Nifty India Manufacturing ETF\n- Mirae Asset Nifty India New Age Consumption ETF\n- Mirae Asset BSE Select IPO ETF\n- Mirae Asset Nifty India Internet ETF\n- Mirae Asset Nifty Energy ETF\n- Mirae Asset Nifty India Infrastructure & Logistics ETF\n- Mirae Asset BSE India Defence ETF\n- Mirae Asset Nifty 100 ESG Sector Leaders ETF\n- Mirae Asset Nifty EV and New Age Automotive ETF\n- Mirae Asset Nifty 100 ESG Sector Leaders Fund of Fund\n- Mirae Asset Nifty India Manufacturing ETF Fund of Fund\n- Mirae Asset Nifty India New Age Consumption ETF Fund of Fund\n- Mirae Asset BSE Select IPO ETF Fund of Fund\n- Mirae Asset BSE India Defence ETF FOF",
+      "headings": [
+        "Our Passive Fund Offerings",
+        "Thematic offerings"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 375.0,
+          "t": 1019.63,
+          "r": 728.17,
+          "b": 757.76
+        }
+      ],
+      "itemRefs": [
+        "#/texts/17",
+        "#/texts/18",
+        "#/texts/19",
+        "#/texts/20",
+        "#/texts/21",
+        "#/texts/22",
+        "#/texts/23",
+        "#/texts/24",
+        "#/texts/25",
+        "#/texts/26",
+        "#/texts/27",
+        "#/texts/28",
+        "#/texts/29",
+        "#/texts/30",
+        "#/texts/31"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 2,
+      "type": "text",
+      "text": "- Mirae Asset Nifty 100 Low Volatility 30 ETF\n- Mirae Asset Nifty 200 Alpha 30 ETF\n- Mirae Asset Nifty Smallcap 250 Momentum Quality 100 ETF\n- Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF\n- Mirae Asset BSE 200 Equal Weight ETF\n- Mirae Asset Nifty50 Equal Weight ETF\n- Mirae Asset BSE 500 Dividend Leaders 50 ETF\n- Mirae Asset Nifty Top 20 Equal Weight ETF\n- Mirae Asset Nifty 500 Value 50 ETF\n- Mirae Asset BSE Midcap 150 Momentum 30 ETF\n- Mirae Asset Nifty Smallcap 250 Momentum Quality 100 ETF Fund Of Fund\n- Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund\n- Mirae Asset Nifty200 Alpha 30 ETF Fund of Fund\n- Mirae Asset BSE 200 Equal Weight ETF Fund of Fund\n- Mirae Asset Multi Factor Passive FOF\n- Mirae Asset BSE Midcap 150 Momentum 30 ETF FOF",
+      "headings": [
+        "Our Passive Fund Offerings",
+        "Smart-Beta offerings"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 375.0,
+          "t": 736.13,
+          "r": 798.92,
+          "b": 453.67
+        }
+      ],
+      "itemRefs": [
+        "#/texts/32",
+        "#/texts/33",
+        "#/texts/34",
+        "#/texts/35",
+        "#/texts/36",
+        "#/texts/37",
+        "#/texts/38",
+        "#/texts/39",
+        "#/texts/40",
+        "#/texts/41",
+        "#/texts/42",
+        "#/texts/43",
+        "#/texts/44",
+        "#/texts/45",
+        "#/texts/46",
+        "#/texts/47"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 3,
+      "type": "text",
+      "text": "- Mirae Asset Nifty 500 Healthcare ETF\n- Mirae Asset Nifty Bank ETF\n- Mirae Asset Nifty IT ETF\n- Mirae Asset Nifty PSU Bank ETF\n- Mirae Asset Nifty Metal ETF\n- Mirae Asset Nifty Metal ETF FOF",
+      "headings": [
+        "Our Passive Fund Offerings",
+        "Sectorial offerings"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 375.0,
+          "t": 434.63,
+          "r": 579.42,
+          "b": 332.11
+        }
+      ],
+      "itemRefs": [
+        "#/texts/48",
+        "#/texts/49",
+        "#/texts/50",
+        "#/texts/51",
+        "#/texts/52",
+        "#/texts/53"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 4,
+      "type": "text",
+      "text": "- Mirae Asset Gold ETF\n- Mirae Asset Silver ETF\n- Mirae Asset Gold ETF Fund of Fund\n- Mirae Asset Gold Silver Passive FoF\n- Mirae Asset Silver ETF FOF",
+      "headings": [
+        "Our Passive Fund Offerings",
+        "Commodities offerings"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 375.0,
+          "t": 312.97,
+          "r": 568.51,
+          "b": 231.26
+        }
+      ],
+      "itemRefs": [
+        "#/texts/54",
+        "#/texts/55",
+        "#/texts/56",
+        "#/texts/57",
+        "#/texts/58"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 5,
+      "type": "text",
+      "text": "- Mirae Asset Nifty 8-13 yr G-Sec ETF\n- Mirae Asset Nifty 1D Rate Liquid ETF - IDCW\n- Mirae Asset Nifty 1D Rate Liquid ETF - Growth\n- Mirae Asset Nifty SDL Jun 2027 Index Fund\n- Mirae Asset Crisil IBX Gilt Index - April 2033 Index Fund\n- Mirae Asset Nifty SDL June 2028 Index Fund\n- Mirae Asset CRISIL-IBX Financial Services 9-12 Months Debt Index Fund",
+      "headings": [
+        "Our Passive Fund Offerings",
+        "Debt offerings"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 375.0,
+          "t": 209.63,
+          "r": 771.02,
+          "b": 91.76
+        }
+      ],
+      "itemRefs": [
+        "#/texts/59",
+        "#/texts/60",
+        "#/texts/61",
+        "#/texts/62",
+        "#/texts/63",
+        "#/texts/64",
+        "#/texts/65"
+      ],
+      "flags": [],
+      "picture": null
+    }
+  ],
+  "diagnostics": {
+    "droppedPictures": {
+      "logo": 0,
+      "signature": 0,
+      "stamp": 0,
+      "qrCode": 0,
+      "barCode": 0,
+      "noText": 0
+    },
+    "flagCounts": {},
+    "conversionStatus": "success",
+    "conversionMs": 0
+  }
+}
