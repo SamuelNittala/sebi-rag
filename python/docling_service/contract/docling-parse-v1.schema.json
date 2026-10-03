@@ -41,6 +41,7 @@
         "table_header_promoted",
         "heading_from_table_title",
         "table_rows_split",
+        "table_cells_fused",
         "picture_text_recovered",
         "riskometer_text_extracted",
         "chart_pairs_extracted",
@@ -209,7 +210,8 @@
                     "table_span_collapsed",
                     "table_header_promoted",
                     "heading_from_table_title",
-                    "table_rows_split"
+                    "table_rows_split",
+                    "table_cells_fused"
                   ]
                 }
               }

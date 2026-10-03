@@ -3,7 +3,10 @@ import re
 
 import pytest
 
-from docling_service.tests.conftest import FUND_FACTS_STEM, FUND_PERFORMANCE_STEM, GOLDEN_STEMS, FIXTURES, PASSIVE_ETF_STEM, needs_tokenizer
+from docling_service.tests.conftest import (
+    FUND_FACTS_STEM, FUND_PERFORMANCE_STEM, GOLDEN_STEMS, FIXTURES, PASSIVE_ETF_STEM, SIP_PERFORMANCE_P103_STEM,
+    SIP_PERFORMANCE_STEM, needs_tokenizer,
+)
 from docling_service.tools.fixtures import dump_wire
 
 pytestmark = needs_tokenizer
@@ -152,3 +155,39 @@ def test_as_of_section_header_lands_in_a_chunk(wires):
     holders = [c for c in wire["chunks"] if "Monthly Factsheet as on 31 July, 2026" in [c["text"], *c["headings"]]]
     assert holders
     assert holders[0]["type"] == "text" and holders[0]["pages"] == [1]
+
+
+# Stacked SIP sub-tables: every table chunk belongs to exactly one fund (its last heading), and
+# no other fund of the page appears in its rows.
+@pytest.mark.parametrize("stem", (SIP_PERFORMANCE_P103_STEM, SIP_PERFORMANCE_STEM))
+def test_sip_table_chunks_hold_one_fund_each(wires, stem):
+    tables = [c for c in wires[stem]["chunks"] if c["type"] == "table"]
+    titles = list(dict.fromkeys(c["headings"][-1] for c in tables))
+    assert len(titles) == 6
+    for chunk in tables:
+        assert len(chunk["headings"]) == 2 and chunk["headings"][0].startswith("Monthly Factsheet as on")
+        assert "heading_from_table_title" in chunk["flags"]
+        assert not any(t in chunk["text"] for t in titles if t != chunk["headings"][-1]), chunk["headings"]
+        assert not any(line.startswith("Period") or ", Period = " in line for line in chunk["text"].split("\n"))
+
+
+# Read off the page image (mirae-sep-2026.pdf p103): Mkt Value and Fund Return since inception per fund.
+SIP_P103_SINCE_INCEPTION = {
+    "Mirae Asset Large Cap Fund": ("93,15,843", "14.06"),
+    "Mirae Asset Liquid Fund": ("38,24,495", "6.37"),
+    "Mirae Asset Large & Midcap Fund": ("1,02,97,833", "18.59"),
+    "Mirae Asset Great Consumer Fund": ("67,48,727", "15.27"),
+    "Mirae Asset Ultra Short to Short Term Fund* (Erstwhile known as Mirae Asset Low Duration Fund)": ("26,60,090", "6.06"),
+    "Mirae Asset Aggressive Hybrid Fund": ("26,36,046", "11.77"),
+}
+
+
+def test_sip_p103_values_sit_under_their_fund(wires):
+    tables = [c for c in wires[SIP_PERFORMANCE_P103_STEM]["chunks"] if c["type"] == "table"]
+    for fund, (market_value, fund_return) in SIP_P103_SINCE_INCEPTION.items():
+        for line in (
+            f"Mkt Value as on 31st Aug 2026 (in Rs.), Since Inception = {market_value}.",
+            f"Fund Return & (%), Since Inception = {fund_return}.",
+        ):
+            holders = [c["headings"][-1] for c in tables if line in c["text"]]
+            assert holders == [fund], line

@@ -27,6 +27,10 @@ Every chunk is held to the TS side's size measure (`budget.py`: words * 1.3 of s
 headings + body): tables and key-value panels split between rows (`table_rows_split`, the
 title heading repeated on each part), text between lines (an over-long line by words),
 pictures between lines.
+
+A table holding stacked sub-tables (SIP Performance pages: one Docling table per page, one
+sub-table per fund) yields one chunk group per sub-table, each headed by that sub-table's title,
+so a row-split continuation never carries another fund's title.
 """
 
 from __future__ import annotations
@@ -273,14 +277,16 @@ def _wire_chunks(unit: _Unit, doc, changed, table_parts, picture_results) -> lis
         return [_chunk("text", piece, headings, unit.items, doc, refs, flags) for piece in pieces]
 
     if unit.kind == "table":
-        part = table_parts[refs[0]]
-        part_headings = headings + _clean_headings([part.title] if part.title else [])
-        body = _drop_heading_lines(part.text, part_headings)
-        if not body:
-            return []
-        pieces = budget.split_body(part.kind, part_headings, body, split_long_lines=False)
-        flags = ordinal + mixed + list(part.flags) + (["table_rows_split"] if len(pieces) > 1 else [])
-        return [_chunk(part.kind, piece, part_headings, unit.items, doc, refs, flags) for piece in pieces]
+        out = []
+        for part in table_parts[refs[0]]:  # one per stacked sub-table, each under its own title
+            part_headings = headings + _clean_headings([part.title] if part.title else [])
+            body = _drop_heading_lines(part.text, part_headings)
+            if not body:
+                continue
+            pieces = budget.split_body(part.kind, part_headings, body, split_long_lines=False)
+            flags = ordinal + mixed + list(part.flags) + (["table_rows_split"] if len(pieces) > 1 else [])
+            out += [_chunk(part.kind, piece, part_headings, unit.items, doc, refs, flags) for piece in pieces]
+        return out
 
     result = picture_results[refs[0]]
     if result.dropped:
@@ -335,8 +341,7 @@ def _pages(doc: DoclingDocument, page_numbers: list[int], table_parts, picture_r
             continue
         page = item.prov[0].page_no
         if isinstance(item, TableItem):
-            part = table_parts[item.self_ref]
-            text = "\n".join(t for t in (part.title, part.text) if t)
+            text = "\n".join(t for part in table_parts[item.self_ref] for t in (part.title, part.text) if t)
             stats[page]["tables"] += 1
             stats[page]["bodyTextChars"] += len(text)
         elif isinstance(item, PictureItem):

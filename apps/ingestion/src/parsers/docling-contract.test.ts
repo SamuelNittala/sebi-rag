@@ -171,6 +171,13 @@ describe("assertDoclingParseResponse", () => {
     }, "chunks[0].flags[4] is not allowed on key_value chunks");
   });
 
+  test("table_cells_fused is a table-only flag", () => {
+    expect(DOCLING_FLAGS_BY_CHUNK_TYPE.table).toContain("table_cells_fused");
+    expectRejected((response) => {
+      response.chunks[0].flags.push("table_cells_fused");
+    }, "chunks[0].flags[4] is not allowed on key_value chunks");
+  });
+
   test("rejects duplicate flags and missing required type flags", () => {
     expectRejected((response) => { response.chunks[0].flags.push("ordinal_joined"); }, "chunks[0].flags must be unique");
     expectRejected((response) => {

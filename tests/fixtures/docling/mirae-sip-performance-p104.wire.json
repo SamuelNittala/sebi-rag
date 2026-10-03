@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "producer": {
-    "parserVersion": "docling-2.132.0+norm-2+opts-da9fca75f112",
+    "parserVersion": "docling-2.132.0+norm-3+opts-da9fca75f112",
     "serviceVersion": "1.0.0",
     "doclingVersion": "2.132.0",
     "doclingCoreVersion": "2.99.0",
     "doclingIbmModelsVersion": "4.0.3",
-    "normalizerVersion": "2",
+    "normalizerVersion": "3",
     "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
   },
   "source": {
@@ -19,14 +19,14 @@
       "pageNumber": 1,
       "width": 594.96,
       "height": 841.92,
-      "text": "SIP PERFORMANCE\nMonthly Factsheet as on 31 August, 2026\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception 12,80,000 = 30,33,315. Mkt Value as on 31st Aug 2026 (in Rs.), Years 10 12,00,000 = 26,29,505. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years 8,40,000 = 14,23,918. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years 6,00,000 = 8,02,516. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years 3,60,000 = 4,07,941. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year 1,20,000 = 1,24,439\nFund Return & (%), Since Inception 12,80,000 = 15.35. Fund Return & (%), Years 10 12,00,000 = 14.99. Fund Return & (%), 7 Years 8,40,000 = 14.81. Fund Return & (%), 5 Years 6,00,000 = 11.58. Fund Return & (%), 3 Years 3,60,000 = 8.30. Fund Return & (%), 1 Year 1,20,000 = 6.95\nBenchmark Return (Tier-1) & (%), Since Inception 12,80,000 = 13.79. Benchmark Return (Tier-1) & (%), Years 10 12,00,000 = 13.71. Benchmark Return (Tier-1) & (%), 7 Years 8,40,000 = 14.16. Benchmark Return (Tier-1) & (%), 5 Years 6,00,000 = 10.82. Benchmark Return (Tier-1) & (%), 3 Years 3,60,000 = 6.64. Benchmark Return (Tier-1) & (%), 1 Year 1,20,000 = 5.04\nBenchmark Return (Tier-2) & (%), Since Inception 12,80,000 = 13.22. Benchmark Return (Tier-2) & (%), Years 10 12,00,000 = 13.11. Benchmark Return (Tier-2) & (%), 7 Years 8,40,000 = 13.32. Benchmark Return (Tier-2) & (%), 5 Years 6,00,000 = 10.09. Benchmark Return (Tier-2) & (%), 3 Years 3,60,000 = 6.05. Benchmark Return (Tier-2) & (%), 1 Year 1,20,000 = 3.05\nAdd. Benchmark Return & (%), Since Inception 12,80,000 = 11.17. Add. Benchmark Return & (%), Years 10 12,00,000 = 10.90. Add. Benchmark Return & (%), 7 Years 8,40,000 = 9.65. Add. Benchmark Return & (%), 5 Years 6,00,000 = 5.87. Add. Benchmark Return & (%), 3 Years 3,60,000 = 1.39. Add. Benchmark Return & (%), 1 Year 1,20,000 = -4.97\nScheme Benchmark, Since Inception 12,80,000 = Tier-1-Nifty 500 (TRI)\nAdditional Benchmark, Since Inception 12,80,000 = Tier-2-Nifty 200 (TRI) BSE Sensex (TRI)\nMirae Asset Dynamic Term Fund* (Erstwhile known as Mirae Asset Dynamic Bond Fund)\nTotal Amount Invested (in Rs.), Since Inception = 11,30,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 14,80,371. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 10,12,139. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 6,91,487. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,91,747. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,22,274\nFund Return & (%), Since Inception = 5.61. Fund Return & (%), 7 Years = 5.25. Fund Return & (%), 5 Years = 5.62. Fund Return & (%), 3 Years = 5.57. Fund Return & (%), 1 Year = 3.54\nBenchmark Return (Tier-1) & (%), Since Inception = 6.50. Benchmark Return (Tier-1) & (%), 7 Years = 6.01. Benchmark Return (Tier-1) & (%), 5 Years = 6.11. Benchmark Return (Tier-1) & (%), 3 Years = 5.64. Benchmark Return (Tier-1) & (%), 1 Year = 4.19\nBenchmark Return (Tier-2) & (%), Since Inception = --. Benchmark Return (Tier-2) & (%), 7 Years = --. Benchmark Return (Tier-2) & (%), 5 Years = --. Benchmark Return (Tier-2) & (%), 3 Years = 7.21. Benchmark Return (Tier-2) & (%), 1 Year = 6.30\nAdd. Benchmark Return & (%), Since Inception = 5.74. Add. Benchmark Return & (%), 7 Years = 5.47. Add. Benchmark Return & (%), 5 Years = 5.95. Add. Benchmark Return & (%), 3 Years = 5.25. Add. Benchmark Return & (%), 1 Year = 3.18\nScheme Benchmark, Since Inception = Tier-1-CRISIL Dynamic Bond A-III Index Tier-2-Nifty PSU Bond Plus SDL April 2027. Scheme Benchmark, 7 Years = 50:50 Index\nAdditional Benchmark, Since Inception = Crisil 10 yr Gilt index\nMirae Asset Short Term Fund* (Erstwhile known Mirae Asset Short Duration Fund)\nTotal Amount Invested (in Rs.), as Since Inception = 10,10,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), as Since Inception = 13,04,274. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 10,33,196. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,00,155. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,94,384. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,22,955\nFund Return & (%), as Since Inception = 5.96. Fund Return & (%), 7 Years = 5.83. Fund Return & (%), 5 Years = 6.11. Fund Return & (%), 3 Years = 6.02. Fund Return & (%), 1 Year = 4.61\nBenchmark Return & (%), as Since Inception = 6.63. Benchmark Return & (%), 7 Years = 6.49. Benchmark Return & (%), 5 Years = 6.80. Benchmark Return & (%), 3 Years = 6.78. Benchmark Return & (%), 1 Year = 5.70\nAdd. Benchmark Return & (%), as Since Inception = 5.74. Add. Benchmark Return & (%), 7 Years = 5.47. Add. Benchmark Return & (%): 5.95. Add. Benchmark Return & (%), 3 Years = 5.25. Add. Benchmark Return & (%), 1 Year = 3.18\nScheme Benchmark Additional Benchmark, as Since Inception = CRISIL Short Duration Debt A-II Index Crisil 10 yr Gilt index\nMirae Asset Healthcare Fund\nTotal Amount Invested (in Rs.), Since Inception = 9,70,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 23,39,852. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 17,59,718. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 9,88,073. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,80,512. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,41,123\nFund Return & (%), Since Inception = 21.12. Fund Return & (%), 7 Years = 20.76. Fund Return & (%), 5 Years = 20.05. Fund Return & (%), 3 Years = 19.70. Fund Return & (%), 1 Year = 34.26\nBenchmark Return & (%), Since Inception = 20.34. Benchmark Return & (%), 7 Years = 20.82. Benchmark Return & (%), 5 Years = 20.86. Benchmark Return & (%), 3 Years = 19.13. Benchmark Return & (%), 1 Year = 30.33\nAdd. Benchmark Return & (%), Since Inception = 10.17. Add. Benchmark Return & (%), 7 Years = 9.65. Add. Benchmark Return & (%), 5 Years = 5.87. Add. Benchmark Return & (%), 3 Years = 1.39. Add. Benchmark Return & (%), 1 Year = -4.97\nScheme Benchmark, Since Inception = BSE Healthcare Index (TRI)\nAdditional Benchmark, Since Inception = BSE Sensex (TRI)\nMirae Asset Equity Savings Fund\nTotal Amount Invested (in Rs.), Since Inception = 9,20,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 13,57,402. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 11,91,047. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,48,092. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,02,837. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,23,900\nFund Return & (%), Since Inception = 9.94. Fund Return & (%), 7 Years = 9.81. Fund Return & (%), 5 Years = 8.76. Fund Return & (%), 3 Years = 7.44. Fund Return & (%), 1 Year = 6.10\nBenchmark Return & (%), Since Inception = 8.30. Benchmark Return & (%), 7 Years = 8.19. Benchmark Return & (%), 5 Years = 7.25. Benchmark Return & (%), 3 Years = 5.72. Benchmark Return & (%), 1 Year = 2.75\nAdd. Benchmark Return & (%), Since Inception = 5.55. Add. Benchmark Return & (%), 7 Years = 5.46. Add. Benchmark Return & (%): 5.94. Add. Benchmark Return & (%), 3 Years = 5.24. Add. Benchmark Return & (%), 1 Year = 3.07\nScheme Benchmark Additional Benchmark, Since Inception = Equity Savings Index Crisil 10 yr Gilt index\nMirae Asset Focused Fund\nTotal Amount Invested (in Rs.), Since Inception = 8,70,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 12,88,836. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 12,16,416. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,14,390. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,89,743. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,25,527\nFund Return & (%), Since Inception = 10.64. Fund Return & (%), 7 Years = 10.40. Fund Return & (%), 5 Years = 6.92. Fund Return & (%), 3 Years = 5.23. Fund Return & (%), 1 Year = 8.67\nBenchmark Return (Tier-1) & (%), Since Inception = 14.20. Benchmark Return (Tier-1) & (%), 7 Years = 14.16. Benchmark Return (Tier-1) & (%), 5 Years = 10.82. Benchmark Return (Tier-1) & (%), 3 Years = 6.64. Benchmark Return (Tier-1) & (%), 1 Year = 5.04\nBenchmark Return (Tier-2) & (%), Since Inception = 13.36. Benchmark Return (Tier-2) & (%), 7 Years = 13.32. Benchmark Return (Tier-2) & (%), 5 Years = 10.09. Benchmark Return (Tier-2) & (%), 3 Years = 6.05. Benchmark Return (Tier-2) & (%), 1 Year = 3.05\nAdd. Benchmark Return & (%) Scheme Benchmark, Since Inception = 9.79 Tier-1-Nifty 500 (TRI). Add. Benchmark Return & (%) Scheme Benchmark, 7 Years = 9.65. Add. Benchmark Return & (%) Scheme Benchmark: 5.87. Add. Benchmark Return & (%) Scheme Benchmark, 3 Years = 1.39. Add. Benchmark Return & (%) Scheme Benchmark, 1 Year = -4.97\nAdditional Benchmark, Since Inception = Tier-2-Nifty 200 (TRI) BSE Sensex (TRI)",
+      "text": "SIP PERFORMANCE\nMonthly Factsheet as on 31 August, 2026\nMirae Asset ELSS Tax Saver Fund\nTotal Amount Invested (in Rs.), Since Inception = 12,80,000. Total Amount Invested (in Rs.), 10 Years = 12,00,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 30,33,315. Mkt Value as on 31st Aug 2026 (in Rs.), 10 Years = 26,29,505. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 14,23,918. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 8,02,516. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,07,941. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,24,439\nFund Return & (%), Since Inception = 15.35. Fund Return & (%), 10 Years = 14.99. Fund Return & (%), 7 Years = 14.81. Fund Return & (%), 5 Years = 11.58. Fund Return & (%), 3 Years = 8.30. Fund Return & (%), 1 Year = 6.95\nBenchmark Return (Tier-1) & (%), Since Inception = 13.79. Benchmark Return (Tier-1) & (%), 10 Years = 13.71. Benchmark Return (Tier-1) & (%), 7 Years = 14.16. Benchmark Return (Tier-1) & (%), 5 Years = 10.82. Benchmark Return (Tier-1) & (%), 3 Years = 6.64. Benchmark Return (Tier-1) & (%), 1 Year = 5.04\nBenchmark Return (Tier-2) & (%), Since Inception = 13.22. Benchmark Return (Tier-2) & (%), 10 Years = 13.11. Benchmark Return (Tier-2) & (%), 7 Years = 13.32. Benchmark Return (Tier-2) & (%), 5 Years = 10.09. Benchmark Return (Tier-2) & (%), 3 Years = 6.05. Benchmark Return (Tier-2) & (%), 1 Year = 3.05\nAdd. Benchmark Return & (%), Since Inception = 11.17. Add. Benchmark Return & (%), 10 Years = 10.90. Add. Benchmark Return & (%), 7 Years = 9.65. Add. Benchmark Return & (%), 5 Years = 5.87. Add. Benchmark Return & (%), 3 Years = 1.39. Add. Benchmark Return & (%), 1 Year = -4.97\nScheme Benchmark: Tier-1-Nifty 500 (TRI)\nAdditional Benchmark: Tier-2-Nifty 200 (TRI) BSE Sensex (TRI)\nMirae Asset Dynamic Term Fund* (Erstwhile known as Mirae Asset Dynamic Bond Fund)\nTotal Amount Invested (in Rs.), Since Inception = 11,30,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 14,80,371. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 10,12,139. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 6,91,487. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,91,747. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,22,274\nFund Return & (%), Since Inception = 5.61. Fund Return & (%), 7 Years = 5.25. Fund Return & (%), 5 Years = 5.62. Fund Return & (%), 3 Years = 5.57. Fund Return & (%), 1 Year = 3.54\nBenchmark Return (Tier-1) & (%), Since Inception = 6.50. Benchmark Return (Tier-1) & (%), 7 Years = 6.01. Benchmark Return (Tier-1) & (%), 5 Years = 6.11. Benchmark Return (Tier-1) & (%), 3 Years = 5.64. Benchmark Return (Tier-1) & (%), 1 Year = 4.19\nBenchmark Return (Tier-2) & (%), Since Inception = --. Benchmark Return (Tier-2) & (%), 7 Years = --. Benchmark Return (Tier-2) & (%), 5 Years = --. Benchmark Return (Tier-2) & (%), 3 Years = 7.21. Benchmark Return (Tier-2) & (%), 1 Year = 6.30\nAdd. Benchmark Return & (%), Since Inception = 5.74. Add. Benchmark Return & (%), 7 Years = 5.47. Add. Benchmark Return & (%), 5 Years = 5.95. Add. Benchmark Return & (%), 3 Years = 5.25. Add. Benchmark Return & (%), 1 Year = 3.18\nScheme Benchmark: Tier-1-CRISIL Dynamic Bond A-III Index Tier-2-Nifty PSU Bond Plus SDL April 2027 50:50 Index\nAdditional Benchmark: Crisil 10 yr Gilt index\nMirae Asset Short Term Fund* (Erstwhile known Mirae Asset Short Duration Fund)\nTotal Amount Invested (in Rs.), Since Inception = 10,10,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 13,04,274. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 10,33,196. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,00,155. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,94,384. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,22,955\nFund Return & (%), Since Inception = 5.96. Fund Return & (%), 7 Years = 5.83. Fund Return & (%), 5 Years = 6.11. Fund Return & (%), 3 Years = 6.02. Fund Return & (%), 1 Year = 4.61\nBenchmark Return & (%), Since Inception = 6.63. Benchmark Return & (%), 7 Years = 6.49. Benchmark Return & (%), 5 Years = 6.80. Benchmark Return & (%), 3 Years = 6.78. Benchmark Return & (%), 1 Year = 5.70\nAdd. Benchmark Return & (%), Since Inception = 5.74. Add. Benchmark Return & (%), 7 Years = 5.47. Add. Benchmark Return & (%), 5 Years = 5.95. Add. Benchmark Return & (%), 3 Years = 5.25. Add. Benchmark Return & (%), 1 Year = 3.18\nScheme Benchmark / Additional Benchmark: CRISIL Short Duration Debt A-II Index Crisil 10 yr Gilt index\nMirae Asset Healthcare Fund\nTotal Amount Invested (in Rs.), Since Inception = 9,70,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 23,39,852. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 17,59,718. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 9,88,073. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,80,512. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,41,123\nFund Return & (%), Since Inception = 21.12. Fund Return & (%), 7 Years = 20.76. Fund Return & (%), 5 Years = 20.05. Fund Return & (%), 3 Years = 19.70. Fund Return & (%), 1 Year = 34.26\nBenchmark Return & (%), Since Inception = 20.34. Benchmark Return & (%), 7 Years = 20.82. Benchmark Return & (%), 5 Years = 20.86. Benchmark Return & (%), 3 Years = 19.13. Benchmark Return & (%), 1 Year = 30.33\nAdd. Benchmark Return & (%), Since Inception = 10.17. Add. Benchmark Return & (%), 7 Years = 9.65. Add. Benchmark Return & (%), 5 Years = 5.87. Add. Benchmark Return & (%), 3 Years = 1.39. Add. Benchmark Return & (%), 1 Year = -4.97\nScheme Benchmark: BSE Healthcare Index (TRI)\nAdditional Benchmark: BSE Sensex (TRI)\nMirae Asset Equity Savings Fund\nTotal Amount Invested (in Rs.), Since Inception = 9,20,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 13,57,402. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 11,91,047. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,48,092. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,02,837. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,23,900\nFund Return & (%), Since Inception = 9.94. Fund Return & (%), 7 Years = 9.81. Fund Return & (%), 5 Years = 8.76. Fund Return & (%), 3 Years = 7.44. Fund Return & (%), 1 Year = 6.10\nBenchmark Return & (%), Since Inception = 8.30. Benchmark Return & (%), 7 Years = 8.19. Benchmark Return & (%), 5 Years = 7.25. Benchmark Return & (%), 3 Years = 5.72. Benchmark Return & (%), 1 Year = 2.75\nAdd. Benchmark Return & (%), Since Inception = 5.55. Add. Benchmark Return & (%), 7 Years = 5.46. Add. Benchmark Return & (%), 5 Years = 5.94. Add. Benchmark Return & (%), 3 Years = 5.24. Add. Benchmark Return & (%), 1 Year = 3.07\nScheme Benchmark / Additional Benchmark: Equity Savings Index Crisil 10 yr Gilt index\nMirae Asset Focused Fund\nTotal Amount Invested (in Rs.), Since Inception = 8,70,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 12,88,836. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 12,16,416. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,14,390. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,89,743. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,25,527\nFund Return & (%), Since Inception = 10.64. Fund Return & (%), 7 Years = 10.40. Fund Return & (%), 5 Years = 6.92. Fund Return & (%), 3 Years = 5.23. Fund Return & (%), 1 Year = 8.67\nBenchmark Return (Tier-1) & (%), Since Inception = 14.20. Benchmark Return (Tier-1) & (%), 7 Years = 14.16. Benchmark Return (Tier-1) & (%), 5 Years = 10.82. Benchmark Return (Tier-1) & (%), 3 Years = 6.64. Benchmark Return (Tier-1) & (%), 1 Year = 5.04\nBenchmark Return (Tier-2) & (%), Since Inception = 13.36. Benchmark Return (Tier-2) & (%), 7 Years = 13.32. Benchmark Return (Tier-2) & (%), 5 Years = 10.09. Benchmark Return (Tier-2) & (%), 3 Years = 6.05. Benchmark Return (Tier-2) & (%), 1 Year = 3.05\nAdd. Benchmark Return & (%), Since Inception = 9.79. Add. Benchmark Return & (%), 7 Years = 9.65. Add. Benchmark Return & (%), 5 Years = 5.87. Add. Benchmark Return & (%), 3 Years = 1.39. Add. Benchmark Return & (%), 1 Year = -4.97\nScheme Benchmark: Tier-1-Nifty 500 (TRI)\nAdditional Benchmark: Tier-2-Nifty 200 (TRI) BSE Sensex (TRI)",
       "hasTable": true,
       "stats": {
         "textItems": 2,
         "tables": 1,
         "pictures": 1,
         "pictureTextChars": 0,
-        "bodyTextChars": 9527
+        "bodyTextChars": 9338
       }
     }
   ],
@@ -34,9 +34,10 @@
     {
       "chunkIndex": 0,
       "type": "table",
-      "text": "Mkt Value as on 31st Aug 2026 (in Rs.), Since Inception 12,80,000 = 30,33,315. Mkt Value as on 31st Aug 2026 (in Rs.), Years 10 12,00,000 = 26,29,505. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years 8,40,000 = 14,23,918. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years 6,00,000 = 8,02,516. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years 3,60,000 = 4,07,941. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year 1,20,000 = 1,24,439\nFund Return & (%), Since Inception 12,80,000 = 15.35. Fund Return & (%), Years 10 12,00,000 = 14.99. Fund Return & (%), 7 Years 8,40,000 = 14.81. Fund Return & (%), 5 Years 6,00,000 = 11.58. Fund Return & (%), 3 Years 3,60,000 = 8.30. Fund Return & (%), 1 Year 1,20,000 = 6.95\nBenchmark Return (Tier-1) & (%), Since Inception 12,80,000 = 13.79. Benchmark Return (Tier-1) & (%), Years 10 12,00,000 = 13.71. Benchmark Return (Tier-1) & (%), 7 Years 8,40,000 = 14.16. Benchmark Return (Tier-1) & (%), 5 Years 6,00,000 = 10.82. Benchmark Return (Tier-1) & (%), 3 Years 3,60,000 = 6.64. Benchmark Return (Tier-1) & (%), 1 Year 1,20,000 = 5.04\nBenchmark Return (Tier-2) & (%), Since Inception 12,80,000 = 13.22. Benchmark Return (Tier-2) & (%), Years 10 12,00,000 = 13.11. Benchmark Return (Tier-2) & (%), 7 Years 8,40,000 = 13.32. Benchmark Return (Tier-2) & (%), 5 Years 6,00,000 = 10.09. Benchmark Return (Tier-2) & (%), 3 Years 3,60,000 = 6.05. Benchmark Return (Tier-2) & (%), 1 Year 1,20,000 = 3.05\nAdd. Benchmark Return & (%), Since Inception 12,80,000 = 11.17. Add. Benchmark Return & (%), Years 10 12,00,000 = 10.90. Add. Benchmark Return & (%), 7 Years 8,40,000 = 9.65. Add. Benchmark Return & (%), 5 Years 6,00,000 = 5.87. Add. Benchmark Return & (%), 3 Years 3,60,000 = 1.39. Add. Benchmark Return & (%), 1 Year 1,20,000 = -4.97\nScheme Benchmark, Since Inception 12,80,000 = Tier-1-Nifty 500 (TRI)\nAdditional Benchmark, Since Inception 12,80,000 = Tier-2-Nifty 200 (TRI) BSE Sensex (TRI)\nMirae Asset Dynamic Term Fund* (Erstwhile known as Mirae Asset Dynamic Bond Fund)\nTotal Amount Invested (in Rs.), Since Inception = 11,30,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 14,80,371. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 10,12,139. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 6,91,487. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,91,747. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,22,274\nFund Return & (%), Since Inception = 5.61. Fund Return & (%), 7 Years = 5.25. Fund Return & (%), 5 Years = 5.62. Fund Return & (%), 3 Years = 5.57. Fund Return & (%), 1 Year = 3.54\nBenchmark Return (Tier-1) & (%), Since Inception = 6.50. Benchmark Return (Tier-1) & (%), 7 Years = 6.01. Benchmark Return (Tier-1) & (%), 5 Years = 6.11. Benchmark Return (Tier-1) & (%), 3 Years = 5.64. Benchmark Return (Tier-1) & (%), 1 Year = 4.19\nBenchmark Return (Tier-2) & (%), Since Inception = --. Benchmark Return (Tier-2) & (%), 7 Years = --. Benchmark Return (Tier-2) & (%), 5 Years = --. Benchmark Return (Tier-2) & (%), 3 Years = 7.21. Benchmark Return (Tier-2) & (%), 1 Year = 6.30\nAdd. Benchmark Return & (%), Since Inception = 5.74. Add. Benchmark Return & (%), 7 Years = 5.47. Add. Benchmark Return & (%), 5 Years = 5.95. Add. Benchmark Return & (%), 3 Years = 5.25. Add. Benchmark Return & (%), 1 Year = 3.18\nScheme Benchmark, Since Inception = Tier-1-CRISIL Dynamic Bond A-III Index Tier-2-Nifty PSU Bond Plus SDL April 2027. Scheme Benchmark, 7 Years = 50:50 Index\nAdditional Benchmark, Since Inception = Crisil 10 yr Gilt index\nMirae Asset Short Term Fund* (Erstwhile known Mirae Asset Short Duration Fund)\nTotal Amount Invested (in Rs.), as Since Inception = 10,10,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), as Since Inception = 13,04,274. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 10,33,196. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,00,155. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,94,384. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,22,955\nFund Return & (%), as Since Inception = 5.96. Fund Return & (%), 7 Years = 5.83. Fund Return & (%), 5 Years = 6.11. Fund Return & (%), 3 Years = 6.02. Fund Return & (%), 1 Year = 4.61\nBenchmark Return & (%), as Since Inception = 6.63. Benchmark Return & (%), 7 Years = 6.49. Benchmark Return & (%), 5 Years = 6.80. Benchmark Return & (%), 3 Years = 6.78. Benchmark Return & (%), 1 Year = 5.70\nAdd. Benchmark Return & (%), as Since Inception = 5.74. Add. Benchmark Return & (%), 7 Years = 5.47. Add. Benchmark Return & (%): 5.95. Add. Benchmark Return & (%), 3 Years = 5.25. Add. Benchmark Return & (%), 1 Year = 3.18\nScheme Benchmark Additional Benchmark, as Since Inception = CRISIL Short Duration Debt A-II Index Crisil 10 yr Gilt index\nMirae Asset Healthcare Fund\nTotal Amount Invested (in Rs.), Since Inception = 9,70,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 23,39,852. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 17,59,718. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 9,88,073. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,80,512. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,41,123\nFund Return & (%), Since Inception = 21.12. Fund Return & (%), 7 Years = 20.76. Fund Return & (%), 5 Years = 20.05. Fund Return & (%), 3 Years = 19.70. Fund Return & (%), 1 Year = 34.26\nBenchmark Return & (%), Since Inception = 20.34. Benchmark Return & (%), 7 Years = 20.82. Benchmark Return & (%), 5 Years = 20.86. Benchmark Return & (%), 3 Years = 19.13. Benchmark Return & (%), 1 Year = 30.33",
+      "text": "Total Amount Invested (in Rs.), Since Inception = 12,80,000. Total Amount Invested (in Rs.), 10 Years = 12,00,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 30,33,315. Mkt Value as on 31st Aug 2026 (in Rs.), 10 Years = 26,29,505. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 14,23,918. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 8,02,516. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,07,941. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,24,439\nFund Return & (%), Since Inception = 15.35. Fund Return & (%), 10 Years = 14.99. Fund Return & (%), 7 Years = 14.81. Fund Return & (%), 5 Years = 11.58. Fund Return & (%), 3 Years = 8.30. Fund Return & (%), 1 Year = 6.95\nBenchmark Return (Tier-1) & (%), Since Inception = 13.79. Benchmark Return (Tier-1) & (%), 10 Years = 13.71. Benchmark Return (Tier-1) & (%), 7 Years = 14.16. Benchmark Return (Tier-1) & (%), 5 Years = 10.82. Benchmark Return (Tier-1) & (%), 3 Years = 6.64. Benchmark Return (Tier-1) & (%), 1 Year = 5.04\nBenchmark Return (Tier-2) & (%), Since Inception = 13.22. Benchmark Return (Tier-2) & (%), 10 Years = 13.11. Benchmark Return (Tier-2) & (%), 7 Years = 13.32. Benchmark Return (Tier-2) & (%), 5 Years = 10.09. Benchmark Return (Tier-2) & (%), 3 Years = 6.05. Benchmark Return (Tier-2) & (%), 1 Year = 3.05\nAdd. Benchmark Return & (%), Since Inception = 11.17. Add. Benchmark Return & (%), 10 Years = 10.90. Add. Benchmark Return & (%), 7 Years = 9.65. Add. Benchmark Return & (%), 5 Years = 5.87. Add. Benchmark Return & (%), 3 Years = 1.39. Add. Benchmark Return & (%), 1 Year = -4.97\nScheme Benchmark: Tier-1-Nifty 500 (TRI)\nAdditional Benchmark: Tier-2-Nifty 200 (TRI) BSE Sensex (TRI)",
       "headings": [
-        "Monthly Factsheet as on 31 August, 2026"
+        "Monthly Factsheet as on 31 August, 2026",
+        "Mirae Asset ELSS Tax Saver Fund"
       ],
       "pages": [
         1
@@ -55,17 +56,18 @@
       ],
       "flags": [
         "ordinal_joined",
-        "table_span_collapsed",
-        "table_rows_split"
+        "heading_from_table_title",
+        "table_span_collapsed"
       ],
       "picture": null
     },
     {
       "chunkIndex": 1,
       "type": "table",
-      "text": "Add. Benchmark Return & (%), Since Inception = 10.17. Add. Benchmark Return & (%), 7 Years = 9.65. Add. Benchmark Return & (%), 5 Years = 5.87. Add. Benchmark Return & (%), 3 Years = 1.39. Add. Benchmark Return & (%), 1 Year = -4.97\nScheme Benchmark, Since Inception = BSE Healthcare Index (TRI)\nAdditional Benchmark, Since Inception = BSE Sensex (TRI)\nMirae Asset Equity Savings Fund\nTotal Amount Invested (in Rs.), Since Inception = 9,20,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 13,57,402. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 11,91,047. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,48,092. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,02,837. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,23,900\nFund Return & (%), Since Inception = 9.94. Fund Return & (%), 7 Years = 9.81. Fund Return & (%), 5 Years = 8.76. Fund Return & (%), 3 Years = 7.44. Fund Return & (%), 1 Year = 6.10\nBenchmark Return & (%), Since Inception = 8.30. Benchmark Return & (%), 7 Years = 8.19. Benchmark Return & (%), 5 Years = 7.25. Benchmark Return & (%), 3 Years = 5.72. Benchmark Return & (%), 1 Year = 2.75\nAdd. Benchmark Return & (%), Since Inception = 5.55. Add. Benchmark Return & (%), 7 Years = 5.46. Add. Benchmark Return & (%): 5.94. Add. Benchmark Return & (%), 3 Years = 5.24. Add. Benchmark Return & (%), 1 Year = 3.07\nScheme Benchmark Additional Benchmark, Since Inception = Equity Savings Index Crisil 10 yr Gilt index\nMirae Asset Focused Fund\nTotal Amount Invested (in Rs.), Since Inception = 8,70,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 12,88,836. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 12,16,416. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,14,390. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,89,743. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,25,527\nFund Return & (%), Since Inception = 10.64. Fund Return & (%), 7 Years = 10.40. Fund Return & (%), 5 Years = 6.92. Fund Return & (%), 3 Years = 5.23. Fund Return & (%), 1 Year = 8.67\nBenchmark Return (Tier-1) & (%), Since Inception = 14.20. Benchmark Return (Tier-1) & (%), 7 Years = 14.16. Benchmark Return (Tier-1) & (%), 5 Years = 10.82. Benchmark Return (Tier-1) & (%), 3 Years = 6.64. Benchmark Return (Tier-1) & (%), 1 Year = 5.04\nBenchmark Return (Tier-2) & (%), Since Inception = 13.36. Benchmark Return (Tier-2) & (%), 7 Years = 13.32. Benchmark Return (Tier-2) & (%), 5 Years = 10.09. Benchmark Return (Tier-2) & (%), 3 Years = 6.05. Benchmark Return (Tier-2) & (%), 1 Year = 3.05\nAdd. Benchmark Return & (%) Scheme Benchmark, Since Inception = 9.79 Tier-1-Nifty 500 (TRI). Add. Benchmark Return & (%) Scheme Benchmark, 7 Years = 9.65. Add. Benchmark Return & (%) Scheme Benchmark: 5.87. Add. Benchmark Return & (%) Scheme Benchmark, 3 Years = 1.39. Add. Benchmark Return & (%) Scheme Benchmark, 1 Year = -4.97\nAdditional Benchmark, Since Inception = Tier-2-Nifty 200 (TRI) BSE Sensex (TRI)",
+      "text": "Total Amount Invested (in Rs.), Since Inception = 11,30,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 14,80,371. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 10,12,139. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 6,91,487. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,91,747. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,22,274\nFund Return & (%), Since Inception = 5.61. Fund Return & (%), 7 Years = 5.25. Fund Return & (%), 5 Years = 5.62. Fund Return & (%), 3 Years = 5.57. Fund Return & (%), 1 Year = 3.54\nBenchmark Return (Tier-1) & (%), Since Inception = 6.50. Benchmark Return (Tier-1) & (%), 7 Years = 6.01. Benchmark Return (Tier-1) & (%), 5 Years = 6.11. Benchmark Return (Tier-1) & (%), 3 Years = 5.64. Benchmark Return (Tier-1) & (%), 1 Year = 4.19\nBenchmark Return (Tier-2) & (%), Since Inception = --. Benchmark Return (Tier-2) & (%), 7 Years = --. Benchmark Return (Tier-2) & (%), 5 Years = --. Benchmark Return (Tier-2) & (%), 3 Years = 7.21. Benchmark Return (Tier-2) & (%), 1 Year = 6.30\nAdd. Benchmark Return & (%), Since Inception = 5.74. Add. Benchmark Return & (%), 7 Years = 5.47. Add. Benchmark Return & (%), 5 Years = 5.95. Add. Benchmark Return & (%), 3 Years = 5.25. Add. Benchmark Return & (%), 1 Year = 3.18\nScheme Benchmark: Tier-1-CRISIL Dynamic Bond A-III Index Tier-2-Nifty PSU Bond Plus SDL April 2027 50:50 Index\nAdditional Benchmark: Crisil 10 yr Gilt index",
       "headings": [
-        "Monthly Factsheet as on 31 August, 2026"
+        "Monthly Factsheet as on 31 August, 2026",
+        "Mirae Asset Dynamic Term Fund* (Erstwhile known as Mirae Asset Dynamic Bond Fund)"
       ],
       "pages": [
         1
@@ -84,8 +86,130 @@
       ],
       "flags": [
         "ordinal_joined",
-        "table_span_collapsed",
-        "table_rows_split"
+        "heading_from_table_title",
+        "table_span_collapsed"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 2,
+      "type": "table",
+      "text": "Total Amount Invested (in Rs.), Since Inception = 10,10,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 13,04,274. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 10,33,196. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,00,155. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,94,384. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,22,955\nFund Return & (%), Since Inception = 5.96. Fund Return & (%), 7 Years = 5.83. Fund Return & (%), 5 Years = 6.11. Fund Return & (%), 3 Years = 6.02. Fund Return & (%), 1 Year = 4.61\nBenchmark Return & (%), Since Inception = 6.63. Benchmark Return & (%), 7 Years = 6.49. Benchmark Return & (%), 5 Years = 6.80. Benchmark Return & (%), 3 Years = 6.78. Benchmark Return & (%), 1 Year = 5.70\nAdd. Benchmark Return & (%), Since Inception = 5.74. Add. Benchmark Return & (%), 7 Years = 5.47. Add. Benchmark Return & (%), 5 Years = 5.95. Add. Benchmark Return & (%), 3 Years = 5.25. Add. Benchmark Return & (%), 1 Year = 3.18\nScheme Benchmark / Additional Benchmark: CRISIL Short Duration Debt A-II Index Crisil 10 yr Gilt index",
+      "headings": [
+        "Monthly Factsheet as on 31 August, 2026",
+        "Mirae Asset Short Term Fund* (Erstwhile known Mirae Asset Short Duration Fund)"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 37.6,
+          "t": 748.78,
+          "r": 571.82,
+          "b": 115.82
+        }
+      ],
+      "itemRefs": [
+        "#/tables/0"
+      ],
+      "flags": [
+        "ordinal_joined",
+        "heading_from_table_title",
+        "table_cells_fused",
+        "table_span_collapsed"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 3,
+      "type": "table",
+      "text": "Total Amount Invested (in Rs.), Since Inception = 9,70,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 23,39,852. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 17,59,718. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 9,88,073. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,80,512. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,41,123\nFund Return & (%), Since Inception = 21.12. Fund Return & (%), 7 Years = 20.76. Fund Return & (%), 5 Years = 20.05. Fund Return & (%), 3 Years = 19.70. Fund Return & (%), 1 Year = 34.26\nBenchmark Return & (%), Since Inception = 20.34. Benchmark Return & (%), 7 Years = 20.82. Benchmark Return & (%), 5 Years = 20.86. Benchmark Return & (%), 3 Years = 19.13. Benchmark Return & (%), 1 Year = 30.33\nAdd. Benchmark Return & (%), Since Inception = 10.17. Add. Benchmark Return & (%), 7 Years = 9.65. Add. Benchmark Return & (%), 5 Years = 5.87. Add. Benchmark Return & (%), 3 Years = 1.39. Add. Benchmark Return & (%), 1 Year = -4.97\nScheme Benchmark: BSE Healthcare Index (TRI)\nAdditional Benchmark: BSE Sensex (TRI)",
+      "headings": [
+        "Monthly Factsheet as on 31 August, 2026",
+        "Mirae Asset Healthcare Fund"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 37.6,
+          "t": 748.78,
+          "r": 571.82,
+          "b": 115.82
+        }
+      ],
+      "itemRefs": [
+        "#/tables/0"
+      ],
+      "flags": [
+        "ordinal_joined",
+        "heading_from_table_title",
+        "table_span_collapsed"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 4,
+      "type": "table",
+      "text": "Total Amount Invested (in Rs.), Since Inception = 9,20,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 13,57,402. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 11,91,047. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,48,092. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 4,02,837. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,23,900\nFund Return & (%), Since Inception = 9.94. Fund Return & (%), 7 Years = 9.81. Fund Return & (%), 5 Years = 8.76. Fund Return & (%), 3 Years = 7.44. Fund Return & (%), 1 Year = 6.10\nBenchmark Return & (%), Since Inception = 8.30. Benchmark Return & (%), 7 Years = 8.19. Benchmark Return & (%), 5 Years = 7.25. Benchmark Return & (%), 3 Years = 5.72. Benchmark Return & (%), 1 Year = 2.75\nAdd. Benchmark Return & (%), Since Inception = 5.55. Add. Benchmark Return & (%), 7 Years = 5.46. Add. Benchmark Return & (%), 5 Years = 5.94. Add. Benchmark Return & (%), 3 Years = 5.24. Add. Benchmark Return & (%), 1 Year = 3.07\nScheme Benchmark / Additional Benchmark: Equity Savings Index Crisil 10 yr Gilt index",
+      "headings": [
+        "Monthly Factsheet as on 31 August, 2026",
+        "Mirae Asset Equity Savings Fund"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 37.6,
+          "t": 748.78,
+          "r": 571.82,
+          "b": 115.82
+        }
+      ],
+      "itemRefs": [
+        "#/tables/0"
+      ],
+      "flags": [
+        "ordinal_joined",
+        "heading_from_table_title",
+        "table_cells_fused",
+        "table_span_collapsed"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 5,
+      "type": "table",
+      "text": "Total Amount Invested (in Rs.), Since Inception = 8,70,000. Total Amount Invested (in Rs.), 7 Years = 8,40,000. Total Amount Invested (in Rs.), 5 Years = 6,00,000. Total Amount Invested (in Rs.), 3 Years = 3,60,000. Total Amount Invested (in Rs.), 1 Year = 1,20,000\nMkt Value as on 31st Aug 2026 (in Rs.), Since Inception = 12,88,836. Mkt Value as on 31st Aug 2026 (in Rs.), 7 Years = 12,16,416. Mkt Value as on 31st Aug 2026 (in Rs.), 5 Years = 7,14,390. Mkt Value as on 31st Aug 2026 (in Rs.), 3 Years = 3,89,743. Mkt Value as on 31st Aug 2026 (in Rs.), 1 Year = 1,25,527\nFund Return & (%), Since Inception = 10.64. Fund Return & (%), 7 Years = 10.40. Fund Return & (%), 5 Years = 6.92. Fund Return & (%), 3 Years = 5.23. Fund Return & (%), 1 Year = 8.67\nBenchmark Return (Tier-1) & (%), Since Inception = 14.20. Benchmark Return (Tier-1) & (%), 7 Years = 14.16. Benchmark Return (Tier-1) & (%), 5 Years = 10.82. Benchmark Return (Tier-1) & (%), 3 Years = 6.64. Benchmark Return (Tier-1) & (%), 1 Year = 5.04\nBenchmark Return (Tier-2) & (%), Since Inception = 13.36. Benchmark Return (Tier-2) & (%), 7 Years = 13.32. Benchmark Return (Tier-2) & (%), 5 Years = 10.09. Benchmark Return (Tier-2) & (%), 3 Years = 6.05. Benchmark Return (Tier-2) & (%), 1 Year = 3.05\nAdd. Benchmark Return & (%), Since Inception = 9.79. Add. Benchmark Return & (%), 7 Years = 9.65. Add. Benchmark Return & (%), 5 Years = 5.87. Add. Benchmark Return & (%), 3 Years = 1.39. Add. Benchmark Return & (%), 1 Year = -4.97\nScheme Benchmark: Tier-1-Nifty 500 (TRI)\nAdditional Benchmark: Tier-2-Nifty 200 (TRI) BSE Sensex (TRI)",
+      "headings": [
+        "Monthly Factsheet as on 31 August, 2026",
+        "Mirae Asset Focused Fund"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 37.6,
+          "t": 748.78,
+          "r": 571.82,
+          "b": 115.82
+        }
+      ],
+      "itemRefs": [
+        "#/tables/0"
+      ],
+      "flags": [
+        "ordinal_joined",
+        "heading_from_table_title",
+        "table_span_collapsed"
       ],
       "picture": null
     }
@@ -100,9 +224,10 @@
       "noText": 0
     },
     "flagCounts": {
-      "ordinal_joined": 2,
-      "table_rows_split": 2,
-      "table_span_collapsed": 2
+      "heading_from_table_title": 6,
+      "ordinal_joined": 6,
+      "table_cells_fused": 2,
+      "table_span_collapsed": 6
     },
     "conversionStatus": "success",
     "conversionMs": 0

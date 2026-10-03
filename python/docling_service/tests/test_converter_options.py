@@ -62,7 +62,7 @@ def test_options_hash_changes_with_output_affecting_options():
 def test_parser_version_format():
     version = converter.parser_version()
     sha = converter.pipeline_options_sha256(converter.build_pipeline_options())
-    assert version == f"docling-2.132.0+norm-2+opts-{sha[:12]}"
+    assert version == f"docling-2.132.0+norm-3+opts-{sha[:12]}"
     assert re.fullmatch(r"docling-\d+\.\d+\.\d+\+norm-[1-9]\d*\+opts-[0-9a-f]{12}", version)
 
 
@@ -71,7 +71,7 @@ def test_producer_versions():
     assert producer["doclingVersion"] == "2.132.0"
     assert producer["doclingCoreVersion"] == "2.99.0"
     assert producer["doclingIbmModelsVersion"] == "4.0.3"
-    assert producer["normalizerVersion"] == "2"
+    assert producer["normalizerVersion"] == "3"
     assert producer["parserVersion"] == converter.parser_version()
 
 

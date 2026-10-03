@@ -16,8 +16,11 @@ FUND_PERFORMANCE_P98_STEM = "mirae-fund-performance-p98"
 PASSIVE_ETF_STEM = "mirae-passive-etf-p34"
 # mirae-sep-2026.pdf p104: number-heavy SIP performance rows that need a row split under the TS token measure.
 SIP_PERFORMANCE_STEM = "mirae-sip-performance-p104"
+# mirae-sep-2026.pdf p103: six stacked SIP sub-tables with fused cells and a fund title inside a header row.
+SIP_PERFORMANCE_P103_STEM = "mirae-sip-performance-p103"
 GOLDEN_STEMS = (
     FIXTURE_STEM, FUND_PERFORMANCE_STEM, FUND_FACTS_STEM, FUND_PERFORMANCE_P98_STEM, PASSIVE_ETF_STEM, SIP_PERFORMANCE_STEM,
+    SIP_PERFORMANCE_P103_STEM,
 )
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "contract" / "docling-parse-v1.schema.json"
 
@@ -44,6 +47,16 @@ def fund_performance_doc() -> DoclingDocument:
 @pytest.fixture
 def fund_performance_p98_doc() -> DoclingDocument:
     return load_doc(FUND_PERFORMANCE_P98_STEM)
+
+
+@pytest.fixture
+def sip_p103_doc() -> DoclingDocument:
+    return load_doc(SIP_PERFORMANCE_P103_STEM)
+
+
+@pytest.fixture
+def sip_p104_doc() -> DoclingDocument:
+    return load_doc(SIP_PERFORMANCE_STEM)
 
 
 def item(doc: DoclingDocument, ref: str):
