@@ -27,6 +27,7 @@ from werkzeug.exceptions import HTTPException
 
 from docling_service import converter
 from docling_service.normalize.chunks import EmptyParsedContent, build_chunker, normalize_document
+from docling_service.normalize.headings import header_font_sizes
 
 DOCLING_PARSE_MEDIA_TYPE = "application/vnd.mf-rag.docling-parse+json;version=1"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -192,6 +193,7 @@ def create_app(
                     source_sha256=sha256,
                     byte_size=len(body),
                     conversion_ms=conversion_ms,
+                    header_sizes=header_font_sizes(document, body),
                 )
             finally:
                 gate.release()

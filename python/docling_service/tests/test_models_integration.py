@@ -11,6 +11,7 @@ import pytest
 
 from docling_service import converter
 from docling_service.normalize.chunks import normalize_document
+from docling_service.normalize.headings import header_font_sizes
 from docling_service.tests.conftest import FIXTURE_STEM, FIXTURES, assert_wire_contract, models_dir
 
 LAYOUT_DIR = "docling-project--docling-layout-heron"
@@ -42,6 +43,7 @@ def test_real_conversion_invariants(chunker):
         source_sha256=hashlib.sha256(pdf).hexdigest(),
         byte_size=len(pdf),
         conversion_ms=round(elapsed * 1000),
+        header_sizes=header_font_sizes(document, pdf),
     )
     assert_wire_contract(wire)
     assert wire["pageCount"] == 2

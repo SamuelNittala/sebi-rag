@@ -66,7 +66,7 @@ def test_pictures(fixture_wire):
 
 def test_fund_details_and_dates(fixture_wire):
     [details] = [c for c in _chunks(fixture_wire, type="key_value") if c["itemRefs"] == ["#/tables/0"]]
-    assert details["headings"] == ["Monthly Factsheet as on 31st August 2026", "Fund Details"]
+    assert details["headings"] == ["MIRAE ASSET FLEXI CAP FUND", "Monthly Factsheet as on 31st August 2026", "Fund Details"]
     assert details["text"].count("Net AUM:") == 1
     assert "Date of Inception/ Allotment: 24th February 2023" in details["text"]
     assert "ordinal_joined" in details["flags"]
@@ -165,7 +165,9 @@ def test_sip_table_chunks_hold_one_fund_each(wires, stem):
     titles = list(dict.fromkeys(c["headings"][-1] for c in tables))
     assert len(titles) == 6
     for chunk in tables:
-        assert len(chunk["headings"]) == 2 and chunk["headings"][0].startswith("Monthly Factsheet as on")
+        # Page title (19.2 pt) > as-of line > the sub-table's own title.
+        assert len(chunk["headings"]) == 3 and chunk["headings"][0] == "SIP PERFORMANCE"
+        assert chunk["headings"][1].startswith("Monthly Factsheet as on")
         assert "heading_from_table_title" in chunk["flags"]
         assert not any(t in chunk["text"] for t in titles if t != chunk["headings"][-1]), chunk["headings"]
         assert not any(line.startswith("Period") or ", Period = " in line for line in chunk["text"].split("\n"))

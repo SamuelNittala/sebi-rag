@@ -20,6 +20,10 @@ Each page's kept footers become one text chunk after that page's last body item 
 headers: one before its first), with no headings, so every chunk stays single-page and
 of one kind. Page text includes them.
 
+Section header levels come from rendered font size (`headings.py`, when the caller passes
+`header_sizes`), so a page title stays the parent of the section headers below it; headings of
+earlier pages and note headers as parents are then dropped (`_drop_stale_headings`).
+
 A dated as-of section header that HybridChunker puts in no chunk (a heading directly
 followed by another heading) becomes its own text chunk.
 
@@ -47,6 +51,7 @@ from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTok
 from docling_core.types.doc import ContentLayer, DocItem, DocItemLabel, DoclingDocument, PictureItem, RefItem, TableItem, TextItem
 
 from docling_service.normalize import budget
+from docling_service.normalize import headings as heading_rules
 from docling_service.normalize import lists as list_rules
 from docling_service.normalize import pictures as picture_rules
 from docling_service.normalize import tables as table_rules
@@ -79,6 +84,7 @@ class _Unit:
     text: str | None = None
     mixed: bool = False
     extra_refs: list[str] = field(default_factory=list)
+    page_scoped: bool = False  # inherits headings only from a unit on its own page
 
 
 def normalize_document(
@@ -89,14 +95,18 @@ def normalize_document(
     source_sha256: str,
     byte_size: int,
     conversion_ms: int,
+    header_sizes: dict[str, float] | None = None,
 ) -> dict:
+    """`header_sizes` (self_ref -> rendered pt, `headings.header_font_sizes`) sets section header
+    levels before chunking; None keeps Docling's (all level 1)."""
+    leveled = heading_rules.assign_header_levels(doc, header_sizes) if header_sizes else False
     changed = text_rules.repair_document_ordinals(doc)
     order = {item.self_ref: i for i, (item, _) in enumerate(doc.iterate_items(with_groups=False))}
     table_parts = {t.self_ref: table_rules.normalize_table(t) for t in doc.tables}
     picture_results = {p.self_ref: picture_rules.normalize_picture(p, doc) for p in doc.pictures}
 
     kept = kept_page_furniture(doc)
-    units = sorted(_units_from_chunker(doc, chunker, order) + _furniture_units(doc, kept, order), key=lambda u: u.order)
+    units = sorted(_units_from_chunker(doc, chunker, order, leveled) + _furniture_units(doc, kept, order), key=lambda u: u.order)
     chunks = [c for unit in units for c in _wire_chunks(unit, doc, changed, table_parts, picture_results)]
     missing = _as_of_header_units(doc, order, chunks)
     if missing:
@@ -135,7 +145,7 @@ def _kind(item: DocItem) -> str:
     return "text"
 
 
-def _units_from_chunker(doc: DoclingDocument, chunker: HybridChunker, order: dict[str, int]) -> list[_Unit]:
+def _units_from_chunker(doc: DoclingDocument, chunker: HybridChunker, order: dict[str, int], leveled: bool = False) -> list[_Unit]:
     serializer = chunker.serializer_provider.get_serializer(doc=doc)
     units: list[_Unit] = []
     seen: set[str] = set()
@@ -167,6 +177,8 @@ def _units_from_chunker(doc: DoclingDocument, chunker: HybridChunker, order: dic
                 text = chunk.text
             seen.update(i.self_ref for i in run)
             units.append(_Unit("text", run, headings, order[run[0].self_ref], text=text, mixed=mixed))
+    if leveled:
+        _drop_stale_headings(units, doc)
     units = _regroup_category_lists(units, doc, order, serializer)
     _restore_page_title_headings(units, doc)
 
@@ -211,6 +223,30 @@ def _regroup_category_lists(units: list[_Unit], doc: DoclingDocument, order: dic
     return out
 
 
+def _drop_stale_headings(units: list[_Unit], doc: DoclingDocument) -> None:
+    """With nested levels HierarchicalChunker keeps a larger header until one of its size or larger
+    follows, across pages (a glossary title would head every later page). A unit keeps the headings
+    that are headers on its own page (or no header's text at all); a unit on a page whose headers
+    it has not reached yet (a continuation) keeps only its last heading, as before levels (a cover
+    page's large lines are no hierarchy: the cover's fund name would head the index pages).
+    Note headers (`headings.is_note`: a dated as-of line, the past-performance disclaimer) stay only
+    as the last heading (content directly below them), never as a parent; an as-of header that
+    heads nothing becomes its own text chunk (`_as_of_header_units`), as before levels."""
+    header_pages: dict[str, set[int]] = {}
+    for item, _ in doc.iterate_items(with_groups=False):
+        if isinstance(item, TextItem) and item.label in (DocItemLabel.SECTION_HEADER, DocItemLabel.TITLE) and item.prov:
+            for text in _clean_headings([item.text]):
+                header_pages.setdefault(text, set()).add(item.prov[0].page_no)
+    for unit in units:
+        if not unit.headings or not unit.items or not unit.items[0].prov:
+            continue
+        page = unit.items[0].prov[0].page_no
+        cleaned = [_clean_headings([h]) for h in unit.headings]
+        own = [h for h, c in zip(unit.headings, cleaned) if not c or page in header_pages.get(c[0], {page})]
+        kept = own or unit.headings[-1:]
+        unit.headings = [h for i, h in enumerate(kept) if i == len(kept) - 1 or not heading_rules.is_note(h)]
+
+
 def _restore_page_title_headings(units: list[_Unit], doc: DoclingDocument) -> None:
     """A page that opens with exactly two consecutive section headers (`MIRAE ASSET NIFTY 50 ETF`
     then `NSE Symbol: ...`; `MIRAE ASSET LONG TERM FUND 1` then `(Erstwhile known as ...)`)
@@ -245,20 +281,24 @@ def _restore_page_title_headings(units: list[_Unit], doc: DoclingDocument) -> No
 
 def _inherit_headings(units: list[_Unit]) -> None:
     previous: list[str] = []
+    previous_page = None
     for unit in units:
+        page = unit.items[0].prov[0].page_no if unit.items and unit.items[0].prov else None
         if unit.headings is None:
-            unit.headings = previous
-        previous = unit.headings
+            unit.headings = previous if not unit.page_scoped or page == previous_page else []
+        previous, previous_page = unit.headings, page
 
 
 def _as_of_header_units(doc: DoclingDocument, order: dict[str, int], chunks: list[dict]) -> list[_Unit]:
     """Dated as-of section headers that reach no chunk text or headings on their page (a heading
-    followed directly by another heading, or heading only a dropped logo) become text units."""
+    followed directly by another heading, or heading only a dropped logo) become text units, headed
+    like the unit before them on their page (none when they open the page: the previous page's
+    headings would name its fund)."""
     seen = {
         (page, line.strip()) for c in chunks for page in c["pages"] for line in [*c["headings"], *c["text"].split("\n")]
     }
     return [
-        _Unit("text", [item], None, order[item.self_ref], text=item.text.strip())
+        _Unit("text", [item], None, order[item.self_ref], text=item.text.strip(), page_scoped=True)
         for item in doc.texts
         if item.label in (DocItemLabel.SECTION_HEADER, DocItemLabel.TITLE)
         and item.self_ref in order and item.prov

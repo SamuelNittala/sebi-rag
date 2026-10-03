@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "producer": {
-    "parserVersion": "docling-2.132.0+norm-4+opts-da9fca75f112",
+    "parserVersion": "docling-2.132.0+norm-5+opts-da9fca75f112",
     "serviceVersion": "1.0.0",
     "doclingVersion": "2.132.0",
     "doclingCoreVersion": "2.99.0",
     "doclingIbmModelsVersion": "4.0.3",
-    "normalizerVersion": "4",
+    "normalizerVersion": "5",
     "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
   },
   "source": {
@@ -87,6 +87,7 @@
       "type": "key_value",
       "text": "Allotment Date : 10th February 2026\nBenchmark Net AUM (Cr.) Nifty 500 Healthcare (TRI) 13.9946\nBenchmark Tracking Error Value ~ Since Inception Tracking Error is Nifty 500 Healthcare (TRI) 0.21%\nBenchmark Exit Load: Nifty 500 Healthcare (TRI) Please refer page no.94\nBenchmark Plan Available: Nifty 500 Healthcare (TRI) The Scheme does not offer any Plans/Options for investment",
       "headings": [
+        "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
         "Fund Information",
         "Fund Managers : Ms. Ekta Gala Mr. Ritesh Patel"
       ],
@@ -117,6 +118,8 @@
       "type": "text",
       "text": "Market Maker: Application for subscription of Units directly with the Fund in Creation Unit Size at NAV based prices in exchange of Portfolio Deposit and Cash Component.\nLarge Investors: Minimum amount of Rs. 25 crores for transacting directly with the AMC.\nOther investors (including Market Maker, Large Investors and Regulated Entities): Units of the Scheme can be subscribed (in lots of 1 Unit) during the trading hours on all trading days on the NSE and BSE on which the Units are listed.\nOn exchange ( in multiple of 1 units) Directly with AMC ( in multiple of 2,00,000 units)",
       "headings": [
+        "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
+        "Fund Information",
         "Minimum Investment Amount"
       ],
       "pages": [
@@ -147,6 +150,7 @@
       "type": "text",
       "text": "₹ 21.6424 (Per Unit)",
       "headings": [
+        "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
         "Net Asset Value (NAV)"
       ],
       "pages": [
@@ -174,6 +178,7 @@
       "type": "text",
       "text": "Mirae Asset Capital Markets (India) Private Limited East India Securities Limited Kanjalochana Finserve Private Limited Parwati Capital Market Private Limited Vaibhav Stock & Derivatives Broking Private Limited IRage Broking Services LLP Junomoneta Finsol Pvt Ltd Motilal Oswal Financial Services Limited Obsidian Investment Pvt Ltd^^\nEureka Stock & Shares Broking Services Ltd^^^",
       "headings": [
+        "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
         "Market Makers"
       ],
       "pages": [
@@ -202,6 +207,7 @@
       "type": "text",
       "text": "Live iNav is updated on Mirae Asset Mutual Fund website.\nNSE Symbol: HEALTHCARE\nBSE Code: 544701\nBloomberg Code: MANHCRG IN EQUITY Reuters Code: MIRA.NS",
       "headings": [
+        "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
         "Others"
       ],
       "pages": [
@@ -232,6 +238,7 @@
       "type": "text",
       "text": "Base Expense Ratio: 0.14%",
       "headings": [
+        "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
         "Others"
       ],
       "pages": [
@@ -259,6 +266,7 @@
       "type": "key_value",
       "text": "Sun Pharmaceutical Industries Ltd.: 10.06%\nDivi's Laboratories Ltd.: 7.36%\nApollo Hospitals Enterprise Ltd.: 6.63%\nCipla Ltd.: 5.96%\nMax Healthcare Institute Ltd.: 5.88%\nTorrent Pharmaceuticals Ltd.: 5.40%\nLaurus Labs Ltd.: 5.08%\nDr. Reddy's Laboratories Ltd.: 5.03%\nLupin Ltd.: 4.22%\nFortis Healthcare Ltd.: 3.54%\nOther Equities: 40.65%\nEquity Holding Total: 99.81%\nCash & Other Receivables: 0.19%\nTotal: 100.00%",
       "headings": [
+        "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
         "Portfolio Top 10 Holdings",
         "Equity Shares"
       ],
@@ -289,6 +297,7 @@
       "type": "text",
       "text": "^Industrywise classification as recommended by AMFI",
       "headings": [
+        "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
         "Sector Allocation^"
       ],
       "pages": [
@@ -316,6 +325,7 @@
       "type": "picture",
       "text": "Pharmaceuticals & Biotechnology: 75.43%\nHealthcare Services: 23.92%\nHealthcare Equipment & Supplies: 0.47%",
       "headings": [
+        "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
         "Sector Allocation^"
       ],
       "pages": [

@@ -3,7 +3,7 @@
   python -m docling_service.tools.fixtures convert <file.pdf>          # needs models; writes <stem>.docling.json
   python -m docling_service.tools.fixtures normalize <file.docling.json> # tokenizer only; writes <stem>.wire.json
 
-`normalize` reads the sibling <stem>.pdf for source sha256/byteSize and writes
+`normalize` reads the sibling <stem>.pdf for source sha256/byteSize and header font sizes, and writes
 conversionMs = 0 so the golden is deterministic.
 """
 
@@ -18,6 +18,7 @@ from docling_core.types.doc import DoclingDocument, ImageRefMode
 
 from docling_service import converter
 from docling_service.normalize.chunks import build_chunker, normalize_document
+from docling_service.normalize.headings import header_font_sizes
 
 
 def default_chunker():
@@ -36,6 +37,7 @@ def wire_for(docling_json: Path, chunker) -> dict:
         source_sha256=hashlib.sha256(pdf).hexdigest(),
         byte_size=len(pdf),
         conversion_ms=0,
+        header_sizes=header_font_sizes(doc, pdf),
     )
 
 

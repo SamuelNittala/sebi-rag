@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "producer": {
-    "parserVersion": "docling-2.132.0+norm-4+opts-da9fca75f112",
+    "parserVersion": "docling-2.132.0+norm-5+opts-da9fca75f112",
     "serviceVersion": "1.0.0",
     "doclingVersion": "2.132.0",
     "doclingCoreVersion": "2.99.0",
     "doclingIbmModelsVersion": "4.0.3",
-    "normalizerVersion": "4",
+    "normalizerVersion": "5",
     "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
   },
   "source": {
@@ -59,6 +59,7 @@
       "type": "table",
       "text": "Last 1 Year, Mirae Asset Large Cap Fund = 1.58%. Last 1 Year, Scheme Benchmark* = 1.98%. Last 1 Year, Additional Benchmark** = -2.55%\nLast 3 Years, Mirae Asset Large Cap Fund = 9.22%. Last 3 Years, Scheme Benchmark* = 10.73%. Last 3 Years, Additional Benchmark** = 7.11%\nLast 5 Years, Mirae Asset Large Cap Fund = 7.86%. Last 5 Years, Scheme Benchmark* = 8.97%. Last 5 Years, Additional Benchmark** = 7.28%\nLast 10 Years, Mirae Asset Large Cap Fund = 11.85%. Last 10 Years, Scheme Benchmark* = 12.17%. Last 10 Years, Additional Benchmark** = 11.79%\nLast 15 Years, Mirae Asset Large Cap Fund = 14.31%. Last 15 Years, Scheme Benchmark* = 12.87%. Last 15 Years, Additional Benchmark** = 12.18%\nSince Inception, Mirae Asset Large Cap Fund = 14.06%. Since Inception, Scheme Benchmark* = 11.25%. Since Inception, Additional Benchmark** = 10.63%\nValue of Rs. 10000 invested (in Rs.) Since Inception, Mirae Asset Large Cap Fund = 1,12,736.00. Value of Rs. 10000 invested (in Rs.) Since Inception, Scheme Benchmark* = 71,238.52. Value of Rs. 10000 invested (in Rs.) Since Inception, Additional Benchmark** = 64,293.71",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Large Cap Fund - Fund Managers - Mr. Gaurav Misra"
       ],
       "pages": [
@@ -86,6 +87,7 @@
       "type": "text",
       "text": "NAV as on 31st Aug 2026\n₹112.736",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Large Cap Fund - Fund Managers - Mr. Gaurav Misra"
       ],
       "pages": [
@@ -115,6 +117,7 @@
       "type": "table",
       "text": "Index Value 31st Aug 2026: Index Value of Scheme Benchmark is 35,005.470 and BSE Sensex (TRI) is 1,21,824.500\nAllotment Date: 4th April 2008\nScheme Benchmark: *Nifty 100 (TRI)\nAdditional Benchmark: **BSE Sensex (TRI)",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Large Cap Fund - Fund Managers - Mr. Gaurav Misra",
         "NAV as on"
       ],
@@ -144,6 +147,7 @@
       "type": "table",
       "text": "Last 7 Days, Mirae Asset Liquid Fund = 6.66%. Last 7 Days, Scheme Benchmark* = 6.23%. Last 7 Days, Additional Benchmark** = 4.13%\nLast 15 Days, Mirae Asset Liquid Fund = 6.05%. Last 15 Days, Scheme Benchmark* = 5.98%. Last 15 Days, Additional Benchmark** = 2.80%\nLast 30 Days, Mirae Asset Liquid Fund = 6.34%. Last 30 Days, Scheme Benchmark* = 6.43%. Last 30 Days, Additional Benchmark** = 4.17%\nLast 1 Year, Mirae Asset Liquid Fund = 6.29%. Last 1 Year, Scheme Benchmark* = 6.40%. Last 1 Year, Additional Benchmark** = 4.29%\nLast 3 Years, Mirae Asset Liquid Fund = 6.84%. Last 3 Years, Scheme Benchmark* = 6.91%. Last 3 Years, Additional Benchmark** = 6.27%\nLast 5 Years, Mirae Asset Liquid Fund = 6.21%. Last 5 Years, Scheme Benchmark* = 6.30%. Last 5 Years, Additional Benchmark** = 5.67%\nLast 10 Years, Mirae Asset Liquid Fund = 6.01%. Last 10 Years, Scheme Benchmark* = 6.03%. Last 10 Years, Additional Benchmark** = 5.94%\nLast 15 Years, Mirae Asset Liquid Fund = 6.68%. Last 15 Years, Scheme Benchmark* = 7.01%. Last 15 Years, Additional Benchmark** = 6.50%\nSince Inception, Mirae Asset Liquid Fund = 6.30%. Since Inception, Scheme Benchmark* = 6.93%. Since Inception, Additional Benchmark** = 6.05%\nValue of Rs. 10000 invested (in Rs.) Since Inception, Mirae Asset Liquid Fund = 29,382.49. Value of Rs. 10000 invested (in Rs.) Since Inception, Scheme Benchmark* = 32,608.59. Value of Rs. 10000 invested (in Rs.) Since Inception, Additional Benchmark** = 28,190.38",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Liquid Fund - Fund Managers - Ms. Pranavi Kulkarni"
       ],
       "pages": [
@@ -169,6 +173,7 @@
       "type": "table",
       "text": "NAV as on 31 Aug 2026: ₹2,938.2491\nIndex Value 31st Aug 2026: Index Value of Scheme Benchmark is 5,310.7000 and Crisil 1 Year T-bill is 8,178.7756\nAllotment Date: 12th January 2009\nScheme Benchmark: *Nifty Liquid Index A-I\nAdditional Benchmark: **Crisil 1 Year T-bill",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Liquid Fund - Fund Managers - Ms. Pranavi Kulkarni"
       ],
       "pages": [
@@ -197,6 +202,7 @@
       "type": "table",
       "text": "Last 1 Year, Mirae Asset Large & Midcap Fund = 9.16%. Last 1 Year, Scheme Benchmark* = 7.96%. Last 1 Year, Additional Benchmark** = -2.55%\nLast 3 Years, Mirae Asset Large & Midcap Fund = 12.89%. Last 3 Years, Scheme Benchmark* = 14.25%. Last 3 Years, Additional Benchmark** = 7.11%\nLast 5 Years, Mirae Asset Large & Midcap Fund = 10.89%. Last 5 Years, Scheme Benchmark* = 13.43%. Last 5 Years, Additional Benchmark** = 7.28%\nLast 10 Years, Mirae Asset Large & Midcap Fund = 15.68%. Last 10 Years, Scheme Benchmark* = 14.93%. Last 10 Years, Additional Benchmark** = 11.79%\nLast 15 Years, Mirae Asset Large & Midcap Fund = 19.67%. Last 15 Years, Scheme Benchmark* = 15.62%. Last 15 Years, Additional Benchmark** = 12.18%\nSince Inception, Mirae Asset Large & Midcap Fund = 18.71%. Since Inception, Scheme Benchmark* = 13.72%. Since Inception, Additional Benchmark** = 10.93%\nValue of Rs. 10000 invested (in Rs.) Since Inception, Mirae Asset Large & Midcap Fund = 1,59,656.00. Value of Rs. 10000 invested (in Rs.) Since Inception, Scheme Benchmark* = 79,856.73. Value of Rs. 10000 invested (in Rs.) Since Inception, Additional Benchmark** = 53,444.03",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Large & Midcap Fund - Fund Managers - Mr. Neelesh Surana and Mr. Ankit Jain"
       ],
       "pages": [
@@ -224,6 +230,7 @@
       "type": "text",
       "text": "NAV as on 31st Aug 2026\n₹159.656",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Large & Midcap Fund - Fund Managers - Mr. Neelesh Surana and Mr. Ankit Jain"
       ],
       "pages": [
@@ -253,6 +260,7 @@
       "type": "table",
       "text": "Index Value 31st Aug 2026: Index Value of Scheme Benchmark is 22,022.970 and BSE Sensex (TRI) is 1,21,824.500\nAllotment Date: 9th July 2010\nScheme Benchmark: *Nifty Large Midcap 250 (TRI)\nAdditional Benchmark: **BSE Sensex (TRI)",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Large & Midcap Fund - Fund Managers - Mr. Neelesh Surana and Mr. Ankit Jain"
       ],
       "pages": [
@@ -280,6 +288,7 @@
       "type": "table",
       "text": "Last 1 Year, Mirae Asset Great Consumer Fund = -0.65%. Last 1 Year, Scheme Benchmark* = -1.36%. Last 1 Year, Additional Benchmark** = -2.55%\nLast 3 Years, Mirae Asset Great Consumer Fund = 10.95%. Last 3 Years, Scheme Benchmark* = 13.50%. Last 3 Years, Additional Benchmark** = 7.11%\nLast 5 Years, Mirae Asset Great Consumer Fund = 12.12%. Last 5 Years, Scheme Benchmark* = 12.43%. Last 5 Years, Additional Benchmark** = 7.28%\nLast 10 Years, Mirae Asset Great Consumer Fund = 14.57%. Last 10 Years, Scheme Benchmark* = 12.76%. Last 10 Years, Additional Benchmark** = 11.79%\nLast 15 Years, Mirae Asset Great Consumer Fund = 15.99%. Last 15 Years, Scheme Benchmark* = 14.52%. Last 15 Years, Additional Benchmark** = 12.18%\nSince Inception, Mirae Asset Great Consumer Fund = 15.65%. Since Inception, Scheme Benchmark* = 14.58%. Since Inception, Additional Benchmark** = 10.92%\nValue of Rs. 10000 invested (in Rs.) Since Inception, Mirae Asset Great Consumer Fund = 94,398.00. Value of Rs. 10000 invested (in Rs.) Since Inception, Scheme Benchmark* = 81,784.42. Value of Rs. 10000 invested (in Rs.) Since Inception, Additional Benchmark** = 49,548.02",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Great Consumer Fund - Fund Managers - Mr. Siddhant Chhabria"
       ],
       "pages": [
@@ -305,6 +314,7 @@
       "type": "table",
       "text": "NAV as on 31st Aug 2026: ₹94.398\nIndex Value 31st Aug 2026: Index Value of Scheme Benchmark is 15,036.720 and BSE Sensex (TRI) is 1,21,824.500\nAllotment Date: 29th March 2011\nScheme Benchmark: *Nifty India Consumption Index (TRI)\nAdditional Benchmark: **BSE Sensex (TRI)",
       "headings": [
+        "FUND PERFORMANCE",
         "Mirae Asset Great Consumer Fund - Fund Managers - Mr. Siddhant Chhabria"
       ],
       "pages": [

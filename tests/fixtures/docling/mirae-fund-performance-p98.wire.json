@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "producer": {
-    "parserVersion": "docling-2.132.0+norm-4+opts-da9fca75f112",
+    "parserVersion": "docling-2.132.0+norm-5+opts-da9fca75f112",
     "serviceVersion": "1.0.0",
     "doclingVersion": "2.132.0",
     "doclingCoreVersion": "2.99.0",
     "doclingIbmModelsVersion": "4.0.3",
-    "normalizerVersion": "4",
+    "normalizerVersion": "5",
     "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
   },
   "source": {
@@ -36,6 +36,7 @@
       "type": "table",
       "text": "Last 1 Year, Mirae Asset Multicap Fund = 7.25%. Last 1 Year, Scheme Benchmark* = 7.56%. Last 1 Year, Additional Benchmark** = -0.35%\nLast 3 Years, Mirae Asset Multicap Fund = 13.74%. Last 3 Years, Scheme Benchmark* = 13.97%. Last 3 Years, Additional Benchmark** = 8.99%\nSince Inception, Mirae Asset Multicap Fund = 14.31%. Since Inception, Scheme Benchmark* = 14.43%. Since Inception, Additional Benchmark** = 8.65%\nValue of Rs. 10000 invested (in Rs.) Since Inception, Mirae Asset Multicap Fund = 14,995.00. Value of Rs. 10000 invested (in Rs.) Since Inception, Scheme Benchmark* = 15,043.81. Value of Rs. 10000 invested (in Rs.) Since Inception, Additional Benchmark** = 12,857.82\nNAV as on 31st Aug 2026: ₹14.995\nIndex Value 31st Aug 2026: Index Value of Scheme Benchmark is 21,914.480 and Nifty 50 (TRI) is 36,579.000\nAllotment Date: 21st August; 2023\nScheme Benchmark: *Nifty 500 Multicap 50:25:25; (TRI)\nAdditional Benchmark: **Nifty 50 (TRI)",
       "headings": [
+        "FUND PERFORMANCE",
         "Monthly Factsheet as on 31 August, 2026",
         "Mirae Asset Multicap Fund - Fund Managers - Mr. Ankit Jain"
       ],
@@ -66,6 +67,7 @@
       "type": "table",
       "text": "Last 1 Year, Mirae Asset BSE Sensex ETF = -2.64%. Last 1 Year, Scheme Benchmark* = -2.55%. Last 1 Year, Additional Benchmark** = -0.35%\nSince Inception, Mirae Asset BSE Sensex ETF = 6.66%. Since Inception, Scheme Benchmark* = 6.75%. Since Inception, Additional Benchmark** = 8.51%\nValue of Rs. 10000 invested (in Rs.) Since Inception, Mirae Asset BSE Sensex ETF = 12,074.09. Value of Rs. 10000 invested (in Rs.) Since Inception, Scheme Benchmark* = 12,104.76. Value of Rs. 10000 invested (in Rs.) Since Inception, Additional Benchmark** = 12,697.62\nNAV as on 31st Aug 2026, Mirae Asset BSE Sensex ETF = ₹79.4818\nIndex Value 31st Aug 2026, Mirae Asset BSE Sensex ETF = Index Value of Scheme Benchmark is 1,21,824.5000 and Nifty 50 (TRI) is 36,579.0000\nAllotment Date, Mirae Asset BSE Sensex ETF = 29th September 2023\nScheme Benchmark, Mirae Asset BSE Sensex ETF = *BSE Sensex (TRI)\nAdditional Benchmark, Mirae Asset BSE Sensex ETF = **Nifty 50 (TRI)",
       "headings": [
+        "FUND PERFORMANCE",
         "Monthly Factsheet as on 31 August, 2026",
         "Mirae Asset BSE Sensex ETF (NSE Symbol: SENSEXETF , BSE Scrip Code: 543999) - Fund Managers - Ms. Ekta Gala and Mr. Ritesh Patel"
       ],
@@ -96,6 +98,7 @@
       "type": "table",
       "text": "Last 1 Year, Mirae Asset Nifty IT ETF = -9.45%. Last 1 Year, Scheme Benchmark* = -9.44%. Last 1 Year, Additional Benchmark** = -2.55%\nSince Inception, Mirae Asset Nifty IT ETF = 1.77%. Since Inception, Scheme Benchmark* = 1.88%. Since Inception, Additional Benchmark** = 7.13%\nValue of Rs. 10000 invested (in Rs.) Since Inception, Mirae Asset Nifty IT ETF = 10,514.94. Value of Rs. 10000 invested (in Rs.) Since Inception, Scheme Benchmark* = 10,548.11. Value of Rs. 10000 invested (in Rs.) Since Inception, Additional Benchmark** = 12,180.91\nNAV as on 31st Aug 2026, Mirae Asset Nifty IT ETF = ₹33.0899\nIndex Value 31st Aug 2026, Mirae Asset Nifty IT ETF = Index Value of Scheme Benchmark is 45,046.4800 and BSE Sensex (TRI) is 1,21,824.5000\nAllotment Date, Mirae Asset Nifty IT ETF = 20th October 2023\nScheme Benchmark, Mirae Asset Nifty IT ETF = *Nifty IT (TRI)\nAdditional Benchmark, Mirae Asset Nifty IT ETF = **BSE Sensex (TRI)",
       "headings": [
+        "FUND PERFORMANCE",
         "Monthly Factsheet as on 31 August, 2026",
         "Mirae Asset Nifty IT ETF (NSE Symbol: ITETF , BSE Scrip Code: 544006) - Fund Managers - Ms. Ekta Gala and Mr. Ritesh Patel"
       ],
@@ -126,6 +129,7 @@
       "type": "table",
       "text": "Last 1 Year, Mirae Asset Multi Asset Allocation Fund = 13.91%. Last 1 Year, Scheme Benchmark* = 10.85%. Last 1 Year, Additional Benchmark** = -2.55%\nSince Inception, Mirae Asset Multi Asset Allocation Fund = 12.94%. Since Inception, Scheme Benchmark* = 11.52%. Since Inception, Additional Benchmark** = 4.05%\nValue of Rs. 10000 invested (in Rs.) Since Inception, Mirae Asset Multi Asset Allocation Fund = 13,695.00. Value of Rs. 10000 invested (in Rs.) Since Inception, Scheme Benchmark* = 13,253.25. Value of Rs. 10000 invested (in Rs.) Since Inception, Additional Benchmark** = 11,080.22\nNAV as on 31st Aug 2026, Mirae Asset Multi Asset Allocation Fund = ₹13.695\nIndex Value 31st Aug 2026, Mirae Asset Multi Asset Allocation Fund = Index Value of Scheme Benchmark is 132.533 and BSE Sensex (TRI) is 1,21,824.500\nAllotment Date, Mirae Asset Multi Asset Allocation Fund = 31st January 2024\nScheme Benchmark, Mirae Asset Multi Asset Allocation Fund = *65% Nifty 500 (TRI) + 25% Nifty Short Duration Debt Index + 7.5% Domestic Price of Gold + 2.5% Domestic Price of Silver\nAdditional Benchmark, Mirae Asset Multi Asset Allocation Fund = **BSE Sensex (TRI)",
       "headings": [
+        "FUND PERFORMANCE",
         "Monthly Factsheet as on 31 August, 2026",
         "Mirae Asset Multi Asset Allocation Fund - Fund Managers - Mr. Harshad Borawake, Mr. Siddharth Srivastava, Mr. Ritesh Patel and Mr. Basant Bafna"
       ],
