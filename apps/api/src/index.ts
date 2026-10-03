@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { db } from "@mf-rag/db";
 import { McpRetrievalSearch } from "./retrieval/mcp-retrieval-search.ts";
 import { createReviewApp } from "./review/routes.ts";
+import { reviewSourceArtifactsFromEnvironment } from "./review/page-view/source-artifacts-config.ts";
 import { DrizzleApiKeyScopeStore } from "./admin/api-key-scope-store.ts";
 import { createAdminApp } from "./admin/routes.ts";
 
@@ -18,10 +19,15 @@ if (reviewUsername && reviewPassword) {
     apiKey: process.env.MF_RAG_API_KEY ?? "",
     tenantId: process.env.AMC_SCOPE ?? "",
   });
+  // Page view: unset ARTIFACT_STORE -> disabled (503 panel); invalid configuration -> startup fails.
+  const pageViewSource = reviewSourceArtifactsFromEnvironment(db);
+  console.log(pageViewSource
+    ? `Review page view enabled (artifact store: ${pageViewSource.kind})`
+    : "Review page view disabled: ARTIFACT_STORE is not configured");
   app.route("/review", createReviewApp(db, {
     username: reviewUsername,
     password: reviewPassword,
-  }, retrievalSearch));
+  }, retrievalSearch, pageViewSource?.sourceArtifacts));
   app.route("/admin", createAdminApp(
     new DrizzleApiKeyScopeStore(db),
     { username: reviewUsername, password: reviewPassword },

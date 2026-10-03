@@ -17,6 +17,7 @@
     "@mf-rag/core": "workspace:*",
     "@mf-rag/db": "workspace:*",
     "@mf-rag/vector": "workspace:*",
-    "@mf-rag/types": "workspace:*"
+    "@mf-rag/types": "workspace:*",
+    "pdfjs-dist": "6.4.299"
   }
 }

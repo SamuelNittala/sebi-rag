@@ -271,6 +271,13 @@ services:
       KNOWLEDGE_MCP_URL: http://mcp-server:3001/mcp
       REVIEW_USERNAME: ${REVIEW_USERNAME:?Set REVIEW_USERNAME in the local .env file}
       REVIEW_PASSWORD: ${REVIEW_PASSWORD:?Set REVIEW_PASSWORD in the local .env file}
+      # Review page view reads the artifacts the local pipeline workers write.
+      ARTIFACT_STORE: filesystem
+      ARTIFACT_FILESYSTEM_ROOT: /var/lib/mf-rag/artifacts
+    volumes:
+      - ..:/app
+      - bun_node_modules:/app/node_modules
+      - pipeline_artifacts:/var/lib/mf-rag/artifacts:ro
     ports:
       - "127.0.0.1:${REVIEW_PORT:-3000}:3000"
     depends_on:
