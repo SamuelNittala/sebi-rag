@@ -1,5 +1,6 @@
-import { and, asc, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import type {
+  ArtifactDescriptor,
   CandidateChunkMetadata,
   ClassifiedKnowledgeOwnership,
   ChunkFlagStatus,
@@ -34,6 +35,8 @@ import {
   sourceRegistryRevisions,
   sources,
   reviewEvents,
+  artifacts,
+  stageAttempts,
   type IngestionRun,
   type NewChunkCandidate,
 } from "./schema.ts";
@@ -671,6 +674,146 @@ export async function getReviewRunDetail(
       .orderBy(desc(reviewEvents.createdAt)),
   ]);
   return { run, candidates, flags, edits, events };
+}
+
+export interface ReviewRunSourceLineage {
+  run: IngestionRun;
+  /** `document_version_id` of `run.pipelineRunId`'s pipeline run; null when the run has none or it is gone. */
+  pipelineRunDocumentVersionId: string | null;
+  /** Raw PDF of `run.documentVersionId`; null for legacy runs. */
+  rawArtifact: ArtifactDescriptor | null;
+  /**
+   * `output_ref` of the latest `succeeded`/`reused` PARSE attempt of the run's
+   * pipeline run, only when that pipeline run belongs to the run's document
+   * version. Undecoded: db does not depend on the pipeline's descriptor codec.
+   */
+  parseOutputRef: string | null;
+}
+
+/** Lineage the review page view needs to locate the raw PDF and the parse artifact. */
+export async function getReviewRunSourceLineage(
+  db: Database,
+  runId: string,
+): Promise<ReviewRunSourceLineage | undefined> {
+  const [row] = await db.select({
+    run: ingestionRuns,
+    pipelineRunDocumentVersionId: pipelineRuns.documentVersionId,
+    raw: artifacts,
+  }).from(ingestionRuns)
+    .leftJoin(pipelineRuns, eq(pipelineRuns.id, ingestionRuns.pipelineRunId))
+    .leftJoin(documentVersions, eq(documentVersions.id, ingestionRuns.documentVersionId))
+    .leftJoin(artifacts, eq(artifacts.id, documentVersions.rawArtifactId))
+    .where(eq(ingestionRuns.id, runId));
+  if (!row) return undefined;
+  const { run, raw } = row;
+  const pipelineRunDocumentVersionId = row.pipelineRunDocumentVersionId ?? null;
+  let parseOutputRef: string | null = null;
+  if (run.pipelineRunId && run.documentVersionId && pipelineRunDocumentVersionId === run.documentVersionId) {
+    const [attempt] = await db.select({ outputRef: stageAttempts.outputRef }).from(stageAttempts)
+      .where(and(
+        eq(stageAttempts.pipelineRunId, run.pipelineRunId),
+        eq(stageAttempts.documentVersionId, run.documentVersionId),
+        eq(stageAttempts.stage, "PARSE"),
+        inArray(stageAttempts.status, ["succeeded", "reused"]),
+        isNotNull(stageAttempts.outputRef),
+      ))
+      .orderBy(sql`${stageAttempts.completedAt} DESC NULLS LAST`, desc(stageAttempts.createdAt))
+      .limit(1);
+    parseOutputRef = attempt?.outputRef ?? null;
+  }
+  return {
+    run,
+    pipelineRunDocumentVersionId,
+    rawArtifact: raw
+      ? {
+          key: raw.artifactKey,
+          uri: raw.uri,
+          sha256: raw.sha256,
+          byteSize: raw.byteSize,
+          mediaType: raw.mediaType,
+          producerVersion: raw.producerVersion,
+        }
+      : null,
+    parseOutputRef,
+  };
+}
+
+export interface ReviewRunPageSummaryRow {
+  page: number;
+  chunkCount: number;
+  /** Open flags of the page's candidates; a multi-page candidate counts on each of its pages. */
+  openFlagCount: number;
+  openBlockingCount: number;
+}
+
+export interface ReviewRunPage {
+  run: IngestionRun;
+  /** Candidates whose `page_numbers` contain the page, by chunk index. */
+  candidates: Array<typeof chunkCandidates.$inferSelect>;
+  /** All flags (any status) of those candidates, by chunk index, creation, rule code. */
+  flags: Array<typeof chunkFlags.$inferSelect>;
+  /** Edit rows per candidate id; candidates without edits are absent. */
+  editCounts: Map<string, number>;
+}
+
+/** One page of a review run; undefined for an unknown run. */
+export async function getReviewRunPage(
+  db: Database,
+  runId: string,
+  page: number,
+): Promise<ReviewRunPage | undefined> {
+  const [run] = await db.select().from(ingestionRuns).where(eq(ingestionRuns.id, runId));
+  if (!run) return undefined;
+  const candidates = await db.select().from(chunkCandidates)
+    .where(and(
+      eq(chunkCandidates.ingestionRunId, runId),
+      sql`${chunkCandidates.pageNumbers} @> jsonb_build_array(${page}::int)`,
+    ))
+    .orderBy(asc(chunkCandidates.chunkIndex));
+  if (candidates.length === 0) return { run, candidates, flags: [], editCounts: new Map() };
+  const candidateIds = candidates.map((candidate) => candidate.id);
+  const [flags, edits] = await Promise.all([
+    db.select().from(chunkFlags)
+      .where(and(eq(chunkFlags.ingestionRunId, runId), inArray(chunkFlags.chunkCandidateId, candidateIds)))
+      // Flags of one inspection share created_at; rule code and id keep the order stable.
+      .orderBy(asc(chunkFlags.chunkIndex), asc(chunkFlags.createdAt), asc(chunkFlags.ruleCode), asc(chunkFlags.id)),
+    db.select({ candidateId: chunkCandidateEdits.chunkCandidateId, count: sql<number>`count(*)::int` })
+      .from(chunkCandidateEdits)
+      .where(and(eq(chunkCandidateEdits.ingestionRunId, runId), inArray(chunkCandidateEdits.chunkCandidateId, candidateIds)))
+      .groupBy(chunkCandidateEdits.chunkCandidateId),
+  ]);
+  return { run, candidates, flags, editCounts: new Map(edits.map((edit) => [edit.candidateId, Number(edit.count)])) };
+}
+
+/** Per-page candidate and open-flag counts; pages without candidates are absent. Ordered by page. */
+export async function getReviewRunPageSummary(
+  db: Database,
+  runId: string,
+): Promise<ReviewRunPageSummaryRow[]> {
+  const rows = await db.execute<{
+    page: number;
+    chunk_count: number;
+    open_flag_count: number;
+    open_blocking_count: number;
+  }>(sql`
+    SELECT page_number.page::int AS page,
+      count(DISTINCT ${chunkCandidates.id})::int AS chunk_count,
+      count(${chunkFlags.id}) FILTER (WHERE ${chunkFlags.status} = 'open')::int AS open_flag_count,
+      count(${chunkFlags.id}) FILTER (WHERE ${chunkFlags.status} = 'open' AND ${chunkFlags.blocksApproval})::int
+        AS open_blocking_count
+    FROM ${chunkCandidates}
+    CROSS JOIN LATERAL jsonb_array_elements_text(${chunkCandidates.pageNumbers}) AS page_number(page)
+    LEFT JOIN ${chunkFlags} ON ${chunkFlags.chunkCandidateId} = ${chunkCandidates.id}
+    WHERE ${chunkCandidates.ingestionRunId} = ${runId}
+    GROUP BY page_number.page::int
+    ORDER BY page_number.page::int
+  `);
+  return [...rows].map((row) => ({
+    page: Number(row.page),
+    chunkCount: Number(row.chunk_count),
+    openFlagCount: Number(row.open_flag_count),
+    openBlockingCount: Number(row.open_blocking_count),
+  }));
 }
 
 export async function getScheduledReviewRiskContext(
