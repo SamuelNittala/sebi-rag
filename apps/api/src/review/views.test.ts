@@ -448,7 +448,7 @@ function wireChunk(overrides: Partial<DoclingWireChunk> & Pick<DoclingWireChunk,
 
 function pageModelInput(overrides: Partial<PageViewModelInput> = {}): PageViewModelInput {
   return {
-    run: { id: "run-page", sourceName: "factsheet.pdf", parserVersion: "docling-2.132.0+norm-5+opts-x+none", status: "review_ready" },
+    run: { id: "run-page", sourceName: "factsheet.pdf", parserVersion: "docling-2.132.0+norm-6+opts-x+none", status: "review_ready" },
     page: 3,
     pageCount: 5,
     rawPdfSha256: "a".repeat(64),
@@ -593,7 +593,7 @@ describe("page view entry links", () => {
     flaggedChunkCount: 0,
     criticalCount: 0,
     blockingCount: 0,
-    parserVersion: "docling-2.132.0+norm-5+opts-da9fca75f112+none",
+    parserVersion: "docling-2.132.0+norm-6+opts-da9fca75f112+none",
     chunkerVersion: "docling-hybrid-v1",
     inspectorVersion: "1.0.0",
     createdAt: new Date("2026-10-01T00:00:00Z"),
@@ -657,7 +657,7 @@ describe("page view entry links", () => {
   });
 
   test("the document review anchors flags and links them to their page", () => {
-    const html = renderDocumentReview(reviewModel("docling-2.132.0+norm-5+opts-da9fca75f112+none"));
+    const html = renderDocumentReview(reviewModel("docling-2.132.0+norm-6+opts-da9fca75f112+none"));
 
     expect(html).toContain('id="flag-flag-r"');
     expect(html).toContain('href="/review/documents/run-r/pages"');
@@ -673,7 +673,7 @@ describe("page view entry links", () => {
   });
 
   test("the candidate editor links each candidate to its page", () => {
-    const html = renderCandidateEditor(reviewModel("docling-2.132.0+norm-5+opts-da9fca75f112+none"));
+    const html = renderCandidateEditor(reviewModel("docling-2.132.0+norm-6+opts-da9fca75f112+none"));
 
     expect(html).toContain('href="/review/documents/run-r/pages/34#chunk-12"');
     expect(html).toContain("View on page 34");

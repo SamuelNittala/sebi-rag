@@ -13,7 +13,7 @@ import {
 } from "./page-view-model.ts";
 import { goldenWire } from "./test-fixtures.ts";
 
-const RUN = { id: "run-1", sourceName: "flexi.pdf", parserVersion: "docling-2.132.0+norm-5", status: "review_ready" };
+const RUN = { id: "run-1", sourceName: "flexi.pdf", parserVersion: "docling-2.132.0+norm-6", status: "review_ready" };
 const RAW_SHA = "f".repeat(64);
 
 let wire: DoclingParseResponse;
@@ -251,4 +251,37 @@ describe("pageViewHref", () => {
   test("builds the page route with an encoded run id", () => {
     expect(pageViewHref("run-1", 12)).toBe("/review/documents/run-1/pages/12");
   });
+});
+
+describe("stacked SIP table parts", () => {
+  for (const stem of ["mirae-sip-performance-p103", "mirae-sip-performance-p104"]) {
+    test(`${stem}: each fund's part gets its own box, top to bottom in chunk order`, async () => {
+      const sip = await goldenWire(stem);
+      const sipCandidates = mapDoclingChunks(sip).chunkResult.chunks.map((chunk) => ({
+        id: `sip-${chunk.chunkIndex}`,
+        chunkIndex: chunk.chunkIndex,
+        text: chunk.text,
+        pageNumbers: chunk.pageNumbers,
+        sectionHeader: chunk.sectionHeader,
+        metadata: chunk.metadata,
+      }));
+      const model = buildPageViewModel({
+        ...input(),
+        pageCount: 1,
+        summary: [],
+        candidates: sipCandidates,
+        flags: [],
+        editCounts: new Map(),
+        wireChunks: sip.chunks,
+      });
+
+      const tables = model.data.boxes.filter((box) => box.type === "table");
+      expect(tables).toHaveLength(6);
+      expect(tables.every((box) => box.matched)).toBe(true);
+      // Distinct geometry, so the client draws six boxes instead of one labelled "0, 1, 2, 3, 4, 5".
+      expect(new Set(tables.map(({ bbox }) => `${bbox.l},${bbox.t},${bbox.r},${bbox.b}`)).size).toBe(6);
+      const tops = tables.map((box) => box.bbox.t);
+      expect(tops).toEqual([...tops].sort((a, b) => b - a));
+    });
+  }
 });

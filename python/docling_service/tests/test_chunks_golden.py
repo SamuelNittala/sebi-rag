@@ -193,3 +193,29 @@ def test_sip_p103_values_sit_under_their_fund(wires):
         ):
             holders = [c["headings"][-1] for c in tables if line in c["text"]]
             assert holders == [fund], line
+
+
+# Stacked SIP sub-tables: one box per fund, not the whole table's box six times.
+@pytest.mark.parametrize("stem", (SIP_PERFORMANCE_P103_STEM, SIP_PERFORMANCE_STEM))
+def test_sip_part_boxes_tile_the_table_in_fund_order(wires, stem):
+    import json
+
+    docling = json.loads((FIXTURES / f"{stem}.docling.json").read_text(encoding="utf-8"))
+    [prov] = docling["tables"][0]["prov"]
+    table = prov["bbox"]
+    assert table["coord_origin"] == "BOTTOMLEFT"
+    parts = [c for c in wires[stem]["chunks"] if c["type"] == "table"]
+    assert len(parts) == 6 and len({c["headings"][-1] for c in parts}) == 6
+    boxes = [box for c in parts for box in c["bboxes"]]
+    assert len(boxes) == 6 and all(box["page"] == prov["page_no"] for box in boxes)
+    tolerance = 0.01  # rounding to 2 decimals
+    for box in boxes:
+        assert table["l"] - tolerance <= box["l"] < box["r"] <= table["r"] + tolerance
+        assert table["b"] - tolerance <= box["b"] < box["t"] <= table["t"] + tolerance
+    # Top to bottom in fund (chunk) order; vertically disjoint up to 1 pt of touching, so pairwise
+    # non-overlapping.
+    for upper, lower in zip(boxes, boxes[1:]):
+        assert upper["t"] > lower["t"]
+        assert lower["t"] <= upper["b"] + 1.0, (upper, lower)
+    covered = sum(box["t"] - box["b"] for box in boxes)
+    assert covered >= 0.9 * (table["t"] - table["b"])

@@ -44,6 +44,10 @@
   dropped. Repairs that are not safe keep the cells and flag the part `table_cells_fused`.
 - One line per row, every triplet line carrying its column header, so chunks.py can split a
   long table between rows (budget.py) without losing context.
+- Each part keeps the source cells behind every text line (`line_cells`; rows that yield no line,
+  such as a repeated column header or a key-value sub-header, go with the next line) and its title
+  and column header cells (`head_cells`), so chunks.py can draw one bbox per part and per budget
+  piece instead of the whole table's.
 """
 
 from __future__ import annotations
@@ -54,7 +58,7 @@ from dataclasses import dataclass
 from itertools import groupby
 from typing import Literal
 
-from docling_core.types.doc import TableCell, TableItem
+from docling_core.types.doc import BoundingBox, TableCell, TableItem
 
 from docling_service.normalize.text import is_value_only
 
@@ -67,6 +71,32 @@ class TablePart:
     text: str
     title: str | None
     flags: tuple[str, ...]
+    line_cells: tuple[Row, ...] = ()  # source cells of each line of `text`, aligned with text.split("\n")
+    head_cells: Row = ()  # title and column header cells
+
+
+Line = tuple[str, Row]  # a text line and the cells it was built from
+
+
+def _part(kind, lines: list[Line], title: str | None, flags, head: list[TableCell]) -> TablePart:
+    """A part from (line, cells) pairs; a line holding newlines (cell text) keeps its cells on each."""
+    split = [(piece, cells) for line, cells in lines for piece in line.split("\n")]
+    return TablePart(
+        kind=kind,
+        text="\n".join(line for line, _ in split),
+        title=title,
+        flags=tuple(flags),
+        line_cells=tuple(tuple(cells) for _, cells in split),
+        head_cells=tuple(head),
+    )
+
+
+def _attach_pending(lines: list[Line], pending: list[TableCell]) -> list[Line]:
+    """Cells of trailing rows that produced no line go with the last line."""
+    if pending and lines:
+        line, cells = lines[-1]
+        return [*lines[:-1], (line, (*cells, *pending))]
+    return lines
 
 
 def normalize_table(table: TableItem) -> list[TablePart]:
@@ -86,14 +116,18 @@ def normalize_table(table: TableItem) -> list[TablePart]:
             _normalize_rows(sub.body, num_cols) if sub.header is None else _sub_table_part(sub, num_cols, base)
             for sub in stacked
         ]
-    return [TablePart(p.kind, p.text, p.title, (*p.flags, *span_flags)) for p in parts]
+    return [
+        TablePart(p.kind, p.text, p.title, (*p.flags, *span_flags), p.line_cells, p.head_cells) for p in parts
+    ]
 
 
 def _normalize_rows(rows: list[Row], num_cols: int) -> TablePart:
     flags: list[str] = []
     title = None
+    head: list[TableCell] = []
     if len(rows) > 1 and len(rows[0]) == 1 and _is_title_row(rows):
         title = rows[0][0].text.strip()
+        head += rows[0]
         rows = rows[1:]
         flags.append("heading_from_table_title")
     has_column_header = any(c.column_header for row in rows for c in row)
@@ -122,11 +156,12 @@ def _normalize_rows(rows: list[Row], num_cols: int) -> TablePart:
                 header_count = 0
             header_rows, body_rows = rows[:header_count], rows[header_count:]
         label_col = _label_col(body_rows)
+        head += [c for row in header_rows for c in row]
         body_rows = [_split_label_value(row, label_col) for row in body_rows]
         header_rows = [_split_fund_header(row, label_col, body_rows, fund) for row in header_rows]
         lines = _triplet_lines(header_rows, body_rows, num_cols, label_col, label_end)
 
-    return TablePart(kind=kind, text="\n".join(lines), title=title, flags=tuple(flags))
+    return _part(kind, lines, title, flags, head)
 
 
 def _is_title_row(rows: list[Row]) -> bool:
@@ -286,20 +321,23 @@ def _is_key_value_panel(rows: list[Row], num_cols: int) -> bool:
     )
 
 
-def _key_value_lines(rows: list[Row]) -> list[str]:
-    lines: list[str] = []
+def _key_value_lines(rows: list[Row]) -> list[Line]:
+    lines: list[Line] = []
     sub_header: tuple[str, list[int], list[str]] | None = None  # (prefix, value columns, labels)
+    pending: list[TableCell] = []  # a sub-header row's cells, carried to the first row it labels
     for index, row in enumerate(rows):
         if len(row) == 1:
             sub_header = None
-            lines.append(row[0].text.strip())
+            lines.append((row[0].text.strip(), (*pending, *row)))
+            pending = []
             continue
         first, rest = row[0], row[1:]
         columns = [c.start_col_offset_idx for c in rest]
         if sub_header and columns == sub_header[1]:
             prefix, _, labels = sub_header
             values = "; ".join(f"{label} {c.text.strip()}" for label, c in zip(labels, rest))
-            lines.append(f"{prefix} {first.text.strip()} {values}")
+            lines.append((f"{prefix} {first.text.strip()} {values}", (*pending, *row)))
+            pending = []
             continue
         sub_header = None
         following = rows[index + 1] if index + 1 < len(rows) else None
@@ -311,19 +349,22 @@ def _key_value_lines(rows: list[Row]) -> list[str]:
             and all(_is_numeric(c.text) for c in following[1:])
         ):
             sub_header = (first.text.strip().rstrip(":").strip(), columns, [c.text.strip() for c in rest])
+            pending += row
             continue
         label = first.text.strip()
         separator = " " if label.endswith(":") else ": "
-        lines.append(label + separator + " ".join(c.text.strip() for c in rest))
-    return lines
+        lines.append((label + separator + " ".join(c.text.strip() for c in rest), (*pending, *row)))
+        pending = []
+    return _attach_pending(lines, pending)
 
 
 def _triplet_lines(
     header_rows: list[Row], body_rows: list[Row], num_cols: int, label_col: int, label_end: int | None = None
-) -> list[str]:
+) -> list[Line]:
     column_names = _column_names(header_rows, label_col, num_cols)
 
-    lines: list[str] = []
+    lines: list[Line] = []
+    pending: list[TableCell] = []  # a repeated header row's cells, carried to the next line
     for row in body_rows:
         label_cell = row[0] if row[0].start_col_offset_idx == label_col else None
         label = label_cell.text.strip() if label_cell else ""
@@ -331,13 +372,15 @@ def _triplet_lines(
             # A stacked sub-table's own `Period | Since Inception | 5 Years` row: it names
             # the columns for the rows below it.
             column_names = _column_names([row], label_col, num_cols)
+            pending += row
             continue
         if label_cell and label_end is not None and label_cell.end_col_offset_idx < label_end:
             # Not part of the merged header's grid (NAV, Allotment Date rows).
-            lines.append(_label_value(label, [c.text.strip() for c in row[1:]]))
-            continue
-        lines.append(_row_triplets(row, label_cell, label, column_names))
-    return lines
+            lines.append((_label_value(label, [c.text.strip() for c in row[1:]]), (*pending, *row)))
+        else:
+            lines.append((_row_triplets(row, label_cell, label, column_names), (*pending, *row)))
+        pending = []
+    return _attach_pending(lines, pending)
 
 
 def _row_triplets(row: Row, label_cell: TableCell | None, label: str, column_names: dict[int, str]) -> str:
@@ -400,6 +443,7 @@ class _SubTable:
     title: str | None
     header: Row | None  # None: a leading segment normalized like a plain table
     body: list[Row]
+    head: tuple[TableCell, ...] = ()  # source cells of the title and header rows
 
 
 def _label_of(row: Row, label_col: int) -> str:
@@ -468,7 +512,9 @@ def _stacked_sub_tables(rows: list[Row]) -> list[_SubTable] | None:
         subs.append(_leading_sub_table(rows[: starts[0][0]], key, label_col))
     for n, (_, title, header, header_index) in enumerate(starts):
         end = starts[n + 1][0] if n + 1 < len(starts) else len(rows)
-        subs.append(_SubTable(title, _as_header(header), rows[header_index + 1 : end]))
+        first = starts[n][0]
+        head = tuple(c for row in rows[first : header_index + 1] for c in row)
+        subs.append(_SubTable(title, _as_header(header), rows[header_index + 1 : end], head))
     return subs
 
 
@@ -489,12 +535,21 @@ def _merge_continuation_rows(rows: list[Row], label_col: int) -> list[Row]:
             for c in row:
                 above = by_col.get(c.start_col_offset_idx)
                 by_col[c.start_col_offset_idx] = (
-                    above.model_copy(update={"text": f"{above.text.strip()} {c.text.strip()}"}) if above else c
+                    above.model_copy(update={"text": f"{above.text.strip()} {c.text.strip()}", "bbox": _enclosing(above, c)})
+                    if above
+                    else c
                 )
             out[-1] = [by_col[col] for col in sorted(by_col)]
         else:
             out.append(row)
     return out
+
+
+def _enclosing(a: TableCell, b: TableCell) -> BoundingBox | None:
+    """The box around both cells (same origin), else whichever has one."""
+    if a.bbox and b.bbox and a.bbox.coord_origin == b.bbox.coord_origin:
+        return BoundingBox.enclosing_bbox([a.bbox, b.bbox])
+    return a.bbox or b.bbox
 
 
 def _vocabulary_name(text: str, vocabulary: set[str]) -> str | None:
@@ -565,7 +620,7 @@ def _leading_sub_table(rows: list[Row], key: str, label_col: int) -> _SubTable:
     data = [merged[0].model_copy(update={"text": merged_label[len(key) + 1:], "column_header": False})] + [
         c.model_copy(update={"text": m["value"], "column_header": False}) for c, m in zip(merged[1:], matches)
     ]
-    return _SubTable(top_label, _as_header(header), [data, *rows[2:]])
+    return _SubTable(top_label, _as_header(header), [data, *rows[2:]], tuple(top))
 
 
 def _as_header(row: Row) -> Row:
@@ -628,19 +683,23 @@ def _sub_table_part(sub: _SubTable, num_cols: int, base: dict[str, bool]) -> Tab
     if labels_fused or numbers_fused:
         flags.append("table_cells_fused")
 
-    lines: list[str] = []
+    lines: list[Line] = []
+    pending: list[TableCell] = []  # an echoed header row's cells, carried to the next line
     for row in body:
         label = _label_of(row, label_col)
         label_cell = row[0] if label else None
         values = _values(row, label_col)
         if values and all(" ".join(c.text.split()) == column_names.get(c.start_col_offset_idx) for c in values):
+            pending += row
             continue  # an inner header row echoing the column names
         if label and values and not _has_numbers(values):
             # Full-width text (benchmark names) that Docling cut into cells: one value.
-            lines.append(f"{label}: {' '.join(c.text.strip() for c in values)}")
+            text = f"{label}: {' '.join(c.text.strip() for c in values)}"
         else:
-            lines.append(_row_triplets(row, label_cell, label.strip(), column_names) if values else row[0].text.strip())
-    return TablePart(kind="table", text="\n".join(lines), title=sub.title, flags=tuple(flags))
+            text = _row_triplets(row, label_cell, label.strip(), column_names) if values else row[0].text.strip()
+        lines.append((text, (*pending, *row)))
+        pending = []
+    return _part("table", _attach_pending(lines, pending), sub.title, flags, list(sub.head))
 
 
 _NUMBER_THEN_TEXT = re.compile(r"^(?P<value>[-+]?\d[\d,]*(?:\.\d+)?%?)\s+(?P<text>\S.*)$")

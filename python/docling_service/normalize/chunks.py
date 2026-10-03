@@ -39,6 +39,13 @@ the budget splits between items, each part repeating both headings.
 A table holding stacked sub-tables (SIP Performance pages: one Docling table per page, one
 sub-table per fund) yields one chunk group per sub-table, each headed by that sub-table's title,
 so a row-split continuation never carries another fund's title.
+
+A table that yields several chunks (sub-tables, budget row splits, key-value panels split by
+budget) gives each chunk its own bbox: the union of the Docling cell bboxes behind its lines
+(the first piece of a part also covers the part's title and column header rows), converted to
+bottom-left-origin points and clipped to the table's bbox; where neighbouring pieces overlap
+vertically they meet halfway; a chunk whose cells have no bbox gets the table's. A table in
+one chunk keeps the table's bbox.
 """
 
 from __future__ import annotations
@@ -381,7 +388,7 @@ def _wire_chunks(unit: _Unit, doc, changed, table_parts, picture_results) -> lis
         return [_chunk("text", piece, headings, unit.items, doc, refs, flags) for piece in pieces]
 
     if unit.kind == "table":
-        out = []
+        planned = []  # (kind, piece, headings, flags, source cells)
         for part in table_parts[refs[0]]:  # one per stacked sub-table, each under its own title
             part_headings = headings + _clean_headings([part.title] if part.title else [])
             body = _drop_heading_lines(part.text, part_headings)
@@ -389,8 +396,14 @@ def _wire_chunks(unit: _Unit, doc, changed, table_parts, picture_results) -> lis
                 continue
             pieces = budget.split_body(part.kind, part_headings, body, split_long_lines=False)
             flags = ordinal + mixed + list(part.flags) + (["table_rows_split"] if len(pieces) > 1 else [])
-            out += [_chunk(part.kind, piece, part_headings, unit.items, doc, refs, flags) for piece in pieces]
-        return out
+            cells = _piece_cells(part, part_headings, body, pieces)
+            planned += [(part.kind, piece, part_headings, flags, c) for piece, c in zip(pieces, cells)]
+        table = unit.items[0]
+        boxes = _meet_halfway([_cell_boxes(table, doc, cells) for *_, cells in planned]) if len(planned) > 1 else [None] * len(planned)
+        return [
+            _chunk(kind, piece, part_headings, unit.items, doc, refs, flags, boxes=box)
+            for (kind, piece, part_headings, flags, _), box in zip(planned, boxes)
+        ]
 
     result = picture_results[refs[0]]
     if result.dropped:
@@ -405,18 +418,65 @@ def _wire_chunks(unit: _Unit, doc, changed, table_parts, picture_results) -> lis
     return [_chunk("picture", piece, headings, unit.items, doc, refs, flags, picture) for piece in pieces]
 
 
-def _chunk(kind, text, headings, items, doc, refs, flags, picture=None) -> dict:
-    boxes: dict[int, list[float]] = {}
-    for item in items:
-        for prov in item.prov:
-            box = prov.bbox.to_bottom_left_origin(page_height=doc.pages[prov.page_no].size.height)
-            l, r = sorted((box.l, box.r))
-            b, t = sorted((box.b, box.t))
-            if prov.page_no in boxes:
-                cur = boxes[prov.page_no]
-                boxes[prov.page_no] = [min(cur[0], l), max(cur[1], t), max(cur[2], r), min(cur[3], b)]
-            else:
-                boxes[prov.page_no] = [l, t, r, b]
+def _piece_cells(part, headings: list[str], body: str, pieces: list[str]) -> list[list]:
+    """The source cells of each budget piece of a table part: the cells of its lines, plus the
+    part's title and header cells for the first piece. Empty lists when the lines cannot be
+    lined up with the body (no cells recorded): the chunk then gets the table's bbox."""
+    kept = [
+        cells for line, cells in zip(part.text.replace("\u0000", "").split("\n"), part.line_cells)
+        if line.strip() not in headings
+    ]
+    if len(part.line_cells) != len(part.text.split("\n")) or len(kept) != len(body.split("\n")):
+        return [[] for _ in pieces]
+    out, at = [], 0
+    for index, piece in enumerate(pieces):
+        count = len(piece.split("\n"))
+        head = list(part.head_cells) if index == 0 else []
+        out.append(head + [c for cells in kept[at : at + count] for c in cells])
+        at += count
+    return out
+
+
+def _cell_boxes(table: TableItem, doc: DoclingDocument, cells: list) -> dict[int, list[float]] | None:
+    """[l, t, r, b] (bottom-left origin) around the cells' bboxes, clipped to the table's single
+    prov bbox; None (use the table's bbox) without cell bboxes or a single prov."""
+    if len(table.prov) != 1:
+        return None
+    prov = table.prov[0]
+    page_height = doc.pages[prov.page_no].size.height
+    boxes = [c.bbox.to_bottom_left_origin(page_height=page_height) for c in cells if c.bbox is not None]
+    if not boxes:
+        return None
+    outer = prov.bbox.to_bottom_left_origin(page_height=page_height)
+    ol, or_ = sorted((outer.l, outer.r))
+    ob, ot = sorted((outer.b, outer.t))
+    l = max(ol, min(min(b.l, b.r) for b in boxes))
+    r = min(or_, max(max(b.l, b.r) for b in boxes))
+    b = max(ob, min(min(x.b, x.t) for x in boxes))
+    t = min(ot, max(max(x.b, x.t) for x in boxes))
+    if not (l < r and b < t):
+        return None
+    return {prov.page_no: [l, t, r, b]}
+
+
+def _meet_halfway(boxes: list[dict[int, list[float]] | None]) -> list[dict[int, list[float]] | None]:
+    """The pieces of one table are stacked rows: where a piece's box reaches into the next one's
+    (a tall Docling cell, p104 Equity Savings' two-line benchmark cell 1.2 pt into the Focused
+    title), both edges move to the middle of the overlap."""
+    out = [{page: list(box) for page, box in b.items()} if b else None for b in boxes]
+    for upper, lower in zip(out, out[1:]):
+        if not upper or not lower:
+            continue
+        for page in upper.keys() & lower.keys():
+            u, w = upper[page], lower[page]  # [l, t, r, b]
+            if w[1] < u[1] and w[3] < u[3] and w[1] > u[3]:
+                u[3] = w[1] = (u[3] + w[1]) / 2
+    return out
+
+
+def _chunk(kind, text, headings, items, doc, refs, flags, picture=None, boxes=None) -> dict:
+    """`boxes` (page -> [l, t, r, b]) replaces the items' bboxes (a table part's own rows)."""
+    boxes = dict(boxes) if boxes else _item_boxes(items, doc)
     pages = sorted(boxes)
     return {
         "chunkIndex": -1,
@@ -432,6 +492,21 @@ def _chunk(kind, text, headings, items, doc, refs, flags, picture=None) -> dict:
         "flags": list(dict.fromkeys(flags)),
         "picture": picture,
     }
+
+
+def _item_boxes(items, doc) -> dict[int, list[float]]:
+    boxes: dict[int, list[float]] = {}
+    for item in items:
+        for prov in item.prov:
+            box = prov.bbox.to_bottom_left_origin(page_height=doc.pages[prov.page_no].size.height)
+            l, r = sorted((box.l, box.r))
+            b, t = sorted((box.b, box.t))
+            if prov.page_no in boxes:
+                cur = boxes[prov.page_no]
+                boxes[prov.page_no] = [min(cur[0], l), max(cur[1], t), max(cur[2], r), min(cur[3], b)]
+            else:
+                boxes[prov.page_no] = [l, t, r, b]
+    return boxes
 
 
 def _pages(doc: DoclingDocument, page_numbers: list[int], table_parts, picture_results, kept) -> list[dict]:

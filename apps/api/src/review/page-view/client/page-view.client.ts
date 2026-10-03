@@ -96,8 +96,9 @@ class PageView {
   }
 
   #drawBoxes(pageSize: PageSize): void {
-    // Chunks split from one Docling item (e.g. stacked SIP table parts) share its bbox:
-    // draw one box per distinct geometry, labelled with every chunk it stands for.
+    // Chunks can still share one bbox (text split from one Docling item; table parts from
+    // runs before normalizer v6, or whose cells have no bboxes): draw one box per distinct
+    // geometry, labelled with every chunk it stands for. v6 table parts have their own boxes.
     const groups = new Map<string, PageViewBox[]>();
     for (const box of this.#data.boxes) {
       const key = `${box.bbox.l},${box.bbox.t},${box.bbox.r},${box.bbox.b}`;

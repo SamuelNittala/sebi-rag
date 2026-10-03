@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "producer": {
-    "parserVersion": "docling-2.132.0+norm-5+opts-da9fca75f112",
+    "parserVersion": "docling-2.132.0+norm-6+opts-da9fca75f112",
     "serviceVersion": "1.0.0",
     "doclingVersion": "2.132.0",
     "doclingCoreVersion": "2.99.0",
     "doclingIbmModelsVersion": "4.0.3",
-    "normalizerVersion": "5",
+    "normalizerVersion": "6",
     "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
   },
   "source": {
@@ -47,9 +47,9 @@
         {
           "page": 1,
           "l": 37.54,
-          "t": 747.82,
-          "r": 571.68,
-          "b": 161.73
+          "t": 739.52,
+          "r": 557.48,
+          "b": 647.13
         }
       ],
       "itemRefs": [
@@ -78,9 +78,9 @@
         {
           "page": 1,
           "l": 37.54,
-          "t": 747.82,
-          "r": 571.68,
-          "b": 161.73
+          "t": 640.56,
+          "r": 555.4,
+          "b": 548.37
         }
       ],
       "itemRefs": [
@@ -108,10 +108,10 @@
       "bboxes": [
         {
           "page": 1,
-          "l": 37.54,
-          "t": 747.82,
-          "r": 571.68,
-          "b": 161.73
+          "l": 37.65,
+          "t": 544.72,
+          "r": 555.06,
+          "b": 453.62
         }
       ],
       "itemRefs": [
@@ -139,10 +139,10 @@
       "bboxes": [
         {
           "page": 1,
-          "l": 37.54,
-          "t": 747.82,
-          "r": 571.68,
-          "b": 161.73
+          "l": 37.58,
+          "t": 448.06,
+          "r": 554.6,
+          "b": 356.65
         }
       ],
       "itemRefs": [
@@ -171,9 +171,9 @@
         {
           "page": 1,
           "l": 37.54,
-          "t": 747.82,
-          "r": 571.68,
-          "b": 161.73
+          "t": 352.14,
+          "r": 559.24,
+          "b": 260.66
         }
       ],
       "itemRefs": [
@@ -203,9 +203,9 @@
         {
           "page": 1,
           "l": 37.54,
-          "t": 747.82,
-          "r": 571.68,
-          "b": 161.73
+          "t": 252.73,
+          "r": 552.03,
+          "b": 164.31
         }
       ],
       "itemRefs": [
