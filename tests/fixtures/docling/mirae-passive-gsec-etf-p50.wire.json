@@ -1,0 +1,529 @@
+{
+  "schemaVersion": 1,
+  "producer": {
+    "parserVersion": "docling-2.132.0+norm-7+opts-da9fca75f112",
+    "serviceVersion": "1.0.0",
+    "doclingVersion": "2.132.0",
+    "doclingCoreVersion": "2.99.0",
+    "doclingIbmModelsVersion": "4.0.3",
+    "normalizerVersion": "7",
+    "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
+  },
+  "source": {
+    "sha256": "835ef64ef7fa36f647af0b54ddb45e895eaabfa5350fdd06a347f5af93606b8e",
+    "byteSize": 160976
+  },
+  "pageCount": 1,
+  "pages": [
+    {
+      "pageNumber": 1,
+      "width": 930.0,
+      "height": 1315.92,
+      "text": "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF\nNSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875\n(Exchange Traded Fund (ETF) - An open ended Index Exchange Traded Fund tracking Nifty 8-13 yr G-Sec Index. Relatively High interest rate risk and Relatively Low Credit Risk)\nMonthly Factsheet as on 31 July, 2026\nFund Information\nFund Managers :\nAllotment Date :\nBenchmark:, 31st March 2023 = Nifty 8-13 yr G-Sec Index\nNet AUM (Cr.), 31st March 2023 = 79.5767\nTracking Error Value ~ 1 Year Tracking Error is, 31st March 2023 = 0.33%\nExit Load:, 31st March 2023 = Please refer page no.100\nPlan Available:, 31st March 2023 = The Scheme does not offer any Plans/Options for investment\nMinimum Investment Amount\nMarket Maker: Application for subscription of Units directly with the Fund in Creation Unit Size at NAV based prices in exchange of Portfolio Deposit and Cash Component.\nLarge Investors: Minimum amount of ₹25 crores for transacting directly with the AMC.\nOther investors (including Market Maker, Large Investors and Regulated Entities): Units of the Scheme can be subscribed (in lots of 1 Unit) during the trading hours on all trading days on the NSE and BSE on which the Units are listed.\nOn exchange in multiple of 1 unit With AMC In multiples of 2,50,000 units\nNet Asset Value (NAV)\n₹ 30.4156 (Per Unit)\nMarket Makers\nMirae Asset Capital Markets (India) Private Limited East India Securities Limited\nKanjalochana Finserve Private Limited\nParwati Capital Market Private Limited\nVaibhav Stock & Derivatives Broking Private Limited\nIRage Broking Services LLP\nJunomoneta Finsol Pvt Ltd\nMotilal Oswal Financial Services Limited\nOthers\nLive iNav is updated on Mirae Asset Mutual Fund website.\nNSE Symbol: GSEC10YEAR\nBSE Code: 543875\nBloomberg Code: GSEC10YEAR IN Equity Reuters Code: MIRA.NS\nQuantitative: Debt\nAverage Maturity: 8.99 Years\nModified Duration: 6.52 Years\nMacaulay Duration: 6.74 Years\nAnnualized Portfolio YTM*: 6.89%\n*In case of semi annual YTM, it will be annualized.\nBase Expense Ratio: 0.09%\nPast Performance may or may not be sustained in future.\nThe performance of other funds managed by the same fund manager is given in the respective page of the schemes and on page No. 112, 114, 116, 117, 118, 125\nPortfolio Holdings\nGovernment Bond\n6.48% GOI (MD 06/10/2035): 54.03%\nOthers: 41.89%\nGovernment Bond Total: 95.92%\nCash & Other Receivables\nTREPS/Reverse Repo: 2.19%\nNet Receivables / (Payables): 1.89%\nCash & Other Receivables Total: 4.08%\nTotal: 100.00%\nPerformance Report\nLast 1 Year, Mirae Asset Nifty 8-13 yr G- Sec ETF = 3.97%. Last 1 Year, Scheme Benchmark* = 3.70%. Last 1 Year, Additional Benchmark** = 2.27%\nLast 3 Years, Mirae Asset Nifty 8-13 yr G- Sec ETF = 7.47%. Last 3 Years, Scheme Benchmark* = 7.48%. Last 3 Years, Additional Benchmark** = 6.78%\nSince Inception, Mirae Asset Nifty 8-13 yr G- Sec ETF = 7.66%. Since Inception, Scheme Benchmark* = 7.70%. Since Inception, Additional Benchmark** = 7.08%\nValue of Rs. 10000 invested Since Inception, Mirae Asset Nifty 8-13 yr G- Sec ETF = ₹12,791. Value of Rs. 10000 invested Since Inception, Scheme Benchmark* = ₹12,809. Value of Rs. 10000 invested Since Inception, Additional Benchmark** = ₹12,566\nNAV as on 31st July, 2026, Mirae Asset Nifty 8-13 yr G- Sec ETF = ₹30.4156\nIndex Value 31st July, 2026, Mirae Asset Nifty 8-13 yr G- Sec ETF = Index Value of Scheme Benchmark is ₹3,046.4600 and Crisil 10 Yr gilt index is ₹5,276.4103\nAllotment Date, Mirae Asset Nifty 8-13 yr G- Sec ETF = 31st March 2023\nScheme Benchmark, Mirae Asset Nifty 8-13 yr G- Sec ETF = *Nifty 8-13 yr G-Sec Index\nAdditional Benchmark, Mirae Asset Nifty 8-13 yr G- Sec ETF = **Crisil 10 Yr gilt index\nFund Managers : Ms. Pranavi Kulkarni (since February 05, 2026)\nNote: Returns (%) for less than 1 year calculated on simple annualized basis, others are CAGR- Compounded Annualized Growth returns.\nLatest available NAV has been taken for return calculation wherever applicable\nRating Profile\nSOV: 95.92%\nCash & Other Receivables: 4.08%\nOverall Asset Allocation\nGovernment Bond: 95.92%\nCash & Other Receivables: 4.08%\nNote: For computation of since inception returns (%) the allotment NAV has been taken as ₹23.7792\nNote:1. The reference and details provided here in are of Regular Plan - Growth Option\nMIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+      "hasTable": true,
+      "stats": {
+        "textItems": 40,
+        "tables": 4,
+        "pictures": 13,
+        "pictureTextChars": 88,
+        "bodyTextChars": 4140
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "chunkIndex": 0,
+      "type": "text",
+      "text": "(Exchange Traded Fund (ETF) - An open ended Index Exchange Traded Fund tracking Nifty 8-13 yr G-Sec Index. Relatively High interest rate risk and Relatively Low Credit Risk)",
+      "headings": [
+        "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+        "NSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.0,
+          "t": 1181.09,
+          "r": 705.25,
+          "b": 1154.56
+        }
+      ],
+      "itemRefs": [
+        "#/texts/2"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 1,
+      "type": "text",
+      "text": "Monthly Factsheet as on 31 July, 2026",
+      "headings": [
+        "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+        "NSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.0,
+          "t": 1142.8,
+          "r": 253.5,
+          "b": 1132.06
+        }
+      ],
+      "itemRefs": [
+        "#/texts/3"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 2,
+      "type": "table",
+      "text": "Allotment Date :\nBenchmark:, 31st March 2023 = Nifty 8-13 yr G-Sec Index\nNet AUM (Cr.), 31st March 2023 = 79.5767\nTracking Error Value ~ 1 Year Tracking Error is, 31st March 2023 = 0.33%\nExit Load:, 31st March 2023 = Please refer page no.100\nPlan Available:, 31st March 2023 = The Scheme does not offer any Plans/Options for investment",
+      "headings": [
+        "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+        "NSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875",
+        "Fund Information",
+        "Fund Managers :"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.47,
+          "t": 1077.73,
+          "r": 266.89,
+          "b": 910.61
+        }
+      ],
+      "itemRefs": [
+        "#/tables/0"
+      ],
+      "flags": [
+        "ordinal_joined"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 3,
+      "type": "text",
+      "text": "Market Maker: Application for subscription of Units directly with the Fund in Creation Unit Size at NAV based prices in exchange of Portfolio Deposit and Cash Component.\nLarge Investors: Minimum amount of ₹25 crores for transacting directly with the AMC.\nOther investors (including Market Maker, Large Investors and Regulated Entities): Units of the Scheme can be subscribed (in lots of 1 Unit) during the trading hours on all trading days on the NSE and BSE on which the Units are listed.\nOn exchange in multiple of 1 unit With AMC In multiples of 2,50,000 units",
+      "headings": [
+        "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+        "NSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875",
+        "Fund Information",
+        "Minimum Investment Amount"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.0,
+          "t": 893.59,
+          "r": 260.08,
+          "b": 719.28
+        }
+      ],
+      "itemRefs": [
+        "#/texts/7",
+        "#/texts/8",
+        "#/texts/9",
+        "#/texts/10"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 4,
+      "type": "text",
+      "text": "₹ 30.4156 (Per Unit)",
+      "headings": [
+        "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+        "NSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875",
+        "Net Asset Value (NAV)"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.0,
+          "t": 675.16,
+          "r": 136.64,
+          "b": 666.74
+        }
+      ],
+      "itemRefs": [
+        "#/texts/12"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 5,
+      "type": "text",
+      "text": "Mirae Asset Capital Markets (India) Private Limited East India Securities Limited\nKanjalochana Finserve Private Limited\nParwati Capital Market Private Limited\nVaibhav Stock & Derivatives Broking Private Limited\nIRage Broking Services LLP\nJunomoneta Finsol Pvt Ltd\nMotilal Oswal Financial Services Limited",
+      "headings": [
+        "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+        "NSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875",
+        "Market Makers"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.0,
+          "t": 621.91,
+          "r": 257.89,
+          "b": 525.31
+        }
+      ],
+      "itemRefs": [
+        "#/texts/14",
+        "#/texts/15",
+        "#/texts/16",
+        "#/texts/17",
+        "#/texts/18",
+        "#/texts/19",
+        "#/texts/20"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 6,
+      "type": "text",
+      "text": "Live iNav is updated on Mirae Asset Mutual Fund website.\nNSE Symbol: GSEC10YEAR\nBSE Code: 543875\nBloomberg Code: GSEC10YEAR IN Equity Reuters Code: MIRA.NS",
+      "headings": [
+        "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+        "NSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875",
+        "Others"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.0,
+          "t": 478.74,
+          "r": 244.52,
+          "b": 408.31
+        }
+      ],
+      "itemRefs": [
+        "#/texts/22",
+        "#/texts/23",
+        "#/texts/24",
+        "#/texts/25"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 7,
+      "type": "table",
+      "text": "Average Maturity: 8.99 Years\nModified Duration: 6.52 Years\nMacaulay Duration: 6.74 Years\nAnnualized Portfolio YTM*: 6.89%",
+      "headings": [
+        "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+        "NSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875",
+        "Quantitative: Debt"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 59.94,
+          "t": 361.8,
+          "r": 265.43,
+          "b": 294.6
+        }
+      ],
+      "itemRefs": [
+        "#/tables/1"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 8,
+      "type": "text",
+      "text": "*In case of semi annual YTM, it will be annualized.",
+      "headings": [
+        "MIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+        "NSE Symbol: GSEC10YEAR , BSE Scrip Code: 543875",
+        "Quantitative: Debt"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.0,
+          "t": 289.84,
+          "r": 248.78,
+          "b": 282.55
+        }
+      ],
+      "itemRefs": [
+        "#/texts/27"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 9,
+      "type": "text",
+      "text": "The performance of other funds managed by the same fund manager is given in the respective page of the schemes and on page No. 112, 114, 116, 117, 118, 125",
+      "headings": [
+        "Past Performance may or may not be sustained in future."
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.0,
+          "t": 46.24,
+          "r": 616.82,
+          "b": 38.29
+        }
+      ],
+      "itemRefs": [
+        "#/texts/30"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 10,
+      "type": "key_value",
+      "text": "Government Bond\n6.48% GOI (MD 06/10/2035): 54.03%\nOthers: 41.89%\nGovernment Bond Total: 95.92%\nCash & Other Receivables\nTREPS/Reverse Repo: 2.19%\nNet Receivables / (Payables): 1.89%\nCash & Other Receivables Total: 4.08%\nTotal: 100.00%",
+      "headings": [
+        "Past Performance may or may not be sustained in future.",
+        "Portfolio Holdings"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 278.33,
+          "t": 1115.0,
+          "r": 522.66,
+          "b": 985.82
+        }
+      ],
+      "itemRefs": [
+        "#/tables/2"
+      ],
+      "flags": [
+        "mixed_chunk_split",
+        "heading_from_table_title",
+        "kv_panel_detected",
+        "table_span_collapsed"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 11,
+      "type": "table",
+      "text": "Last 1 Year, Mirae Asset Nifty 8-13 yr G- Sec ETF = 3.97%. Last 1 Year, Scheme Benchmark* = 3.70%. Last 1 Year, Additional Benchmark** = 2.27%\nLast 3 Years, Mirae Asset Nifty 8-13 yr G- Sec ETF = 7.47%. Last 3 Years, Scheme Benchmark* = 7.48%. Last 3 Years, Additional Benchmark** = 6.78%\nSince Inception, Mirae Asset Nifty 8-13 yr G- Sec ETF = 7.66%. Since Inception, Scheme Benchmark* = 7.70%. Since Inception, Additional Benchmark** = 7.08%\nValue of Rs. 10000 invested Since Inception, Mirae Asset Nifty 8-13 yr G- Sec ETF = ₹12,791. Value of Rs. 10000 invested Since Inception, Scheme Benchmark* = ₹12,809. Value of Rs. 10000 invested Since Inception, Additional Benchmark** = ₹12,566\nNAV as on 31st July, 2026, Mirae Asset Nifty 8-13 yr G- Sec ETF = ₹30.4156\nIndex Value 31st July, 2026, Mirae Asset Nifty 8-13 yr G- Sec ETF = Index Value of Scheme Benchmark is ₹3,046.4600 and Crisil 10 Yr gilt index is ₹5,276.4103\nAllotment Date, Mirae Asset Nifty 8-13 yr G- Sec ETF = 31st March 2023\nScheme Benchmark, Mirae Asset Nifty 8-13 yr G- Sec ETF = *Nifty 8-13 yr G-Sec Index\nAdditional Benchmark, Mirae Asset Nifty 8-13 yr G- Sec ETF = **Crisil 10 Yr gilt index",
+      "headings": [
+        "Performance Report"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 275.47,
+          "t": 544.27,
+          "r": 892.83,
+          "b": 371.94
+        }
+      ],
+      "itemRefs": [
+        "#/tables/3"
+      ],
+      "flags": [
+        "ordinal_joined",
+        "table_span_collapsed"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 12,
+      "type": "text",
+      "text": "Fund Managers : Ms. Pranavi Kulkarni (since February 05, 2026)\nNote: Returns (%) for less than 1 year calculated on simple annualized basis, others are CAGR- Compounded Annualized Growth returns.\nLatest available NAV has been taken for return calculation wherever applicable",
+      "headings": [
+        "Performance Report"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 276.56,
+          "t": 369.35,
+          "r": 701.8,
+          "b": 346.87
+        }
+      ],
+      "itemRefs": [
+        "#/texts/32",
+        "#/texts/33",
+        "#/texts/34"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 13,
+      "type": "picture",
+      "text": "SOV: 95.92%\nCash & Other Receivables: 4.08%",
+      "headings": [
+        "Rating Profile"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 570.32,
+          "t": 1073.33,
+          "r": 790.23,
+          "b": 899.99
+        }
+      ],
+      "itemRefs": [
+        "#/pictures/9"
+      ],
+      "flags": [
+        "picture_text_recovered",
+        "chart_pairs_extracted"
+      ],
+      "picture": {
+        "classification": "pie_chart",
+        "confidence": 0.9991,
+        "pairCount": 2
+      }
+    },
+    {
+      "chunkIndex": 14,
+      "type": "picture",
+      "text": "Government Bond: 95.92%\nCash & Other Receivables: 4.08%",
+      "headings": [
+        "Overall Asset Allocation"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 570.68,
+          "t": 800.0,
+          "r": 790.14,
+          "b": 627.17
+        }
+      ],
+      "itemRefs": [
+        "#/pictures/11"
+      ],
+      "flags": [
+        "picture_text_recovered",
+        "chart_pairs_extracted"
+      ],
+      "picture": {
+        "classification": "pie_chart",
+        "confidence": 0.9997,
+        "pairCount": 2
+      }
+    },
+    {
+      "chunkIndex": 15,
+      "type": "text",
+      "text": "Note: For computation of since inception returns (%) the allotment NAV has been taken as ₹23.7792\nNote:1. The reference and details provided here in are of Regular Plan - Growth Option\nMIRAE ASSET NIFTY 8-13 YR G-SEC ETF",
+      "headings": [],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 60.0,
+          "t": 63.25,
+          "r": 888.75,
+          "b": 21.26
+        }
+      ],
+      "itemRefs": [
+        "#/texts/45",
+        "#/texts/46",
+        "#/texts/48"
+      ],
+      "flags": [],
+      "picture": null
+    }
+  ],
+  "diagnostics": {
+    "droppedPictures": {
+      "logo": 1,
+      "signature": 0,
+      "stamp": 0,
+      "qrCode": 0,
+      "barCode": 0,
+      "noText": 10
+    },
+    "flagCounts": {
+      "chart_pairs_extracted": 2,
+      "heading_from_table_title": 1,
+      "kv_panel_detected": 1,
+      "mixed_chunk_split": 9,
+      "ordinal_joined": 2,
+      "picture_text_recovered": 2,
+      "table_span_collapsed": 2
+    },
+    "conversionStatus": "success",
+    "conversionMs": 0
+  }
+}

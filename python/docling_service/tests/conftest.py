@@ -20,9 +20,13 @@ SIP_PERFORMANCE_STEM = "mirae-sip-performance-p104"
 SIP_PERFORMANCE_P103_STEM = "mirae-sip-performance-p103"
 # mirae-passive-aug-2026.pdf p9: six category headers in a left label column beside one 59-item list.
 PASSIVE_OFFERINGS_STEM = "mirae-passive-offerings-p9"
+# mirae-passive-aug-2026.pdf p50: two two-slice donuts (Rating Profile, Overall Asset Allocation) with leader lines.
+PASSIVE_DONUTS_STEM = "mirae-passive-gsec-etf-p50"
+# mirae-sep-2026.pdf p51: five- and six-slice donuts with elbow leaders and several legend entries per line.
+LIQUID_DONUTS_STEM = "mirae-liquid-fund-p51"
 GOLDEN_STEMS = (
     FIXTURE_STEM, FUND_PERFORMANCE_STEM, FUND_FACTS_STEM, FUND_PERFORMANCE_P98_STEM, PASSIVE_ETF_STEM, SIP_PERFORMANCE_STEM,
-    SIP_PERFORMANCE_P103_STEM, PASSIVE_OFFERINGS_STEM,
+    SIP_PERFORMANCE_P103_STEM, PASSIVE_OFFERINGS_STEM, PASSIVE_DONUTS_STEM, LIQUID_DONUTS_STEM,
 )
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "contract" / "docling-parse-v1.schema.json"
 
@@ -59,6 +63,13 @@ def sip_p103_doc() -> DoclingDocument:
 @pytest.fixture
 def sip_p104_doc() -> DoclingDocument:
     return load_doc(SIP_PERFORMANCE_STEM)
+
+
+def graphics_for(stem: str, doc: DoclingDocument) -> dict:
+    """Chart graphics read from the fixture's PDF (`chart_graphics.picture_graphics`)."""
+    from docling_service.normalize.chart_graphics import picture_graphics
+
+    return picture_graphics(doc, (FIXTURES / f"{stem}.pdf").read_bytes())
 
 
 def item(doc: DoclingDocument, ref: str):

@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "producer": {
+    "parserVersion": "docling-2.132.0+norm-7+opts-da9fca75f112",
+    "serviceVersion": "1.0.0",
+    "doclingVersion": "2.132.0",
+    "doclingCoreVersion": "2.99.0",
+    "doclingIbmModelsVersion": "4.0.3",
+    "normalizerVersion": "7",
+    "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
+  },
+  "source": {
+    "sha256": "e3e586235e153eb6880e3f4931349e586e3e5cf77d90ca6ab3504c6a63481c43",
+    "byteSize": 232026
+  },
+  "pageCount": 1,
+  "pages": [
+    {
+      "pageNumber": 1,
+      "width": 594.96,
+      "height": 841.92,
+      "text": "MIRAE ASSET LIQUID FUND\nAn open ended liquid scheme. A relatively low interest rate risk and moderate credit risk.\nAllocation of Net Assets by Credit Rating\nA1+: 74.21%\nCorporate Debt Market Development Fund: 0.25%\nSOV: 17.46%\nAAA: 3.69%\nCash & Other Receivables: 4.39%\nMajor Changes w.r.t. previous month\n1. Major changes (Top 10 changes in Holding in portfolio of the scheme)\n--, Name of securities reduced = Reliance Retail Ventures Ltd. (MD 23/09/2026)**. --, Total Weightage (%) = 5.17%\n--, Name of securities reduced = Bharat Petroleum Corporation Ltd. (MD 24/09/2026)**. --, Total Weightage (%) = 4.73%\n--, Name of securities reduced = 91 Days Treasury Bills (MD 24/09/2026). --, Total Weightage (%) = 3.59%\nSmall Industries Development Bank of India (MD 10/11/2026)**#, Name of securities reduced = --. Small Industries Development Bank of India (MD 10/11/2026)**#, Total Weightage (%) = 2.85%\nBank of Baroda (MD 06/11/2026)**#, Name of securities reduced = --. Bank of Baroda (MD 06/11/2026)**#, Total Weightage (%) = 2.42%\n91 Days Treasury Bills (MD 12/11/2026), Name of securities reduced = --. 91 Days Treasury Bills (MD 12/11/2026), Total Weightage (%) = 2.28%\n--, Name of securities reduced = Union Bank of India (MD 24/09/2026)**#. --, Total Weightage (%) = 1.72%\nICICI Securities Ltd. (MD 22/09/2026)**, Name of securities reduced = --. ICICI Securities Ltd. (MD 22/09/2026)**, Total Weightage (%) = 1.43%\n7.55% Small Industries Development Bank of India (MD 22/09/2026)**, Name of securities reduced = --. 7.55% Small Industries Development Bank of India (MD 22/09/2026)**, Total Weightage (%) = 1.30%\n91 Days Treasury Bills (MD 19/11/2026), Name of securities reduced = --. 91 Days Treasury Bills (MD 19/11/2026), Total Weightage (%) = 1.28%\n3. Changes in Risk-o-Meter of the Scheme\nScheme, Previous Month = Low to Moderate. Scheme, Current Month = Low to Moderate\nBenchmark, Previous Month = Low to Moderate. Benchmark, Current Month = Low to Moderate\nAllocation of Net Assets by Asset Class\nCommercial Paper: 49.21%\nCorporate Debt Market Development Fund: 0.25%\nCertificate Of Deposit: 25.00%\nCorporate Bond: 3.69%\nTreasury Bill: 17.46%\nCash & Other Receivables: 4.39%\n2. Changes in Expense Ratio of the Scheme^^\nDirect, Previous Month = 0.08%. Direct, Current Month = 0.08%\nRegular, Previous Month = 0.17%. Regular, Current Month = 0.17%\n4. Changes in Credit Quality of the Scheme\n--, Previous Month Rating = --. --, Current Month Rating = --\n--, Previous Month Rating = --. --, Current Month Rating = --\nFor the latest and detailed AAUM disclosures, please visit: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/other-disclosure\n^^ The Expense Ratio are Base Expense ratio Excluding statutory levies\n** Thinly Traded / Non Traded Security, # Unlisted Security, $ Less Than 0.01% of Net Asset Value, A** Awaiting Listing\nThe performance of other funds managed by the same fund manager is given in the respective page of the schemes and on page No. 88, 91, 92, 94, 95, 96, 97, 100, 101",
+      "hasTable": true,
+      "stats": {
+        "textItems": 11,
+        "tables": 4,
+        "pictures": 3,
+        "pictureTextChars": 344,
+        "bodyTextChars": 2632
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "chunkIndex": 0,
+      "type": "text",
+      "text": "An open ended liquid scheme. A relatively low interest rate risk and moderate credit risk.",
+      "headings": [
+        "MIRAE ASSET LIQUID FUND"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 58.21,
+          "t": 801.08,
+          "r": 447.75,
+          "b": 791.82
+        }
+      ],
+      "itemRefs": [
+        "#/texts/1"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 1,
+      "type": "picture",
+      "text": "Allocation of Net Assets by Credit Rating\nA1+: 74.21%\nCorporate Debt Market Development Fund: 0.25%\nSOV: 17.46%\nAAA: 3.69%\nCash & Other Receivables: 4.39%",
+      "headings": [
+        "MIRAE ASSET LIQUID FUND"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 19.88,
+          "t": 776.31,
+          "r": 293.57,
+          "b": 610.98
+        }
+      ],
+      "itemRefs": [
+        "#/pictures/1"
+      ],
+      "flags": [
+        "picture_text_recovered",
+        "chart_pairs_extracted"
+      ],
+      "picture": {
+        "classification": "pie_chart",
+        "confidence": 0.9988,
+        "pairCount": 5
+      }
+    },
+    {
+      "chunkIndex": 2,
+      "type": "table",
+      "text": "--, Name of securities reduced = Reliance Retail Ventures Ltd. (MD 23/09/2026)**. --, Total Weightage (%) = 5.17%\n--, Name of securities reduced = Bharat Petroleum Corporation Ltd. (MD 24/09/2026)**. --, Total Weightage (%) = 4.73%\n--, Name of securities reduced = 91 Days Treasury Bills (MD 24/09/2026). --, Total Weightage (%) = 3.59%\nSmall Industries Development Bank of India (MD 10/11/2026)**#, Name of securities reduced = --. Small Industries Development Bank of India (MD 10/11/2026)**#, Total Weightage (%) = 2.85%\nBank of Baroda (MD 06/11/2026)**#, Name of securities reduced = --. Bank of Baroda (MD 06/11/2026)**#, Total Weightage (%) = 2.42%\n91 Days Treasury Bills (MD 12/11/2026), Name of securities reduced = --. 91 Days Treasury Bills (MD 12/11/2026), Total Weightage (%) = 2.28%\n--, Name of securities reduced = Union Bank of India (MD 24/09/2026)**#. --, Total Weightage (%) = 1.72%\nICICI Securities Ltd. (MD 22/09/2026)**, Name of securities reduced = --. ICICI Securities Ltd. (MD 22/09/2026)**, Total Weightage (%) = 1.43%\n7.55% Small Industries Development Bank of India (MD 22/09/2026)**, Name of securities reduced = --. 7.55% Small Industries Development Bank of India (MD 22/09/2026)**, Total Weightage (%) = 1.30%\n91 Days Treasury Bills (MD 19/11/2026), Name of securities reduced = --. 91 Days Treasury Bills (MD 19/11/2026), Total Weightage (%) = 1.28%",
+      "headings": [
+        "MIRAE ASSET LIQUID FUND",
+        "1. Major changes (Top 10 changes in Holding in portfolio of the scheme)"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 18.89,
+          "t": 567.53,
+          "r": 350.73,
+          "b": 346.25
+        }
+      ],
+      "itemRefs": [
+        "#/tables/0"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 3,
+      "type": "table",
+      "text": "Scheme, Previous Month = Low to Moderate. Scheme, Current Month = Low to Moderate\nBenchmark, Previous Month = Low to Moderate. Benchmark, Current Month = Low to Moderate",
+      "headings": [
+        "MIRAE ASSET LIQUID FUND",
+        "3. Changes in Risk-o-Meter of the Scheme"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 18.41,
+          "t": 319.78,
+          "r": 351.05,
+          "b": 271.4
+        }
+      ],
+      "itemRefs": [
+        "#/tables/1"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 4,
+      "type": "picture",
+      "text": "Allocation of Net Assets by Asset Class\nCommercial Paper: 49.21%\nCorporate Debt Market Development Fund: 0.25%\nCertificate Of Deposit: 25.00%\nCorporate Bond: 3.69%\nTreasury Bill: 17.46%\nCash & Other Receivables: 4.39%",
+      "headings": [
+        "MIRAE ASSET LIQUID FUND",
+        "3. Changes in Risk-o-Meter of the Scheme"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 302.12,
+          "t": 777.32,
+          "r": 577.67,
+          "b": 611.15
+        }
+      ],
+      "itemRefs": [
+        "#/pictures/2"
+      ],
+      "flags": [
+        "picture_text_recovered",
+        "chart_pairs_extracted"
+      ],
+      "picture": {
+        "classification": "pie_chart",
+        "confidence": 0.9984,
+        "pairCount": 6
+      }
+    },
+    {
+      "chunkIndex": 5,
+      "type": "table",
+      "text": "Direct, Previous Month = 0.08%. Direct, Current Month = 0.08%\nRegular, Previous Month = 0.17%. Regular, Current Month = 0.17%",
+      "headings": [
+        "MIRAE ASSET LIQUID FUND",
+        "2. Changes in Expense Ratio of the Scheme^^"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 357.56,
+          "t": 567.52,
+          "r": 578.34,
+          "b": 519.93
+        }
+      ],
+      "itemRefs": [
+        "#/tables/2"
+      ],
+      "flags": [],
+      "picture": null
+    },
+    {
+      "chunkIndex": 6,
+      "type": "table",
+      "text": "--, Previous Month Rating = --. --, Current Month Rating = --\n--, Previous Month Rating = --. --, Current Month Rating = --",
+      "headings": [
+        "MIRAE ASSET LIQUID FUND",
+        "4. Changes in Credit Quality of the Scheme"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 356.42,
+          "t": 493.48,
+          "r": 578.64,
+          "b": 436.54
+        }
+      ],
+      "itemRefs": [
+        "#/tables/3"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 7,
+      "type": "text",
+      "text": "For the latest and detailed AAUM disclosures, please visit: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/other-disclosure\n^^ The Expense Ratio are Base Expense ratio Excluding statutory levies\n** Thinly Traded / Non Traded Security, # Unlisted Security, $ Less Than 0.01% of Net Asset Value, A** Awaiting Listing\nThe performance of other funds managed by the same fund manager is given in the respective page of the schemes and on page No. 88, 91, 92, 94, 95, 96, 97, 100, 101",
+      "headings": [
+        "MIRAE ASSET LIQUID FUND",
+        "4. Changes in Credit Quality of the Scheme"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 24.74,
+          "t": 76.04,
+          "r": 474.37,
+          "b": 44.16
+        }
+      ],
+      "itemRefs": [
+        "#/texts/25",
+        "#/texts/26",
+        "#/texts/27",
+        "#/texts/28"
+      ],
+      "flags": [
+        "mixed_chunk_split"
+      ],
+      "picture": null
+    }
+  ],
+  "diagnostics": {
+    "droppedPictures": {
+      "logo": 1,
+      "signature": 0,
+      "stamp": 0,
+      "qrCode": 0,
+      "barCode": 0,
+      "noText": 0
+    },
+    "flagCounts": {
+      "chart_pairs_extracted": 2,
+      "mixed_chunk_split": 4,
+      "picture_text_recovered": 2
+    },
+    "conversionStatus": "success",
+    "conversionMs": 0
+  }
+}

@@ -58,6 +58,7 @@ from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTok
 from docling_core.types.doc import ContentLayer, DocItem, DocItemLabel, DoclingDocument, PictureItem, RefItem, TableItem, TextItem
 
 from docling_service.normalize import budget
+from docling_service.normalize.chart_graphics import ChartGraphics
 from docling_service.normalize import headings as heading_rules
 from docling_service.normalize import lists as list_rules
 from docling_service.normalize import pictures as picture_rules
@@ -103,14 +104,17 @@ def normalize_document(
     byte_size: int,
     conversion_ms: int,
     header_sizes: dict[str, float] | None = None,
+    chart_graphics: dict[str, ChartGraphics] | None = None,
 ) -> dict:
     """`header_sizes` (self_ref -> rendered pt, `headings.header_font_sizes`) sets section header
-    levels before chunking; None keeps Docling's (all level 1)."""
+    levels before chunking; None keeps Docling's (all level 1). `chart_graphics` (picture self_ref
+    -> `chart_graphics.picture_graphics`) enables chart title lines and colour pairing."""
     leveled = heading_rules.assign_header_levels(doc, header_sizes) if header_sizes else False
     changed = text_rules.repair_document_ordinals(doc)
     order = {item.self_ref: i for i, (item, _) in enumerate(doc.iterate_items(with_groups=False))}
     table_parts = {t.self_ref: table_rules.normalize_table(t) for t in doc.tables}
-    picture_results = {p.self_ref: picture_rules.normalize_picture(p, doc) for p in doc.pictures}
+    graphics = chart_graphics or {}
+    picture_results = {p.self_ref: picture_rules.normalize_picture(p, doc, graphics.get(p.self_ref)) for p in doc.pictures}
 
     kept = kept_page_furniture(doc)
     units = sorted(_units_from_chunker(doc, chunker, order, leveled) + _furniture_units(doc, kept, order), key=lambda u: u.order)

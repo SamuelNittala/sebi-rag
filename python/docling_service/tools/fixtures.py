@@ -18,6 +18,7 @@ from docling_core.types.doc import DoclingDocument, ImageRefMode
 
 from docling_service import converter
 from docling_service.normalize.chunks import build_chunker, normalize_document
+from docling_service.normalize.chart_graphics import picture_graphics
 from docling_service.normalize.headings import header_font_sizes
 
 
@@ -38,6 +39,7 @@ def wire_for(docling_json: Path, chunker) -> dict:
         byte_size=len(pdf),
         conversion_ms=0,
         header_sizes=header_font_sizes(doc, pdf),
+        chart_graphics=picture_graphics(doc, pdf),
     )
 
 

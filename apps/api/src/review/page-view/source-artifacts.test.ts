@@ -67,7 +67,7 @@ function lineageRow(overrides: {
     run: {
       id: RUN_ID,
       sourceName: "factsheet.pdf",
-      parserVersion: "docling-2.132.0+norm-6",
+      parserVersion: "docling-2.132.0+norm-7",
       documentVersionId: VERSION_ID,
       pipelineRunId: PIPELINE_RUN_ID,
       ...overrides.run,
@@ -130,7 +130,7 @@ describe("resolveSourceLineage", () => {
       expect(resolveSourceLineage(lineageRow({ run, pipelineRunDocumentVersionId: null }))).toEqual({
         kind: "no_lineage",
         reason: "legacy_run",
-        parserVersion: "docling-2.132.0+norm-6",
+        parserVersion: "docling-2.132.0+norm-7",
       });
     }
     expect(resolveSourceLineage(lineageRow({ rawArtifact: null }))).toMatchObject({ kind: "no_lineage", reason: "legacy_run" });
@@ -147,7 +147,7 @@ describe("resolveSourceLineage", () => {
     expect(resolveSourceLineage(lineageRow({ parseOutputRef: null }))).toEqual({
       kind: "no_lineage",
       reason: "parse_output_missing",
-      parserVersion: "docling-2.132.0+norm-6",
+      parserVersion: "docling-2.132.0+norm-7",
     });
   });
 
@@ -182,7 +182,7 @@ describe("resolveSourceLineage", () => {
       documentVersionId: VERSION_ID,
       pipelineRunId: PIPELINE_RUN_ID,
       sourceName: "factsheet.pdf",
-      parserVersion: "docling-2.132.0+norm-6",
+      parserVersion: "docling-2.132.0+norm-7",
       rawArtifact: rawDescriptor(),
       parseArtifact: parseDescriptor(),
     });
