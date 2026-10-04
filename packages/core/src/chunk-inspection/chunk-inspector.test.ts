@@ -389,8 +389,8 @@ describe("ChunkInspector", () => {
     const ruleCodes = (report: { findings: { ruleCode: string }[] }) =>
       report.findings.map((item) => item.ruleCode);
 
-    test("reports inspector version 1.1.0", () => {
-      expect(new ChunkInspector().inspect(input([])).inspectorVersion).toBe("1.1.0");
+    test("reports inspector version 1.2.0", () => {
+      expect(new ChunkInspector().inspect(input([])).inspectorVersion).toBe("1.2.0");
     });
 
     test("blocks table and key-value chunks that repeat a span", () => {
@@ -449,6 +449,26 @@ describe("ChunkInspector", () => {
           flags: ["picture_text_recovered", "chart_multi_series_unparsed"],
         },
       });
+    });
+
+    test("downgrades CHART_VALUES_UNBOUND to info when every value appears in a table on the page", () => {
+      const flags = ["picture_text_recovered", "chart_unpaired", "chart_values_in_table"];
+      const report = new ChunkInspector().inspect(input([
+        docling(0, "Mirae Asset ETF: 100.01%\nCash & Other Receivables\n-0.01%", "picture", {
+          normalizationFlags: flags,
+          pictureClassification: "pie_chart",
+        }),
+      ]));
+
+      const unbound = report.findings.filter((item) => item.ruleCode === "CHART_VALUES_UNBOUND");
+      expect(unbound).toEqual([expect.objectContaining({
+        chunkIndex: 0,
+        severity: "info",
+        blocksApproval: false,
+        message: expect.stringContaining("appear in a table on the same page"),
+        evidence: { classification: "pie_chart", flags },
+      })]);
+      expect(report.warningCount).toBe(0);
     });
 
     test("warns once per document about low-structure and uncovered pages", () => {

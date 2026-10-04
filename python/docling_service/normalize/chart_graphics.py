@@ -10,6 +10,11 @@ Reading follows `headings.header_font_sizes`: under Docling's pypdfium2 lock, pa
 differs from the converted page are skipped. Paths inside form XObjects are transformed into page
 space. Bezier curves are flattened (BEZIER_STEPS points per curve). Clipping is ignored.
 
+Legends can lie outside Docling's picture bbox (passive p63: the legend sits just below the donut).
+`near_marks` (small filled paths, legend swatch candidates) and `near_chars` cover the page below the
+picture's top outside its bbox (a long legend continues line by line); `pictures.outside_legend`
+decides which of them belong to the chart.
+
 A chart drawn as an embedded image (no marks inside its bbox, an image object overlapping it, and
 value labels among its children) gets `raster` instead: the picture region rendered at
 RASTER_SCALE, from which `colour_at` reads pixel colours.
@@ -30,6 +35,8 @@ BEZIER_STEPS = 8
 RASTER_SCALE = 4.0
 _PAGE_SIZE_TOLERANCE = 0.5
 _SLACK = 2.0
+NEAR_REACH = 60.0  # pt from the picture (or the legend line above) searched for a legend (pictures.outside_legend)
+_NEAR_MARK_SIZE = 20.0  # larger filled paths are never swatches
 
 
 @dataclass(frozen=True)
@@ -126,6 +133,8 @@ class ChartGraphics:
     strokes: tuple[Stroke, ...] = ()
     chars: tuple[Char, ...] = ()
     raster: Raster | None = field(default=None, repr=False)
+    near_marks: tuple[Mark, ...] = field(default=(), repr=False)
+    near_chars: tuple[Char, ...] = field(default=(), repr=False)
 
 
 def picture_graphics(doc: DoclingDocument, pdf: bytes, pictures: list[PictureItem] | None = None) -> dict[str, ChartGraphics]:
@@ -170,6 +179,11 @@ def picture_graphics(doc: DoclingDocument, pdf: bytes, pictures: list[PictureIte
                             strokes=tuple(s for s in strokes if _within(s.box, box)),
                             chars=tuple(c for c in chars if _within(c.box, box)),
                             raster=raster,
+                            near_marks=tuple(
+                                m for m in marks
+                                if _near(m.box, box) and max(m.box[2] - m.box[0], m.box[3] - m.box[1]) <= _NEAR_MARK_SIZE
+                            ),
+                            near_chars=tuple(c for c in chars if _near(c.box, box)),
                         )
                 finally:
                     page.close()
@@ -191,6 +205,11 @@ def _within(inner: Box, outer: Box) -> bool:
         inner[0] >= outer[0] - _SLACK and inner[1] >= outer[1] - _SLACK
         and inner[2] <= outer[2] + _SLACK and inner[3] <= outer[3] + _SLACK
     )
+
+
+def _near(inner: Box, picture: Box) -> bool:
+    """Below the picture's top, outside the picture."""
+    return (inner[1] + inner[3]) / 2 <= picture[3] and not _within(inner, picture)
 
 
 def _overlaps(a: Box, b: Box) -> bool:

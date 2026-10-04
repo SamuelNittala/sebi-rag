@@ -130,6 +130,28 @@ describe("assertDoclingParseResponse", () => {
     expect(() => assertDoclingParseResponse(response)).not.toThrow();
   });
 
+  test("accepts chart_values_in_table beside an unbound-chart flag", () => {
+    for (const outcome of ["chart_unpaired", "chart_multi_series_unparsed"]) {
+      const response = minimalResponse();
+      response.chunks[1].flags = ["picture_text_recovered", outcome, "chart_values_in_table"];
+      response.chunks[1].picture.pairCount = 0;
+      response.diagnostics.flagCounts = { ...response.diagnostics.flagCounts, [outcome]: 1, chart_values_in_table: 1 };
+      delete response.diagnostics.flagCounts.chart_pairs_extracted;
+      expect(() => assertDoclingParseResponse(response)).not.toThrow();
+    }
+  });
+
+  test("rejects chart_values_in_table without an unbound-chart flag or off picture chunks", () => {
+    expectRejected((response) => {
+      response.chunks[1].flags.push("chart_values_in_table");
+      response.diagnostics.flagCounts.chart_values_in_table = 1;
+    }, "chunks[1].flags must include chart_unpaired or chart_multi_series_unparsed with chart_values_in_table");
+    expectRejected((response) => {
+      response.chunks[0].flags.push("chart_values_in_table");
+      response.diagnostics.flagCounts.chart_values_in_table = 1;
+    }, "chunks[0].flags[4] is not allowed on key_value chunks");
+  });
+
   test("rejects non-object bodies", () => {
     for (const body of [null, [], "x", 1]) {
       expect(() => assertDoclingParseResponse(body)).toThrow("response must be an object");

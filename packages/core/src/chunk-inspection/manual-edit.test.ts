@@ -146,7 +146,7 @@ describe("prepareManualChunkEdit", () => {
       text: "Mirae Asset Flexi Cap Fund corrected overview",
     });
 
-    expect(result.report.inspectorVersion).toBe("1.1.0");
+    expect(result.report.inspectorVersion).toBe("1.2.0");
     expect(result.report.findings.filter((finding) => finding.ruleCode === "LOW_STRUCTURE_PAGE")).toEqual([
       expect.objectContaining({ candidateId: null, evidence: parserDiagnostics }),
     ]);

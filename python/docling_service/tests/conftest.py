@@ -24,9 +24,13 @@ PASSIVE_OFFERINGS_STEM = "mirae-passive-offerings-p9"
 PASSIVE_DONUTS_STEM = "mirae-passive-gsec-etf-p50"
 # mirae-sep-2026.pdf p51: five- and six-slice donuts with elbow leaders and several legend entries per line.
 LIQUID_DONUTS_STEM = "mirae-liquid-fund-p51"
+# mirae-passive-aug-2026.pdf p63: Overall Asset Allocation donut whose legend lies below Docling's picture bbox;
+# its values (100.01%, -0.01%) also appear in the Portfolio Holdings table.
+PASSIVE_FOF_STEM = "mirae-passive-fof-p63"
 GOLDEN_STEMS = (
     FIXTURE_STEM, FUND_PERFORMANCE_STEM, FUND_FACTS_STEM, FUND_PERFORMANCE_P98_STEM, PASSIVE_ETF_STEM, SIP_PERFORMANCE_STEM,
     SIP_PERFORMANCE_P103_STEM, PASSIVE_OFFERINGS_STEM, PASSIVE_DONUTS_STEM, LIQUID_DONUTS_STEM,
+    PASSIVE_FOF_STEM,
 )
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "contract" / "docling-parse-v1.schema.json"
 

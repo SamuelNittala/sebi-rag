@@ -47,6 +47,7 @@
         "chart_pairs_extracted",
         "chart_multi_series_unparsed",
         "chart_unpaired",
+        "chart_values_in_table",
         "mixed_chunk_split"
       ]
     },
@@ -166,7 +167,8 @@
                     "riskometer_text_extracted",
                     "chart_pairs_extracted",
                     "chart_multi_series_unparsed",
-                    "chart_unpaired"
+                    "chart_unpaired",
+                    "chart_values_in_table"
                   ]
                 },
                 "contains": { "const": "picture_text_recovered" }
@@ -182,6 +184,17 @@
                     },
                     "minContains": 0,
                     "maxContains": 1
+                  }
+                }
+              },
+              {
+                "if": { "properties": { "flags": { "contains": { "const": "chart_values_in_table" } } } },
+                "then": {
+                  "properties": {
+                    "flags": {
+                      "description": "chart_values_in_table only beside an unbound-chart outcome.",
+                      "contains": { "enum": ["chart_unpaired", "chart_multi_series_unparsed"] }
+                    }
                   }
                 }
               },

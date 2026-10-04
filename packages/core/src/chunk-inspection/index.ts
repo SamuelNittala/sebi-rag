@@ -19,7 +19,7 @@ export * from "./manual-edit.ts";
 export * from "./faq.ts";
 
 const DEFAULT_CONFIG: ChunkInspectorConfig = {
-  inspectorVersion: "1.1.0",
+  inspectorVersion: "1.2.0",
   maxTextTokens: 512,
   maxTableTokens: 1536,
   headingOnlyMaxTokens: 20,
@@ -34,6 +34,8 @@ const TABLE_LABELS = [
 ];
 
 const UNBOUND_CHART_FLAGS = ["chart_multi_series_unparsed", "chart_unpaired"];
+/** Every value of the unbound chart also appears in a table or key-value chunk on its page. */
+const CHART_VALUES_IN_TABLE_FLAG = "chart_values_in_table";
 /** A label of at least 6 characters ending in `:` repeated adjacently, e.g. `Net AUM: Net AUM:`. */
 const REPEATED_LABEL = /(?:^|\s)([^\s:|][^:|\n]{4,}:)\s*\1/u;
 /** One `row label, column = value` triplet of Docling's table serialization. */
@@ -244,10 +246,20 @@ function doclingCandidateFindings(candidate: InspectionCandidate): InspectionFin
     }
   }
   if (chunkType === "picture" && flags.some((flag) => UNBOUND_CHART_FLAGS.includes(flag))) {
-    findings.push(finding(candidate, "CHART_VALUES_UNBOUND", "warning", false, "Chart values could not be bound to their labels; verify them against the tabular source.", {
-      classification: candidate.metadata.pictureClassification ?? null,
-      flags,
-    }));
+    const inTable = flags.includes(CHART_VALUES_IN_TABLE_FLAG);
+    findings.push(finding(
+      candidate,
+      "CHART_VALUES_UNBOUND",
+      inTable ? "info" : "warning",
+      false,
+      inTable
+        ? "Chart values could not be bound to their labels; all of its values appear in a table on the same page."
+        : "Chart values could not be bound to their labels; verify them against the tabular source.",
+      {
+        classification: candidate.metadata.pictureClassification ?? null,
+        flags,
+      },
+    ));
   }
   return findings;
 }

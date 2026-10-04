@@ -358,3 +358,143 @@ def test_riskometer_dial_labels_are_discarded():
     )
     result = pictures.normalize_picture(pic, doc)
     assert result.text == "Scheme Riskometer\nThe risk of the scheme is Moderately High"
+
+
+# --- legends outside the picture region (T18q) ---------------------------------
+
+PASSIVE_FOF_STEM_ETF = "Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF"
+
+
+def test_p63_legend_below_the_picture_is_claimed_and_pairs_the_positive_value():
+    # Docling's picture bbox ends 5 pt above the legend; the -0.01% leader ends on the orange ring
+    # (Cash & Other Receivables has a zero-width wedge), so only 100.01% pairs.
+    from docling_service.tests.conftest import PASSIVE_FOF_STEM
+
+    doc = load_doc(PASSIVE_FOF_STEM)
+    graphics = graphics_for(PASSIVE_FOF_STEM, doc)
+    picture = item(doc, "#/pictures/8")
+    legend = pictures.outside_legend(picture, doc, graphics[picture.self_ref])
+    assert [t.self_ref for t in legend] == ["#/texts/11", "#/texts/12"]
+    result = pictures.normalize_picture(picture, doc, graphics[picture.self_ref], legend)
+    assert result.text == f"{PASSIVE_FOF_STEM_ETF}: 100.01%\nCash & Other Receivables\n-0.01%"
+    assert result.flags == ("picture_text_recovered", "chart_unpaired")
+    assert result.pair_count == 0
+    assert result.legend_refs == ("#/texts/11", "#/texts/12")
+    assert result.values == ("100.01%", "-0.01%")
+
+
+def test_p63_without_graphics_claims_no_legend():
+    from docling_service.tests.conftest import PASSIVE_FOF_STEM
+
+    doc = load_doc(PASSIVE_FOF_STEM)
+    picture = item(doc, "#/pictures/8")
+    assert pictures.outside_legend(picture, doc, None) == []
+    assert run(doc, "#/pictures/8").text == "100.01%\n-0.01%"
+
+
+def _outside_pie(values, legend, *, extra=(), slice_colours=(ORANGE, NAVY)):
+    """A picture at (100, 300)-(300, 500) with square slices (values inside them) and body text
+    `legend` [(text, (l, b, r, t), swatch rgb | None)] outside it; `extra` adds body texts without
+    swatches [(text, box)]."""
+    doc = DoclingDocument(name="synthetic")
+    doc.add_page(page_no=1, size={"width": 600, "height": 800})
+    pic = doc.add_picture(prov=_prov(100, 300, 300, 500))
+    pic.meta = PictureMeta(
+        classification=PictureClassificationMetaField(
+            predictions=[PictureClassificationPrediction(class_name="pie_chart", confidence=0.9)]
+        )
+    )
+    marks, near, chars = [], [], []
+    for i, (value, rgb) in enumerate(zip(values, slice_colours)):
+        y = 320 + i * 60
+        marks.append(_rect(rgb, 150, y, 250, y + 50, z=i))
+        doc.add_text(label=DocItemLabel.TEXT, text=value, prov=_prov(190, y + 20, 210, y + 26), parent=pic)
+    for text, (l, b, r, t), swatch in legend:
+        doc.add_text(label=DocItemLabel.TEXT, text=text, prov=_prov(l, b, r, t))
+        chars += _chars(text, l, b)
+        if swatch:
+            near.append(_rect(swatch, l - 9, b, l - 3, b + 6, z=20 + len(near)))
+    for text, (l, b, r, t) in extra:
+        doc.add_text(label=DocItemLabel.TEXT, text=text, prov=_prov(l, b, r, t))
+    graphics = ChartGraphics((100, 300, 300, 500), tuple(marks), (), (), near_marks=tuple(near), near_chars=tuple(chars))
+    return doc, pic, graphics
+
+
+def test_synthetic_legend_below_the_picture_pairs_by_colour():
+    doc, pic, graphics = _outside_pie(
+        ["60%", "40%"], [("Alpha", (120, 288, 140, 294), ORANGE), ("Beta", (120, 278, 136, 284), NAVY)],
+    )
+    legend = pictures.outside_legend(pic, doc, graphics)
+    assert [t.text for t in legend] == ["Alpha", "Beta"]
+    result = pictures.normalize_picture(pic, doc, graphics, legend)
+    assert result.text == "Alpha: 60%\nBeta: 40%"
+    assert result.flags == ("picture_text_recovered", "chart_pairs_extracted")
+
+
+def test_synthetic_legend_beside_the_picture_is_claimed():
+    doc, pic, graphics = _outside_pie(
+        ["60%", "40%"], [("Alpha", (320, 420, 340, 426), ORANGE), ("Beta", (320, 410, 336, 416), NAVY)],
+    )
+    assert [t.text for t in pictures.outside_legend(pic, doc, graphics)] == ["Alpha", "Beta"]
+
+
+def test_synthetic_legend_beyond_the_margin_is_not_claimed():
+    # Margin: min(60 pt, half the picture height = 100 pt) = 60 pt below the picture.
+    doc, pic, graphics = _outside_pie(["60%", "40%"], [("Alpha", (120, 230, 140, 236), ORANGE)])
+    assert pictures.outside_legend(pic, doc, graphics) == []
+
+
+def test_synthetic_legend_scan_stops_at_the_first_non_legend_text():
+    doc, pic, graphics = _outside_pie(
+        ["60%", "40%"],
+        [("Alpha", (120, 288, 140, 294), ORANGE), ("Beta", (120, 268, 136, 274), NAVY)],
+        extra=[("Source: AMFI", (120, 278, 170, 284))],
+    )
+    assert [t.text for t in pictures.outside_legend(pic, doc, graphics)] == ["Alpha"]
+
+
+def test_synthetic_text_without_swatch_is_not_claimed():
+    doc, pic, graphics = _outside_pie(["60%", "40%"], [("Alpha", (120, 288, 140, 294), None)])
+    assert pictures.outside_legend(pic, doc, graphics) == []
+
+
+def test_synthetic_non_positive_value_on_another_values_slice_stays_unpaired():
+    # 0.00% has no slice of its own (its value label sits on the orange slice, like 100%):
+    # 100% pairs, 0.00% and Beta stay unpaired (no pairing by elimination).
+    doc, pic, graphics = _outside_pie(
+        ["100%", "0.00%"],
+        [("Alpha", (120, 288, 140, 294), ORANGE), ("Beta", (120, 278, 136, 284), NAVY)],
+        slice_colours=(ORANGE, ORANGE),
+    )
+    result = pictures.normalize_picture(pic, doc, graphics, pictures.outside_legend(pic, doc, graphics))
+    assert result.text == "Alpha: 100%\nBeta\n0.00%"
+    assert result.flags == ("picture_text_recovered", "chart_unpaired")
+    assert result.pair_count == 0
+
+
+def test_synthetic_positive_values_on_one_slice_stay_refused():
+    doc, pic, graphics = _outside_pie(
+        ["60%", "40%"],
+        [("Alpha", (120, 288, 140, 294), ORANGE), ("Beta", (120, 278, 136, 284), NAVY)],
+        slice_colours=(ORANGE, ORANGE),
+    )
+    result = pictures.normalize_picture(pic, doc, graphics, pictures.outside_legend(pic, doc, graphics))
+    assert result.flags == ("picture_text_recovered", "chart_unpaired")
+    assert result.text == "60%\n40%\nAlpha\nBeta"
+
+
+def test_values_in_tables_needs_every_value():
+    assert pictures.values_in_texts(("100.01%", "-0.01%"), ["ETF, % = 100.01%", "Total = −0.01%"])
+    assert not pictures.values_in_texts(("100.01%", "-0.01%"), ["ETF, % = 100.01%"])
+    assert not pictures.values_in_texts(("0.81%",), ["Net Receivables = -0.81%"])
+    assert not pictures.values_in_texts(("400",), ["Nifty MidSmallcap400"])
+    assert not pictures.values_in_texts((), ["100%"])
+
+
+def test_synthetic_long_legend_below_is_claimed_line_by_line():
+    # Passive p69: seven legend lines below the donut; the reach bounds each gap, not the total.
+    lines = [(name, (120, 288 - 14 * i, 150, 294 - 14 * i), colour) for i, (name, colour) in enumerate(
+        [("Alpha", ORANGE), ("Beta", NAVY), ("Gamma", GREY), ("Delta", (0, 160, 200)), ("Eps", (200, 90, 40)), ("Zeta", (120, 60, 160))]
+    )]
+    doc, pic, graphics = _outside_pie(["60%", "40%"], lines)
+    assert [t.text for t in pictures.outside_legend(pic, doc, graphics)] == ["Alpha", "Beta", "Gamma", "Delta", "Eps", "Zeta"]

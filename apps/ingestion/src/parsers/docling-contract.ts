@@ -26,6 +26,7 @@ export const DOCLING_NORMALIZATION_FLAGS = [
   "chart_pairs_extracted",
   "chart_multi_series_unparsed",
   "chart_unpaired",
+  "chart_values_in_table",
   "mixed_chunk_split",
 ] as const;
 export type DoclingNormalizationFlag = (typeof DOCLING_NORMALIZATION_FLAGS)[number];
@@ -57,6 +58,7 @@ export const DOCLING_FLAGS_BY_CHUNK_TYPE: Readonly<Record<DoclingChunkType, read
     "chart_pairs_extracted",
     "chart_multi_series_unparsed",
     "chart_unpaired",
+    "chart_values_in_table",
   ],
 };
 
@@ -66,6 +68,12 @@ export const DOCLING_PICTURE_OUTCOME_FLAGS: readonly DoclingNormalizationFlag[] 
   "chart_pairs_extracted",
   "chart_multi_series_unparsed",
   "chart_unpaired",
+];
+
+/** `chart_values_in_table` (every chart value appears in a table on the page) needs one of these. */
+export const DOCLING_UNBOUND_CHART_FLAGS: readonly DoclingNormalizationFlag[] = [
+  "chart_unpaired",
+  "chart_multi_series_unparsed",
 ];
 
 const REQUIRED_FLAG_BY_CHUNK_TYPE: Readonly<Partial<Record<DoclingChunkType, DoclingNormalizationFlag>>> = {
@@ -347,6 +355,9 @@ function assertChunkFlags(value: unknown, path: string, type: DoclingChunkType):
   if (required && !flags.includes(required)) fail(path, `must include ${required} on ${type} chunks`);
   if (flags.filter((flag) => DOCLING_PICTURE_OUTCOME_FLAGS.includes(flag as DoclingNormalizationFlag)).length > 1) {
     fail(path, "must contain at most one picture outcome flag");
+  }
+  if (flags.includes("chart_values_in_table") && !flags.some((flag) => DOCLING_UNBOUND_CHART_FLAGS.includes(flag as DoclingNormalizationFlag))) {
+    fail(path, "must include chart_unpaired or chart_multi_series_unparsed with chart_values_in_table");
   }
   return flags as DoclingNormalizationFlag[];
 }

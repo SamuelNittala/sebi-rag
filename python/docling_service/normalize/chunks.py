@@ -40,6 +40,13 @@ A table holding stacked sub-tables (SIP Performance pages: one Docling table per
 sub-table per fund) yields one chunk group per sub-table, each headed by that sub-table's title,
 so a row-split continuation never carries another fund's title.
 
+A chart legend that Docling left outside the picture's bbox (`pictures.outside_legend`) belongs to
+the picture chunk: its text items join the picture chunk's itemRefs and bbox, leave their text
+chunks and are not repeated in page text. An item two pictures claim goes to neither. An unbound
+chart (`chart_unpaired` / `chart_multi_series_unparsed`) whose values all appear as the same
+numeric tokens in the table and key-value chunks on its page is also flagged
+`chart_values_in_table` (values only partly in tables are not).
+
 A table that yields several chunks (sub-tables, budget row splits, key-value panels split by
 budget) gives each chunk its own bbox: the union of the Docling cell bboxes behind its lines
 (the first piece of a part also covers the part's title and column header rows), converted to
@@ -114,10 +121,16 @@ def normalize_document(
     order = {item.self_ref: i for i, (item, _) in enumerate(doc.iterate_items(with_groups=False))}
     table_parts = {t.self_ref: table_rules.normalize_table(t) for t in doc.tables}
     graphics = chart_graphics or {}
-    picture_results = {p.self_ref: picture_rules.normalize_picture(p, doc, graphics.get(p.self_ref)) for p in doc.pictures}
+    legends = _outside_legends(doc, graphics)
+    picture_results = {
+        p.self_ref: picture_rules.normalize_picture(p, doc, graphics.get(p.self_ref), legends[p.self_ref]) for p in doc.pictures
+    }
+    claims = {ref: legends[ref] for ref, r in picture_results.items() if r.legend_refs and not r.dropped}
 
     kept = kept_page_furniture(doc)
-    units = sorted(_units_from_chunker(doc, chunker, order, leveled) + _furniture_units(doc, kept, order), key=lambda u: u.order)
+    units = sorted(
+        _units_from_chunker(doc, chunker, order, leveled, claims) + _furniture_units(doc, kept, order), key=lambda u: u.order,
+    )
     chunks = [c for unit in units for c in _wire_chunks(unit, doc, changed, table_parts, picture_results)]
     missing = _as_of_header_units(doc, order, chunks)
     if missing:
@@ -126,6 +139,7 @@ def normalize_document(
         chunks = [c for unit in units for c in _wire_chunks(unit, doc, changed, table_parts, picture_results)]
     if not chunks:
         raise EmptyParsedContent()
+    _flag_values_in_tables(chunks, picture_results)
     for index, chunk in enumerate(chunks):
         chunk["chunkIndex"] = index
 
@@ -137,7 +151,7 @@ def normalize_document(
         "producer": producer,
         "source": {"sha256": source_sha256, "byteSize": byte_size},
         "pageCount": len(page_numbers),
-        "pages": _pages(doc, page_numbers, table_parts, picture_results, kept),
+        "pages": _pages(doc, page_numbers, table_parts, picture_results, kept, {t.self_ref for v in claims.values() for t in v}),
         "chunks": chunks,
         "diagnostics": {
             "droppedPictures": {k: dropped.get(k, 0) for k in ("logo", "signature", "stamp", "qrCode", "barCode", "noText")},
@@ -148,6 +162,29 @@ def normalize_document(
     }
 
 
+def _outside_legends(doc: DoclingDocument, graphics: dict[str, ChartGraphics]) -> dict[str, list[TextItem]]:
+    """picture self_ref -> its outside legend items; a picture sharing an item with another gets none."""
+    legends = {p.self_ref: picture_rules.outside_legend(p, doc, graphics.get(p.self_ref)) for p in doc.pictures}
+    counts = Counter(t.self_ref for items in legends.values() for t in items)
+    return {ref: [] if any(counts[t.self_ref] > 1 for t in items) else items for ref, items in legends.items()}
+
+
+def _flag_values_in_tables(chunks: list[dict], picture_results) -> None:
+    """Adds `chart_values_in_table` to unbound chart chunks whose values all appear in a table or
+    key-value chunk on the chart's page."""
+    tables: dict[int, list[str]] = {}
+    for chunk in chunks:
+        if chunk["type"] in ("table", "key_value"):
+            for page in chunk["pages"]:
+                tables.setdefault(page, []).append(chunk["text"])
+    for chunk in chunks:
+        if chunk["type"] != "picture" or not {"chart_unpaired", "chart_multi_series_unparsed"} & set(chunk["flags"]):
+            continue
+        texts = [t for page in chunk["pages"] for t in tables.get(page, [])]
+        if picture_rules.values_in_texts(picture_results[chunk["itemRefs"][0]].values, texts):
+            chunk["flags"].append("chart_values_in_table")
+
+
 def _kind(item: DocItem) -> str:
     if isinstance(item, TableItem):
         return "table"
@@ -156,7 +193,10 @@ def _kind(item: DocItem) -> str:
     return "text"
 
 
-def _units_from_chunker(doc: DoclingDocument, chunker: HybridChunker, order: dict[str, int], leveled: bool = False) -> list[_Unit]:
+def _units_from_chunker(
+    doc: DoclingDocument, chunker: HybridChunker, order: dict[str, int], leveled: bool = False,
+    legends: dict[str, list[TextItem]] | None = None,
+) -> list[_Unit]:
     serializer = chunker.serializer_provider.get_serializer(doc=doc)
     units: list[_Unit] = []
     seen: set[str] = set()
@@ -203,10 +243,30 @@ def _units_from_chunker(doc: DoclingDocument, chunker: HybridChunker, order: dic
         if notes:
             text = "\n".join(n.text.strip() for n in notes)
             units.append(_Unit("text", notes, None, order.get(notes[0].self_ref, order[table.self_ref]), text=text))
+    if legends:
+        units = _claim_legends(units, legends, order, serializer)
 
     units.sort(key=lambda u: u.order)
     _inherit_headings(units)
     return units
+
+
+def _claim_legends(units: list[_Unit], legends: dict[str, list[TextItem]], order: dict[str, int], serializer) -> list[_Unit]:
+    """Outside legend items leave their text units (re-serialized per item, a unit left empty is
+    dropped) and join their picture's unit."""
+    claimed = {t.self_ref for items in legends.values() for t in items}
+    out: list[_Unit] = []
+    for unit in units:
+        if unit.kind == "text" and any(i.self_ref in claimed for i in unit.items):
+            kept = [i for i in unit.items if i.self_ref not in claimed]
+            if kept:
+                text = "\n".join(t for i in kept if (t := serializer.serialize(item=i).text))
+                out.append(_Unit("text", kept, unit.headings, order[kept[0].self_ref], text=text, mixed=unit.mixed))
+            continue
+        if unit.kind == "picture" and unit.items[0].self_ref in legends:
+            unit.items = unit.items + legends[unit.items[0].self_ref]
+        out.append(unit)
+    return out
 
 
 def _regroup_category_lists(units: list[_Unit], doc: DoclingDocument, order: dict[str, int], serializer) -> list[_Unit]:
@@ -415,7 +475,7 @@ def _wire_chunks(unit: _Unit, doc, changed, table_parts, picture_results) -> lis
     body = _drop_heading_lines(result.text, headings)
     if not body:
         return []
-    child_ordinal = ["ordinal_joined"] if changed.intersection(result.child_refs) else []
+    child_ordinal = ["ordinal_joined"] if changed.intersection(result.child_refs + result.legend_refs) else []
     picture = {"classification": result.classification, "confidence": result.confidence, "pairCount": result.pair_count}
     flags = child_ordinal + list(result.flags)
     pieces = budget.split_body("picture", headings, body, split_long_lines=False)
@@ -513,7 +573,8 @@ def _item_boxes(items, doc) -> dict[int, list[float]]:
     return boxes
 
 
-def _pages(doc: DoclingDocument, page_numbers: list[int], table_parts, picture_results, kept) -> list[dict]:
+def _pages(doc: DoclingDocument, page_numbers: list[int], table_parts, picture_results, kept, claimed: set[str]) -> list[dict]:
+    """`claimed`: outside legend items, whose text is in their picture's text."""
     lines: dict[int, list[str]] = {p: [] for p in page_numbers}
     stats = {p: Counter() for p in page_numbers}
     headers = [i for i in kept if i.label == DocItemLabel.PAGE_HEADER]
@@ -533,7 +594,7 @@ def _pages(doc: DoclingDocument, page_numbers: list[int], table_parts, picture_r
             stats[page]["pictures"] += 1
             stats[page]["pictureTextChars"] += sum(len(c.text) for c in picture_rules.picture_children(item, doc))
         elif isinstance(item, TextItem):
-            text = item.text.strip()
+            text = "" if item.self_ref in claimed else item.text.strip()
             stats[page]["textItems"] += 1
             stats[page]["bodyTextChars"] += len(text)
         else:

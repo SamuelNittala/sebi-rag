@@ -13,7 +13,7 @@ import {
 } from "./page-view-model.ts";
 import { goldenWire } from "./test-fixtures.ts";
 
-const RUN = { id: "run-1", sourceName: "flexi.pdf", parserVersion: "docling-2.132.0+norm-7", status: "review_ready" };
+const RUN = { id: "run-1", sourceName: "flexi.pdf", parserVersion: "docling-2.132.0+norm-8", status: "review_ready" };
 const RAW_SHA = "f".repeat(64);
 
 let wire: DoclingParseResponse;

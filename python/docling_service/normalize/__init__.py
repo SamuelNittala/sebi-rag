@@ -1,3 +1,3 @@
 """Normalizer for DoclingDocuments. Bump NORMALIZER_VERSION whenever output changes."""
 
-NORMALIZER_VERSION = "7"
+NORMALIZER_VERSION = "8"

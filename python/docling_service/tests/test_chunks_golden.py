@@ -219,3 +219,36 @@ def test_sip_part_boxes_tile_the_table_in_fund_order(wires, stem):
         assert lower["t"] <= upper["b"] + 1.0, (upper, lower)
     covered = sum(box["t"] - box["b"] for box in boxes)
     assert covered >= 0.9 * (table["t"] - table["b"])
+
+
+# T18q: a chart legend below Docling's picture bbox belongs to the picture chunk, and a chart whose
+# values all appear in a table on its page says so.
+def test_outside_legend_is_claimed_by_the_picture_chunk(wires):
+    from docling_service.tests.conftest import PASSIVE_FOF_STEM
+
+    wire = wires[PASSIVE_FOF_STEM]
+    [chart] = [c for c in wire["chunks"] if c["itemRefs"][0] == "#/pictures/8"]
+    assert chart["itemRefs"] == ["#/pictures/8", "#/texts/11", "#/texts/12"]
+    assert chart["text"] == (
+        "Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF: 100.01%\nCash & Other Receivables\n-0.01%"
+    )
+    assert chart["flags"] == ["picture_text_recovered", "chart_unpaired", "chart_values_in_table"]
+    assert chart["picture"]["pairCount"] == 0
+    # The bbox now covers the legend lines below the picture.
+    [box] = chart["bboxes"]
+    assert box["b"] < 866.0 and box["l"] < 588.0
+    others = [c for c in wire["chunks"] if c is not chart]
+    assert not any({"#/texts/11", "#/texts/12"} & set(c["itemRefs"]) for c in others)
+    texts = [c for c in others if c["type"] == "text"]
+    assert not any("Cash & Other Receivables" in c["text"] for c in texts)
+    page = wire["pages"][0]["text"].split("\n")
+    assert page.count("Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF") == 0
+    assert wire["diagnostics"]["flagCounts"]["chart_values_in_table"] == 1
+
+
+@pytest.mark.parametrize("stem", GOLDEN_STEMS)
+def test_values_in_table_only_on_unbound_charts(wires, stem):
+    for chunk in wires[stem]["chunks"]:
+        if "chart_values_in_table" in chunk["flags"]:
+            assert chunk["type"] == "picture"
+            assert {"chart_unpaired", "chart_multi_series_unparsed"} & set(chunk["flags"])

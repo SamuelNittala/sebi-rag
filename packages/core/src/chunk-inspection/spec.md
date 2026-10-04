@@ -46,7 +46,11 @@ production vector.
   - `CHART_VALUES_UNBOUND` (chunk, warning): a `picture` chunk flagged
     `chart_multi_series_unparsed` or `chart_unpaired`; the reviewer verifies its
     values against the tabular source. Evidence has the picture classification
-    and the flags.
+    and the flags. When the chunk is also flagged `chart_values_in_table` (every
+    chart value appears as the same numeric token in a table or key-value chunk
+    on the chart's page), the same rule is reported with severity `info`
+    (still non-blocking, no acknowledgement needed) and says the values appear
+    in a table on the same page.
   - `LOW_STRUCTURE_PAGE` (document, warning): the document-level
     `parserDiagnostics` lists `lowStructurePages` or `uncoveredPages`; evidence
     lists both. Emitted once per document.
@@ -67,6 +71,9 @@ production vector.
   state.
 - [x] NFR-8: Inspector version is `1.1.0` from the introduction of the Docling
   rules (FR-14), so every document re-inspected afterwards routes to review once.
+- [x] NFR-9: Inspector version is `1.2.0` from the `info` severity of
+  `CHART_VALUES_UNBOUND` for `chart_values_in_table` charts (FR-14); the
+  version drift again routes every re-inspected document to review once.
 
 ## Acceptance Criteria
 
@@ -99,7 +106,9 @@ production vector.
 12. Given a Docling picture chunk flagged `chart_multi_series_unparsed` or
     `chart_unpaired`, when inspected, then it receives a non-blocking
     `CHART_VALUES_UNBOUND` warning; a picture chunk flagged
-    `chart_pairs_extracted` does not.
+    `chart_pairs_extracted` does not; one also flagged `chart_values_in_table`
+    receives the same finding with severity `info`, which does not count as an
+    open warning.
 13. Given Docling candidates whose shared `parserDiagnostics` lists low-structure
     or uncovered pages, when inspected or reinspected after a manual edit, then
     exactly one document-level `LOW_STRUCTURE_PAGE` warning lists those pages.

@@ -40,6 +40,27 @@ Colour pairing (`_pair_by_colour`, needs `chart_graphics.ChartGraphics` from the
   non-background pixels).
 - When a legend is found but any of this is ambiguous, nothing is paired (no nearest
   fallback): the chart keeps its raw text and today's flag.
+- A non-positive value (`-0.01%`, `0.00%`) has no slice of its own: when its mark is missing,
+  belongs to a positive value, or its colour is a positive value's, it is set aside and the
+  other values pair on their own; the chart stays `chart_unpaired` with the pairs, the
+  unmatched legend names and the set-aside values as lines (no pairing by elimination).
+
+Legends outside the picture (`outside_legend`, needs the PDF's graphics): Docling's picture bbox
+can stop short of the legend (passive p63). Body text items on the picture's page next to the
+picture are legend entries when they carry a swatch (same rules as inside: a 2-16 pt square
+whose right edge is within SWATCH_GAP left of the text): scanned top to bottom below the picture
+(overlapping it horizontally; each line's top within the legend reach of the picture's bottom or
+of the claimed line above it, so a long legend (p69: seven lines) is taken whole), then right of
+it and left of it (starting within the reach, overlapping it vertically). The reach is
+min(NEAR_REACH = 60 pt, half the picture height): several legend line gaps at factsheet sizes
+(p63's legend starts 5 pt below the picture, lines 14 pt apart), while a small icon cannot reach
+far. Each band's scan stops at the first item that is not such a text (a heading, a table, a text
+without a swatch, another chart) or lies beyond the reach. Claimed items join the picture chunk (text and itemRefs) and leave the
+text chunks; `chunks.py` gives an item claimed by two pictures to neither.
+
+`values_in_texts`: the chart's values (axis ticks left out) all appear, as the same numeric token,
+in the given texts; `chunks.py` flags unbound charts whose values all appear in a table or
+key-value chunk on their page `chart_values_in_table`.
 """
 
 from __future__ import annotations
@@ -53,7 +74,7 @@ from statistics import median
 
 from docling_core.types.doc import BoundingBox, CoordOrigin, DocItemLabel, DoclingDocument, PictureItem, TextItem
 
-from docling_service.normalize.chart_graphics import ChartGraphics, Char, Mark, delta_e, lab
+from docling_service.normalize.chart_graphics import NEAR_REACH, ChartGraphics, Char, Mark, delta_e, lab
 from docling_service.normalize.text import is_value_only
 
 DROPPED_CLASSES = {
@@ -90,6 +111,10 @@ BACKGROUND_L = 90.0
 TITLE_SIZE_RATIO = 1.1
 TITLE_WEIGHT = 600
 DOMINANT_SHARE = 0.6
+LEGEND_REACH_SHARE = 0.5  # outside legends: at most this share of the picture height away
+_EDGE = 2.0
+_LEGEND_LABELS = {DocItemLabel.TEXT, DocItemLabel.LIST_ITEM}
+_VALUE_TOKEN = re.compile(r"(?<![\w.])[-+\u2212\u2013]?[₹$]?\d[\d,]*(?:\.\d+)?%?")
 
 
 @dataclass(frozen=True)
@@ -101,6 +126,8 @@ class PictureResult:
     pair_count: int
     flags: tuple[str, ...]
     child_refs: tuple[str, ...]
+    legend_refs: tuple[str, ...] = ()  # body text items outside the picture claimed as its legend
+    values: tuple[str, ...] = ()  # chart values, axis ticks left out
 
 
 @dataclass(frozen=True, eq=False)
@@ -138,15 +165,20 @@ def picture_children(picture: PictureItem, doc: DoclingDocument) -> list[TextIte
     return out
 
 
-def normalize_picture(picture: PictureItem, doc: DoclingDocument, graphics: ChartGraphics | None = None) -> PictureResult:
+def normalize_picture(
+    picture: PictureItem, doc: DoclingDocument, graphics: ChartGraphics | None = None, legend: list[TextItem] | None = None,
+) -> PictureResult:
     """`graphics` (the picture's paths and characters from the PDF) enables title lines and
-    colour pairing; without it charts pair by position only."""
+    colour pairing; without it charts pair by position only. `legend`: the body text items
+    outside the picture that are its legend (default `outside_legend`)."""
     classification, confidence = classify(picture)
     children = picture_children(picture, doc)
     child_refs = tuple(c.self_ref for c in children)
+    legend_refs: tuple[str, ...] = ()
+    data_values: tuple[str, ...] = ()
 
     def result(text="", flags=(), pair_count=0, dropped=None) -> PictureResult:
-        return PictureResult(dropped, text, classification, confidence, pair_count, tuple(flags), child_refs)
+        return PictureResult(dropped, text, classification, confidence, pair_count, tuple(flags), child_refs, legend_refs, data_values)
 
     if classification in DROPPED_CLASSES:
         return result(dropped=DROPPED_CLASSES[classification])
@@ -170,12 +202,18 @@ def normalize_picture(picture: PictureItem, doc: DoclingDocument, graphics: Char
 
     if not values:
         return result("\n".join(raw_lines), ("picture_text_recovered",))
-    multi = bool(labels) and len(values) >= MULTI_SERIES_RATIO * len(labels) and len(values) >= len(labels) + 2
+    if legend is None:
+        legend = outside_legend(picture, doc, graphics)
+    outside = [_Text(t.text.strip(), _box(t)) for t in legend]
+    legend_refs = tuple(t.self_ref for t in legend)
+    data_values = tuple(v.text for v in _drop_tick_values(values))
+    raw_lines = raw_lines + [t.text for t in outside]
+    multi = bool(labels or outside) and len(values) >= MULTI_SERIES_RATIO * len(labels + outside) and len(values) >= len(labels + outside) + 2
     unpaired = "chart_multi_series_unparsed" if multi else "chart_unpaired"
 
     title_item = next((_Text(c.text.strip(), _box(c), True) for c in children if c.label in _TITLE_LABELS and c.text.strip() == title), None)
     titles = _title_labels(labels, values, graphics, title_item) if graphics else []
-    pool = [label for label in labels if label not in titles]
+    pool = [label for label in labels if label not in titles] + outside
     head = head + [t.text for t in titles]
 
     paired = None if multi else _pair_by_rows(pool, values)
@@ -183,6 +221,12 @@ def normalize_picture(picture: PictureItem, doc: DoclingDocument, graphics: Char
         by_colour = _pair_by_colour(pool, values, graphics, [t for t in (title_item, *titles) if t])
         if by_colour is _REFUSED:
             return result("\n".join(raw_lines), ("picture_text_recovered", unpaired))
+        if isinstance(by_colour, _Partial):
+            lines = (
+                head + [f"{label.text.rstrip(':')}: {value.text}" for label, value in by_colour.pairs]
+                + [t.text for t in (*by_colour.entries, *by_colour.values, *by_colour.notes)]
+            )
+            return result("\n".join(lines), ("picture_text_recovered", unpaired))
         if isinstance(by_colour, _Grid):
             lines = head + by_colour.lines + [n.text for n in by_colour.notes]
             return result("\n".join(lines), ("picture_text_recovered", "chart_pairs_extracted"), pair_count=by_colour.count)
@@ -288,6 +332,17 @@ class _Grid:
 
 
 @dataclass(frozen=True)
+class _Partial:
+    """Positive values paired by colour; non-positive values without a slice of their own and the
+    legend entries nobody matched stay unpaired."""
+
+    pairs: list[tuple[_Text, _Text]]
+    entries: list[_Text]
+    values: list[_Text]
+    notes: list[_Text]
+
+
+@dataclass(frozen=True)
 class _Entry:
     text: _Text
     rgb: tuple[int, int, int]
@@ -333,7 +388,8 @@ def _pair_by_colour(labels: list[_Text], values: list[_Text], graphics: ChartGra
         return _pair_raster(labels, values, graphics) if graphics.raster else None
     excluded = {id(m) for m in graphics.marks if _is_background(m, graphics) or _in_bands(m, titles)}
     swatches = [m for m in graphics.marks if id(m) not in excluded and _is_swatch(m)]
-    legend = _legend(labels, swatches, graphics.chars)
+    swatches += [m for m in graphics.near_marks if _is_swatch(m)]
+    legend = _legend(labels, swatches, graphics.chars + graphics.near_chars)
     if legend is None or legend is _REFUSED:
         return legend
     entries, legend_labels, used = legend
@@ -342,14 +398,26 @@ def _pair_by_colour(labels: list[_Text], values: list[_Text], graphics: ChartGra
     excluded |= used
     plot = [m for m in graphics.marks if id(m) not in excluded and not _is_line(m)]
     marks = [_value_mark(v, plot, graphics) for v in values]
-    if any(m is None for m in marks) or len({id(m) for m in marks}) != len(marks):
+    series = [_match(m.rgb, [e.rgb for e in entries]) if m is not None else None for m in marks]
+    aside = _set_aside(values, marks, series) if len(values) == len(entries) else set()
+    kept = [i for i in range(len(values)) if i not in aside]
+    if any(marks[i] is None for i in kept) or len({id(marks[i]) for i in kept}) != len(kept):
         return _REFUSED
-    series = [_match(m.rgb, [e.rgb for e in entries]) for m in marks]
-    if any(s is None for s in series):
+    if any(series[i] is None for i in kept):
         return _REFUSED
     notes = [label for label in labels if id(label) not in legend_labels]
     if ticks:  # kept as one trailing line, in Docling order
         notes.append(_Text(" ".join(t.text for t in ticks), ticks[0].box))
+    if aside:
+        matched = {series[i]: values[i] for i in kept}
+        if not kept or len(matched) != len(kept) or not _percent_total_ok(list(matched.values())):
+            return _REFUSED
+        return _Partial(
+            [(entries[s].text, matched[s]) for s in sorted(matched)],
+            [e.text for s, e in enumerate(entries) if s not in matched],
+            [values[i] for i in sorted(aside)],
+            notes,
+        )
     if len(values) == len(entries):
         if sorted(series) != list(range(len(entries))):
             return _REFUSED
@@ -358,6 +426,23 @@ def _pair_by_colour(labels: list[_Text], values: list[_Text], graphics: ChartGra
     if len(entries) >= 2 and len(values) > len(entries):
         return _series_grid(entries, values, marks, series, notes, graphics.chars)
     return _REFUSED
+
+
+def _set_aside(values: list[_Text], marks: list[Mark | None], series: list[int | None]) -> set[int]:
+    """Indexes of non-positive values with no slice of their own: no mark or legend colour, or the
+    mark or colour of a positive value."""
+    positive = [i for i, v in enumerate(values) if _number(v) > 0]
+    taken_marks = {id(marks[i]) for i in positive if marks[i] is not None}
+    taken_series = {series[i] for i in positive if series[i] is not None}
+    return {
+        i for i in range(len(values))
+        if i not in positive
+        and (marks[i] is None or id(marks[i]) in taken_marks or series[i] is None or series[i] in taken_series)
+    }
+
+
+def _number(value: _Text) -> float:
+    return float(_NUMBER.search(value.text).group(0).replace(",", ""))
 
 
 def _legend(labels: list[_Text], swatches: list[Mark], chars: tuple[Char, ...]):
@@ -680,3 +765,66 @@ def _rect_distance(point, rect) -> float:
 
 def _diagonal(box) -> float:
     return math.hypot(box[2] - box[0], box[3] - box[1])
+
+
+# --- legends outside the picture, values in tables ------------------------------------------
+
+
+def outside_legend(picture: PictureItem, doc: DoclingDocument, graphics: ChartGraphics | None) -> list[TextItem]:
+    """Body text items next to a value-bearing chart that are its legend entries (module doc)."""
+    if graphics is None or len(picture.prov) != 1:
+        return []
+    if not any(is_value_only(c.text) for c in picture_children(picture, doc)):
+        return []
+    swatches = [m for m in graphics.near_marks if _is_swatch(m)]
+    if not swatches:
+        return []
+    page = picture.prov[0].page_no
+    height = doc.pages[page].size.height
+    l, b, r, t = graphics.box
+    reach = min(NEAR_REACH, LEGEND_REACH_SHARE * (t - b))
+    inner = {c.self_ref for p in doc.pictures for c in picture_children(p, doc)}
+    notes = {ref.cref for x in [*doc.tables, *doc.pictures] for ref in [*x.captions, *x.footnotes]}
+    bands: dict[str, list[tuple[float, object, BoundingBox]]] = {"below": [], "right": [], "left": []}
+    for node, _ in doc.iterate_items(with_groups=False):
+        prov = getattr(node, "prov", None)
+        if node is picture or node.self_ref in inner or not prov or len(prov) != 1 or prov[0].page_no != page:
+            continue
+        if isinstance(node, PictureItem) and not picture_children(node, doc):
+            continue  # icons and swatches Docling cut out as pictures
+        if isinstance(node, TextItem) and not node.text.strip():
+            continue
+        bb = prov[0].bbox.to_bottom_left_origin(page_height=height)
+        box = BoundingBox(l=min(bb.l, bb.r), b=min(bb.b, bb.t), r=max(bb.l, bb.r), t=max(bb.b, bb.t), coord_origin=CoordOrigin.BOTTOMLEFT)
+        if box.t <= b + _EDGE and box.r > l and box.l < r:
+            bands["below"].append((-box.t, node, box))
+        elif box.t > b and box.b < t and r - _EDGE <= box.l <= r + reach:
+            bands["right"].append((-box.t, node, box))
+        elif box.t > b and box.b < t and l - reach <= box.r <= l + _EDGE:
+            bands["left"].append((-box.t, node, box))
+    claimed: list[TextItem] = []
+    for name, band in bands.items():
+        edge = b  # below: each line within the reach of the picture or the line above it
+        for _, node, box in sorted(band, key=lambda e: e[0]):  # top to bottom
+            if name == "below" and edge - box.t > reach:
+                break
+            if not isinstance(node, TextItem) or node.label not in _LEGEND_LABELS or node.self_ref in notes:
+                break
+            own = _swatches_of(_Text(node.text.strip(), box), swatches)
+            if not own or own[0].box[2] > box.l + 1:
+                break
+            claimed.append(node)
+            edge = box.b
+    return claimed
+
+
+def values_in_texts(values: tuple[str, ...], texts: list[str]) -> bool:
+    """Every value appears in `texts` as the same numeric token (sign, currency and % included)."""
+    if not values:
+        return False
+    found = {_value_token(m.group(0)) for text in texts for m in _VALUE_TOKEN.finditer(text)}
+    return all(_value_token(v) in found for v in values)
+
+
+def _value_token(text: str) -> str:
+    return "".join(text.split()).replace("\u2212", "-").replace("\u2013", "-").removeprefix("+")
