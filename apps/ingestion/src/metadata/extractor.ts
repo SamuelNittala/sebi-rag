@@ -539,7 +539,7 @@ function extractAMCName(text: string): string | null {
 /**
  * Extracts scheme type from content
  */
-function extractSchemeType(text: string): SchemeType {
+export function extractSchemeType(text: string): SchemeType {
   for (const { type, patterns } of SCHEME_TYPE_PATTERNS) {
     for (const pattern of patterns) {
       if (pattern.test(text)) {
@@ -553,7 +553,7 @@ function extractSchemeType(text: string): SchemeType {
 /**
  * Extracts scheme category from content
  */
-function extractSchemeCategory(text: string): string | null {
+export function extractSchemeCategory(text: string): string | null {
   // Check Large & Mid Cap first (more specific)
   if (/\bLarge\s*[&and]+\s*Mid\s*Cap\b/i.test(text)) {
     return "Large & Mid Cap";

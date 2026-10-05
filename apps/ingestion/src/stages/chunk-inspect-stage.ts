@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type {
   ArtifactDescriptor,
+  CandidateChunkMetadata,
   ClassifiedKnowledgeOwnership,
   KnowledgeScope,
   SourceDocumentType,
@@ -18,6 +19,8 @@ import {
 } from "../chunkers/semantic-chunker.ts";
 import {
   extractMetadata,
+  extractSchemeCategory,
+  extractSchemeType,
   type ExtractedMetadata,
 } from "../metadata/extractor.ts";
 import {
@@ -244,11 +247,20 @@ export function preparePdfChunkInspection(input: {
     throw deterministicChunkError("EMPTY_CANDIDATE_SET", "No relevant content was extracted from the parsed artifact.");
   }
 
+  // A Docling factsheet that covers several funds must not stamp its cover fund, strategy and
+  // scheme category on every chunk. Each chunk keeps only its own fund (from the mapper); strategy,
+  // canonical name, scheme category and scheme type are then derived per chunk, or null when the
+  // chunk names no fund. Single-fund documents (one distinct fund), the unpdf path, HTML, FAQ and
+  // addenda keep the shared document-level metadata unchanged.
+  const multiFundDocument = parserDiagnostics !== null
+    && distinctFundCount(chunkResult.chunks) >= 2;
+
+  const documentFundName = multiFundDocument ? null : metadata.fundName;
   const documentScope = classifyDocumentScope({
     filename: parsed.source.filename,
     documentType: metadata.docType,
     sourceCollection: input.knowledgeScope.sourceCollection,
-    fundName: metadata.fundName,
+    fundName: documentFundName,
   });
   const sourceAuthority = metadata.docType === "Addendum"
     ? "regulatory_filing" as const
@@ -256,6 +268,17 @@ export function preparePdfChunkInspection(input: {
       ? "official_product_page" as const
       : "unknown" as const;
   const citation = input.citationMetadata ?? {};
+  if (multiFundDocument) {
+    // Derive strategy, canonical name, scheme category and scheme type per chunk from its own fund
+    // so the merge in `toCandidate` overrides the (now null) document-level values.
+    for (const chunk of chunkResult.chunks) {
+      chunk.metadata = { ...chunk.metadata, ...perChunkFundMetadata(chunk.metadata?.fundName ?? null, {
+        filename: parsed.source.filename,
+        documentType: metadata.docType,
+        sourceCollection: input.knowledgeScope.sourceCollection,
+      }) };
+    }
+  }
   const prepared = prepareChunkReview({
     document: {
       id: input.sourceDocumentId,
@@ -265,15 +288,15 @@ export function preparePdfChunkInspection(input: {
     chunks: chunkResult.chunks,
     metadata: {
       documentScope,
-      strategyId: strategyIdForScope(documentScope, metadata.fundName),
-      canonicalStrategyName: documentScope === "strategy" ? metadata.fundName : null,
+      strategyId: strategyIdForScope(documentScope, documentFundName),
+      canonicalStrategyName: documentScope === "strategy" ? documentFundName : null,
       sourceAuthority,
       sourceCollection: input.knowledgeScope.sourceCollection,
-      fundName: metadata.fundName,
+      fundName: documentFundName,
       documentType: metadata.docType,
       amcName: citation.amcName || metadata.amcName,
-      schemeType: citation.schemeType || metadata.schemeType,
-      schemeCategory: citation.schemeCategory || metadata.schemeCategory,
+      schemeType: multiFundDocument ? null : (citation.schemeType || metadata.schemeType),
+      schemeCategory: multiFundDocument ? null : (citation.schemeCategory || metadata.schemeCategory),
       documentDate: metadata.documentDate?.toISOString().slice(0, 10) ?? null,
       effectiveDate: metadata.effectiveDate?.toISOString().slice(0, 10) ?? null,
       amendmentNumber: metadata.amendmentNumber,
@@ -306,6 +329,41 @@ export function preparePdfChunkInspection(input: {
 
 function isDoclingArtifact(parsed: PdfParseArtifact): parsed is DoclingPdfParseArtifact {
   return "kind" in parsed.parser && parsed.parser.kind === "docling";
+}
+
+/** Distinct non-empty fund names the Docling mapper stamped across the document's chunks. */
+function distinctFundCount(chunks: ChunkResult["chunks"]): number {
+  const funds = new Set<string>();
+  for (const chunk of chunks) {
+    const fundName = chunk.metadata?.fundName;
+    if (fundName && fundName.trim()) funds.add(fundName.trim().toLowerCase());
+  }
+  return funds.size;
+}
+
+/**
+ * Per-chunk scope, strategy, canonical name, scheme category and scheme type for a multi-fund
+ * document, derived from the chunk's own fund only. A chunk that names no fund gets nulls. Scheme
+ * category and type reuse the content extractors (no new classifier); they read the fund name,
+ * which is the only text reliably about this chunk's fund.
+ */
+function perChunkFundMetadata(
+  fundName: string | null,
+  document: { filename: string; documentType: string | null; sourceCollection: string },
+): Partial<CandidateChunkMetadata> {
+  const scope = classifyDocumentScope({
+    filename: document.filename,
+    documentType: document.documentType,
+    sourceCollection: document.sourceCollection,
+    fundName,
+  });
+  return {
+    documentScope: scope,
+    strategyId: strategyIdForScope(scope, fundName),
+    canonicalStrategyName: scope === "strategy" ? fundName : null,
+    schemeCategory: fundName ? extractSchemeCategory(fundName) : null,
+    schemeType: fundName ? extractSchemeType(fundName) : null,
+  };
 }
 
 function sanitizePostgresText<T extends PdfParseArtifact>(parsed: T): T;

@@ -371,3 +371,132 @@ describe("source document type override", () => {
     expect(heuristic.candidates.every((candidate) => candidate.metadata.documentType === "Addendum")).toBe(true);
   });
 });
+
+
+describe("document-level metadata does not leak onto multi-fund factsheet chunks", () => {
+  /**
+   * A multi-fund Docling factsheet: the cover advertises one fund, later pages cover other funds,
+   * and some chunks (fund-facts/offerings pages) name no fund of their own. Mirrors the passive
+   * factsheet where every chunk inherited the cover fund, strategy and scheme category.
+   */
+  function multiFundResponse(source: { sha256: string; byteSize: number }): DoclingParseResponse {
+    const body = structuredClone(minimalDoclingResponse(source)) as any;
+    body.pageCount = 3;
+    body.pages = [
+      { pageNumber: 1, width: 595, height: 842, text: "Mirae Asset Multi Factor Passive FOF\nMid Cap", hasTable: false,
+        stats: { textItems: 2, tables: 0, pictures: 0, pictureTextChars: 0, bodyTextChars: 80 } },
+      { pageNumber: 2, width: 595, height: 842, text: "MIRAE ASSET FLEXI CAP FUND", hasTable: false,
+        stats: { textItems: 1, tables: 0, pictures: 0, pictureTextChars: 0, bodyTextChars: 80 } },
+      { pageNumber: 3, width: 595, height: 842, text: "Our Passive Fund Offerings", hasTable: false,
+        stats: { textItems: 1, tables: 0, pictures: 0, pictureTextChars: 0, bodyTextChars: 80 } },
+    ];
+    body.chunks = [
+      // Cover advert fund (the document's "first fund").
+      { chunkIndex: 0, type: "text", text: "An index fund of funds.",
+        headings: ["Mirae Asset Multi Factor Passive FOF"], pages: [1],
+        bboxes: [{ page: 1, l: 10, t: 100, r: 100, b: 10 }], itemRefs: ["#/texts/0"], flags: [], picture: null },
+      // A different fund on a later page.
+      { chunkIndex: 1, type: "text", text: "An open ended dynamic equity scheme.",
+        headings: ["MIRAE ASSET FLEXI CAP FUND"], pages: [2],
+        bboxes: [{ page: 2, l: 10, t: 100, r: 100, b: 10 }], itemRefs: ["#/texts/1"], flags: [], picture: null },
+      // A multi-fund offerings page: no scheme of its own.
+      { chunkIndex: 2, type: "text", text: "- Mirae Asset Nifty 50 ETF\n- Mirae Asset Nifty Bank ETF",
+        headings: ["Our Passive Fund Offerings"], pages: [3],
+        bboxes: [{ page: 3, l: 10, t: 100, r: 100, b: 10 }], itemRefs: ["#/texts/2"], flags: [], picture: null },
+    ];
+    body.diagnostics = {
+      droppedPictures: { logo: 0, signature: 0, stamp: 0, qrCode: 0, barCode: 0, noText: 0 },
+      flagCounts: {}, conversionStatus: "success", conversionMs: 10,
+    };
+    return body;
+  }
+
+  const factsheetName = "Mirae-Asset-Passive-Factsheet-August-2026.pdf";
+
+  test("a chunk without its own fund never inherits the document's cover fund, strategy or category", async () => {
+    const { parsed } = await doclingArtifact(rawBytes, multiFundResponse, factsheetName);
+    const inspection = preparePdfChunkInspection({
+      parsed, sourceDocumentId: "source-document-1", ownership, knowledgeScope, documentType: "Factsheet",
+    });
+    const [cover, flexi, offerings] = inspection.prepared.candidates;
+
+    // The offerings chunk names no fund: nothing document-level reaches it.
+    expect(offerings!.metadata.fundName ?? null).toBeNull();
+    expect(offerings!.metadata.strategyId ?? null).toBeNull();
+    expect(offerings!.metadata.canonicalStrategyName ?? null).toBeNull();
+    expect(offerings!.metadata.schemeCategory ?? null).toBeNull();
+    expect(offerings!.metadata.schemeType ?? null).toBeNull();
+    expect(offerings!.metadata.documentScope).toBe("unknown");
+
+    // Each stamped chunk gets its own fund and a strategy derived from it, never the cover fund.
+    expect(cover!.metadata.fundName).toBe("Mirae Asset Multi Factor Passive FOF");
+    expect(cover!.metadata.strategyId).toBe("mirae-asset-multi-factor-passive-fof");
+    expect(cover!.metadata.canonicalStrategyName).toBe("Mirae Asset Multi Factor Passive FOF");
+    expect(cover!.metadata.documentScope).toBe("strategy");
+
+    expect(flexi!.metadata.fundName).toBe("Mirae Asset Flexi Cap Fund");
+    expect(flexi!.metadata.strategyId).toBe("mirae-asset-flexi-cap-fund");
+    expect(flexi!.metadata.schemeCategory).toBe("Flexi Cap");
+    expect(flexi!.metadata.canonicalStrategyName).toBe("Mirae Asset Flexi Cap Fund");
+
+    // No candidate carries the cover fund's strategy as a document-wide value.
+    const coverStrategy = "mirae-asset-multi-factor-passive-fof";
+    expect(inspection.prepared.candidates.filter((c) => c.metadata.strategyId === coverStrategy)).toHaveLength(1);
+  });
+
+  test("regression: a document fund never reaches a chunk without its own fund on a multi-fund Factsheet", async () => {
+    const { parsed } = await doclingArtifact(rawBytes, multiFundResponse, factsheetName);
+    const inspection = preparePdfChunkInspection({
+      parsed, sourceDocumentId: "source-document-1", ownership, knowledgeScope, documentType: "Factsheet",
+    });
+
+    for (const candidate of inspection.prepared.candidates) {
+      const ownFund = candidate.metadata.fundName ?? null;
+      if (ownFund === null) {
+        expect(candidate.metadata.strategyId ?? null).toBeNull();
+        expect(candidate.metadata.canonicalStrategyName ?? null).toBeNull();
+        expect(candidate.metadata.schemeCategory ?? null).toBeNull();
+      } else {
+        // A stamped chunk's strategy is derived from its own fund, not any other chunk's.
+        expect(candidate.metadata.strategyId).toBe(ownFund.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+      }
+    }
+  });
+
+  test("a single-fund Docling factsheet keeps today's shared document metadata on every chunk", async () => {
+    // minimalDoclingResponse names exactly one fund (Flexi Cap): the picture chunk still inherits it.
+    const { parsed } = await doclingArtifact(rawBytes, minimalDoclingResponse);
+    const inspection = preparePdfChunkInspection({
+      parsed, sourceDocumentId: "source-document-1", ownership, knowledgeScope, documentType: "Factsheet",
+    });
+
+    expect(inspection.prepared.candidates).toHaveLength(2);
+    for (const candidate of inspection.prepared.candidates) {
+      expect(candidate.metadata.fundName).toBe("Mirae Asset Flexi Cap Fund");
+      expect(candidate.metadata.strategyId).toBe("mirae-asset-flexi-cap-fund");
+      expect(candidate.metadata.canonicalStrategyName).toBe("Mirae Asset Flexi Cap Fund");
+      expect(candidate.metadata.documentScope).toBe("strategy");
+    }
+  });
+
+  test("the unpdf path is unaffected: a single-scheme factsheet keeps document-level metadata", () => {
+    const unpdf: NormalizedPdfParseArtifact = {
+      schemaVersion: 1,
+      documentVersionId: "version-1",
+      source: { filename: "mirae-flexi-cap.pdf", canonicalUrl: "https://www.miraeassetmf.co.in/f.pdf",
+        rawSha256: "c".repeat(64), rawByteSize: 10 },
+      parser: { parserVersion: "unpdf-test", tableExtractorVersion: "pdfplumber-test" },
+      pages: [{ pageNumber: 1, text: "Mirae Asset Flexi Cap Fund\nFlexi Cap\nInvestment objective.", hasTable: false }],
+      tables: [],
+      diagnostics: { pageCount: 1, emptyPageCount: 0, tableCount: 0, tableExtractionStatus: "succeeded", tableExtractionCode: null },
+    };
+    const inspection = preparePdfChunkInspection({
+      parsed: unpdf, sourceDocumentId: "source-document-1", ownership, knowledgeScope,
+    });
+
+    expect(inspection.prepared.candidates.every((c) =>
+      c.metadata.fundName === "Mirae Asset Flexi Cap Fund"
+      && c.metadata.documentScope === "strategy"
+      && c.metadata.strategyId === "mirae-asset-flexi-cap-fund")).toBe(true);
+  });
+});
