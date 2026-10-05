@@ -57,6 +57,26 @@ describe("parseWithDocling", () => {
     expect(seen[0]!.body).toEqual(pdf);
   });
 
+  test("sends fundNamePrefixes as a JSON X-Fund-Name-Prefixes header only when non-empty", async () => {
+    const seen: { prefixes: string | null; headers: string[] }[] = [];
+    const baseUrl = serve((request) => {
+      seen.push({ prefixes: request.headers.get("x-fund-name-prefixes"), headers: [...request.headers.keys()].sort() });
+      return Response.json(validBody());
+    });
+
+    await parseWithDocling(pdf, options(baseUrl, { fundNamePrefixes: ["Mirae Asset", "L&T A.B's-1"] }));
+    await parseWithDocling(pdf, options(baseUrl));
+    await parseWithDocling(pdf, options(baseUrl, { fundNamePrefixes: [] }));
+
+    expect(seen[0]!.prefixes).toBe('["Mirae Asset","L&T A.B\'s-1"]');
+    expect(JSON.parse(seen[0]!.prefixes!)).toEqual(["Mirae Asset", "L&T A.B's-1"]);
+    expect(seen[1]!.prefixes).toBeNull();
+    expect(seen[2]!.prefixes).toBeNull();
+    // Without prefixes the request carries exactly today's headers.
+    expect(seen[2]!.headers).toEqual(seen[1]!.headers);
+    expect(seen[0]!.headers.filter((name) => name !== "x-fund-name-prefixes")).toEqual(seen[1]!.headers);
+  });
+
   test("disables Bun's 300 s fetch timeout so long conversions are bounded only by the caller's deadline", async () => {
     const baseUrl = serve(() => Response.json(validBody(), { headers: { "content-type": DOCLING_PARSE_MEDIA_TYPE } }));
     const realFetch = globalThis.fetch;
@@ -98,6 +118,26 @@ describe("parseWithDocling", () => {
 
     await expect(parseWithDocling(pdf, options(baseUrl)))
       .rejects.toMatchObject({ code, classification: "deterministic" });
+  });
+
+  test("maps a 400 INVALID_PARSE_OPTIONS body to deterministic DOCLING_INVALID_PARSE_OPTIONS", async () => {
+    const baseUrl = serve(() => Response.json({ code: "INVALID_PARSE_OPTIONS", detail: "/app/x.py" }, { status: 400 }));
+
+    const error = await parseWithDocling(pdf, options(baseUrl, { fundNamePrefixes: ["Mirae Asset"] }))
+      .catch((caught) => caught);
+    expect(error).toMatchObject({ code: "DOCLING_INVALID_PARSE_OPTIONS", classification: "deterministic" });
+    expect(error.message).not.toContain("/app/x.py");
+  });
+
+  test.each([
+    ["another service code", () => Response.json({ code: "CHECKSUM_MISMATCH" }, { status: 400 })],
+    ["a non-JSON body", () => new Response("bad request", { status: 400 })],
+    ["an empty body", () => new Response(null, { status: 400 })],
+  ])("keeps DOCLING_CHECKSUM_REJECTED for a 400 with %s", async (_name, handler) => {
+    const baseUrl = serve(handler);
+
+    await expect(parseWithDocling(pdf, options(baseUrl)))
+      .rejects.toMatchObject({ code: "DOCLING_CHECKSUM_REJECTED", classification: "deterministic" });
   });
 
   test.each([500, 502, 503])("maps HTTP %d to a transient error", async (status) => {

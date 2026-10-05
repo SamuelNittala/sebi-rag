@@ -42,6 +42,7 @@
         "heading_from_table_title",
         "table_rows_split",
         "table_cells_fused",
+        "table_fund_columns_split",
         "picture_text_recovered",
         "riskometer_text_extracted",
         "chart_pairs_extracted",
@@ -243,7 +244,8 @@
                     "table_span_collapsed",
                     "kv_panel_detected",
                     "heading_from_table_title",
-                    "table_rows_split"
+                    "table_rows_split",
+                    "table_fund_columns_split"
                   ]
                 },
                 "contains": { "const": "kv_panel_detected" }

@@ -79,6 +79,11 @@ export interface DoclingParseStageOptions {
   readonly maxResponseBytes?: number;
 }
 
+export interface DoclingParseStageInput extends ParsePdfStageInput {
+  /** Source `parse.fundNamePrefixes`, forwarded to the service for the side-by-side fund table split. */
+  readonly fundNamePrefixes?: readonly string[];
+}
+
 export interface DoclingParseStageResult {
   readonly artifact: ArtifactDescriptor;
   readonly parsed: DoclingPdfParseArtifact;
@@ -98,7 +103,7 @@ export class DoclingParseStage {
     }
   }
 
-  async execute(input: ParsePdfStageInput): Promise<DoclingParseStageResult> {
+  async execute(input: DoclingParseStageInput): Promise<DoclingParseStageResult> {
     assertCanonical(input.documentVersionId, "Document version ID");
     assertCanonical(input.filename, "Document filename");
     const canonicalUrl = canonicalHttpUrl(input.canonicalUrl);
@@ -118,6 +123,7 @@ export class DoclingParseStage {
         baseUrl: this.options.serviceUrl,
         expectedParserVersion: this.options.parserVersion,
         maxResponseBytes: limits.maxResponseBytes,
+        ...(input.fundNamePrefixes ? { fundNamePrefixes: input.fundNamePrefixes } : {}),
         signal: AbortSignal.any([deadline, ...(input.signal ? [input.signal] : [])]),
       });
     } catch (error) {

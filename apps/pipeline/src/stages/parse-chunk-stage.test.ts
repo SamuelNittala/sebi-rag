@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { ArtifactDescriptor } from "@mf-rag/types";
 
 import { StageRegistry } from "../runtime/stage-registry.ts";
-import { createParserRoutingAdapter, type ParseDocumentAdapter } from "./parse-document.ts";
+import { createParserRoutingAdapter, ParseDocumentStage, type ParseDocumentAdapter } from "./parse-document.ts";
 import {
   ChunkInspectDocumentStage,
   citationMetadataForSourceDocument,
@@ -102,6 +102,64 @@ describe("parse/chunk stage registration", () => {
         .rejects.toMatchObject({ code: "DOCLING_PARSER_NOT_CONFIGURED", classification: "deterministic" });
       expect((await router.execute(input("unpdf"))).artifact.producerVersion).toBe("unpdf");
       expect(calls).toEqual(["unpdf:unpdf:version-1"]);
+    });
+
+    test("passes fundNamePrefixes through to the selected parser", async () => {
+      const received: Parameters<ParseDocumentAdapter["execute"]>[0][] = [];
+      const capture: ParseDocumentAdapter = {
+        execute: async (input) => { received.push(input); return { artifact: artifact(input.parser) }; },
+      };
+      const router = createParserRoutingAdapter({ unpdf: capture, docling: capture });
+
+      await router.execute({ ...input("docling"), fundNamePrefixes: ["Mirae Asset"] });
+      await router.execute({ ...input("unpdf"), fundNamePrefixes: ["Mirae Asset"] });
+
+      expect(received.map((call) => call.fundNamePrefixes)).toEqual([["Mirae Asset"], ["Mirae Asset"]]);
+    });
+  });
+
+  describe("PARSE stage fund-name prefixes", () => {
+    const raw: ArtifactDescriptor = {
+      key: "raw/1", uri: "memory://raw", sha256: checksum("0"), byteSize: 1,
+      mediaType: "application/pdf", producerVersion: "fetch-v1",
+    };
+    const context = {
+      pipelineRunId: "run-1",
+      documentVersionId: "version-1",
+      accessScopeId: "scope-1",
+      sourceId: "source-1",
+      inputChecksum: checksum("0"),
+      signal: new AbortController().signal,
+    };
+    const run = async (fundNamePrefixes?: readonly string[]) => {
+      const received: Parameters<ParseDocumentAdapter["execute"]>[0][] = [];
+      const stage = new ParseDocumentStage({
+        repository: {
+          loadInput: async () => ({
+            rawArtifact: raw,
+            filename: "factsheet.pdf",
+            canonicalUrl: "https://example.com/factsheet.pdf",
+            parser: "docling" as const,
+            ...(fundNamePrefixes ? { fundNamePrefixes } : {}),
+          }),
+        },
+        adapter: {
+          execute: async (input) => {
+            received.push(input);
+            return { artifact: { ...raw, key: "parsed/1", mediaType: "application/json" } };
+          },
+        },
+      });
+      await stage.execute(context);
+      return received[0]!;
+    };
+
+    test("passes the source's fundNamePrefixes to the parse adapter", async () => {
+      expect((await run(["Mirae Asset"])).fundNamePrefixes).toEqual(["Mirae Asset"]);
+    });
+
+    test("omits fundNamePrefixes when the source declares none", async () => {
+      expect(Object.hasOwn(await run(), "fundNamePrefixes")).toBe(false);
     });
   });
 

@@ -4,7 +4,8 @@
   python -m docling_service.tools.fixtures normalize <file.docling.json> # tokenizer only; writes <stem>.wire.json
 
 `normalize` reads the sibling <stem>.pdf for source sha256/byteSize and header font sizes, and writes
-conversionMs = 0 so the golden is deterministic.
+conversionMs = 0 so the golden is deterministic. Every fixture is a Mirae factsheet page, normalized
+with the factsheet source's fund-name prefixes (`parse.fundNamePrefixes` in the 117 manifest).
 """
 
 from __future__ import annotations
@@ -20,6 +21,9 @@ from docling_service import converter
 from docling_service.normalize.chunks import build_chunker, normalize_document
 from docling_service.normalize.chart_graphics import picture_graphics
 from docling_service.normalize.headings import header_font_sizes
+
+
+FIXTURE_FUND_NAME_PREFIXES = ("Mirae Asset",)
 
 
 def default_chunker():
@@ -40,6 +44,7 @@ def wire_for(docling_json: Path, chunker) -> dict:
         conversion_ms=0,
         header_sizes=header_font_sizes(doc, pdf),
         chart_graphics=picture_graphics(doc, pdf),
+        fund_name_prefixes=FIXTURE_FUND_NAME_PREFIXES,
     )
 
 

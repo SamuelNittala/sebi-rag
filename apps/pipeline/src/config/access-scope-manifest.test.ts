@@ -392,6 +392,51 @@ describe("access-scope manifest validation", () => {
     expect(() => parseAccessScopeManifestYaml(yaml)).toThrow(expected);
   });
 
+  const withParseBlock = (block: string) => validManifest().replace(
+    "    review:\n      policy: risk_based\n",
+    `    review:\n      policy: risk_based\n    parse:\n      parser: unpdf\n${block}`,
+  );
+
+  test("accepts parse.fundNamePrefixes and keeps them on the source", () => {
+    const yaml = withParseBlock("      fundNamePrefixes:\n        - Mirae Asset\n        - \"L&T Mutual-Fund's A.B\"\n");
+
+    expect(parseAccessScopeManifestYaml(yaml).sources[0]?.parse).toEqual({
+      parser: "unpdf",
+      fundNamePrefixes: ["Mirae Asset", "L&T Mutual-Fund's A.B"],
+    });
+  });
+
+  test("accepts eight fundNamePrefixes of 2 and 64 characters", () => {
+    const prefixes = ["Ab", "C".repeat(64), "E1", "F2", "G3", "H4", "I5", "J6"];
+    const yaml = withParseBlock(`      fundNamePrefixes:\n${prefixes.map((prefix) => `        - ${prefix}\n`).join("")}`);
+
+    expect(parseAccessScopeManifestYaml(yaml).sources[0]?.parse?.fundNamePrefixes).toEqual(prefixes);
+  });
+
+  test("omits fundNamePrefixes when a parse block does not declare them", () => {
+    const parse = parseAccessScopeManifestYaml(withParseBlock("")).sources[0]!.parse!;
+
+    expect(Object.hasOwn(parse, "fundNamePrefixes")).toBe(false);
+  });
+
+  test.each([
+    ["an empty list", "fundNamePrefixes: []"],
+    ["more than eight prefixes", `fundNamePrefixes: [${Array.from({ length: 9 }, (_, index) => `P${index}`).join(", ")}]`],
+    ["duplicate prefixes", "fundNamePrefixes: [Mirae Asset, Mirae Asset]"],
+    ["a leading space", "fundNamePrefixes: [\" Mirae Asset\"]"],
+    ["a trailing space", "fundNamePrefixes: [\"Mirae Asset \"]"],
+    ["a one-character prefix", "fundNamePrefixes: [M]"],
+    ["a 65-character prefix", `fundNamePrefixes: [${"M".repeat(65)}]`],
+    ["a header-breaking character", "fundNamePrefixes: [\"Mirae\\nAsset\"]"],
+    ["a quote that would need escaping in JSON", "fundNamePrefixes: ['Mirae \"Asset\"']"],
+    ["a non-ASCII letter", "fundNamePrefixes: [Miraé Asset]"],
+    ["a comma", "fundNamePrefixes: [\"Mirae, Asset\"]"],
+    ["a non-string prefix", "fundNamePrefixes: [12]"],
+    ["a scalar instead of a list", "fundNamePrefixes: Mirae Asset"],
+  ])("rejects fundNamePrefixes with %s", (_name, line) => {
+    expect(() => parseAccessScopeManifestYaml(withParseBlock(`      ${line}\n`))).toThrow(/fundNamePrefixes/);
+  });
+
   test.each(["SID", "KIM", "Factsheet", "AnnualReport", "Addendum", "FAQ"] as const)(
     "accepts documentType: %s on a source",
     (documentType) => {
@@ -427,14 +472,16 @@ describe("access-scope manifest validation", () => {
     expect(() => parseAccessScopeManifestYaml(yaml)).toThrow(/documentType/i);
   });
 
-  test("the committed Mirae factsheet source declares Factsheet without enabling Docling", async () => {
+  test("the committed Mirae factsheet source declares Factsheet and fund-name prefixes without enabling Docling", async () => {
     const configDirectory = new URL("../../../../config/access-scopes/", import.meta.url);
     const desiredState = await loadAccessScopeManifests(configDirectory);
     const sources = desiredState.accessScopes.flatMap((scope) => scope.sources);
     const factsheets = sources.find((source) => String(source.sourceKey) === "mirae-mf-2026-factsheets")!;
 
     expect(factsheets.documentType).toBe("Factsheet");
-    expect(Object.hasOwn(factsheets, "parse")).toBe(false);
+    expect(factsheets.parse).toEqual({ parser: "unpdf", fundNamePrefixes: ["Mirae Asset"] });
+    expect(sources.filter((source) => Object.hasOwn(source, "parse"))
+      .map((source) => String(source.sourceKey))).toEqual(["mirae-mf-2026-factsheets"]);
     expect(sources.filter((source) => Object.hasOwn(source, "documentType"))
       .map((source) => String(source.sourceKey))).toEqual(["mirae-mf-2026-factsheets"]);
   });

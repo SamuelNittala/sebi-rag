@@ -147,6 +147,16 @@ const fetchSchema = z.object({
   maxRedirects: z.number().int().min(0).max(10),
 }).strict();
 
+// Sent verbatim (JSON array) in the Docling `X-Fund-Name-Prefixes` header, so
+// prefixes stay printable ASCII without characters JSON or HTTP would escape.
+const fundNamePrefixesSchema = z.array(z.string().min(2).max(64)
+  .regex(/^[A-Za-z0-9&.'-](?:[A-Za-z0-9 &.'-]*[A-Za-z0-9&.'-])?$/, {
+    message: "Fund-name prefixes allow letters, digits, spaces and & . ' - without leading or trailing spaces.",
+  })).min(1).max(8).superRefine((prefixes, context) => {
+  const duplicate = findDuplicate(prefixes);
+  if (duplicate) context.addIssue({ code: z.ZodIssueCode.custom, message: `Duplicate fund-name prefix: ${duplicate}` });
+});
+
 const sourceSchema = z.object({
   key: z.string(),
   connector: z.enum(sourceConnectorKinds),
@@ -159,6 +169,7 @@ const sourceSchema = z.object({
   }).strict(),
   parse: z.object({
     parser: z.enum(sourceParsers),
+    fundNamePrefixes: fundNamePrefixesSchema.optional(),
   }).strict().optional(),
   documentType: z.enum(sourceDocumentTypes).optional(),
 }).strict().superRefine((source, context) => {

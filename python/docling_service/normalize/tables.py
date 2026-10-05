@@ -42,6 +42,19 @@
   their text (`Scheme Benchmark / Additional Benchmark: ...`); a value in a column without a
   header moves to the one empty neighbouring named column; rows echoing the column names are
   dropped. Repairs that are not safe keep the cells and flag the part `table_cells_fused`.
+- Side-by-side fund tables (Snapshot and Fund Facts pages: one column per fund, `fund_columns`) split
+  into one key-value part per fund column, when the source passes fund-name prefixes. A header cell
+  names a fund when it starts with a prefix and its name part (before a parenthetical, `NSE Symbol`,
+  ` - <plan>` or a former name; footnote markers and numbers dropped) ends with Fund/Funds/ETF/FoF/
+  Fund of Fund(s). The table splits when its first or second row has >= 2 such cells, every other
+  cell of that row covers the label column (any other value header, `Scheme Benchmark*`, `Period`, a
+  stray `Features`, keeps it whole), row labels are text and every body value covers a fund column.
+  Each part: title = fund name, the header's symbol text as first line, `label: value` per row (a
+  value spanning several fund columns goes to each), cells of that column only (its own bbox);
+  full-width notes and rows above the header form one shared part. A header-less table directly
+  below a split table on the same page (Docling cuts a Fund Facts grid in two) with the same columns
+  at the same x positions splits with the same funds; a first data row Docling flags as a header
+  (`SIP | NA | NA | NA`) does not stop it. Parts carry `table_fund_columns_split`.
 - One line per row, every triplet line carrying its column header, so chunks.py can split a
   long table between rows (budget.py) without losing context.
 - Each part keeps the source cells behind every text line (`line_cells`; rows that yield no line,
@@ -56,9 +69,9 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from itertools import groupby
-from typing import Literal
+from typing import Literal, Sequence
 
-from docling_core.types.doc import BoundingBox, TableCell, TableItem
+from docling_core.types.doc import BoundingBox, DoclingDocument, TableCell, TableItem
 
 from docling_service.normalize.text import is_value_only
 
@@ -99,16 +112,24 @@ def _attach_pending(lines: list[Line], pending: list[TableCell]) -> list[Line]:
     return lines
 
 
-def normalize_table(table: TableItem) -> list[TablePart]:
-    """One part per table, or one per stacked sub-table (see module doc)."""
+def _rows(table: TableItem) -> list[Row]:
+    """Non-empty cells grouped by start row, rows in order, empty rows dropped."""
     cells = sorted(table.data.table_cells, key=lambda c: (c.start_row_offset_idx, c.start_col_offset_idx))
     rows = [_non_empty(list(group)) for _, group in groupby(cells, key=lambda c: c.start_row_offset_idx)]
-    rows = [row for row in rows if row]
-    num_cols = table.data.num_cols
-    span_flags = ["table_span_collapsed"] if any(_span(c) > 1 for c in cells) else []
+    return [row for row in rows if row]
 
-    stacked = _stacked_sub_tables(rows)
-    if stacked is None:
+
+def normalize_table(table: TableItem, fund_columns: FundColumns | None = None) -> list[TablePart]:
+    """One part per table, one per stacked sub-table, or one per fund column when `fund_columns`
+    (from `fund_columns`) is given (see module doc)."""
+    rows = _rows(table)
+    num_cols = table.data.num_cols
+    span_flags = ["table_span_collapsed"] if any(_span(c) > 1 for c in table.data.table_cells) else []
+
+    stacked = None if fund_columns else _stacked_sub_tables(rows)
+    if fund_columns:
+        parts = _fund_parts(rows, fund_columns)
+    elif stacked is None:
         parts = [_normalize_rows(rows, num_cols)]
     else:
         base = _base_labels(stacked)
@@ -911,3 +932,197 @@ def _shift_to_named_column(row: Row, label_col: int, column_names: dict[int, str
                 c = c.model_copy(update={"start_col_offset_idx": targets[0], "end_col_offset_idx": targets[0] + 1})
         out.append(c)
     return sorted(out, key=lambda c: c.start_col_offset_idx)
+
+
+# --- Side-by-side fund columns ------------------------------------------------------------
+
+
+# A fund name ends in a fund-type word (`... Fund`, `... ETF`, `... FoF`, `... Fund of Fund`).
+_FUND_TYPE_END = re.compile(r"\b(?:funds?|etf|fof|fund\s+of\s+funds?)$", re.IGNORECASE)
+# Where the name ends inside a header cell: a parenthetical, the exchange symbol, a plan suffix
+# (` - IDCW*`) or a former name.
+_FUND_NAME_END = re.compile(r"\s*\(|\s+(?:NSE|BSE)\s+(?:Symbol|Scrip)\b|\s+-\s+|\s+(?:Formerly|Erstwhile)\b", re.IGNORECASE)
+_FOOTNOTE_MARKS = "*^#$@†ε "
+
+
+def fund_name(text: str, prefixes: Sequence[str]) -> tuple[str, str] | None:
+    """(fund name, rest of the header) when `text` starts with one of the source's fund-name
+    prefixes and its name part ends with a fund-type word; the rest is the symbol / plan text
+    (`NSE Symbol: EQUAL200, BSE Scrip Code: 544377`), footnote markers dropped. None otherwise."""
+    flat = " ".join(text.split())
+    if not any(flat.lower().startswith(f"{p.strip().lower()} ") for p in prefixes if p.strip()):
+        return None
+    # The first cut that leaves a fund-type ending wins (` - ` can sit inside a name: `Gilt Index -
+    # April 2033 Index Fund`); a trailing footnote number (`... Fund 1`) is not part of the name.
+    for cut in [m.start() for m in _FUND_NAME_END.finditer(flat)] + [len(flat)]:
+        name = re.sub(r"(?<=\D)\s+\d{1,2}$", "", flat[:cut].rstrip(_FOOTNOTE_MARKS))
+        if _FUND_TYPE_END.search(name):
+            if cut == len(flat):
+                return name, ""  # only footnote markers or a footnote number follow the name
+            return name, re.sub(r"\s+,", ",", flat[cut:].lstrip(_FOOTNOTE_MARKS + "-")).strip()
+    return None
+
+
+@dataclass(frozen=True)
+class FundColumns:
+    """The fund columns of a side-by-side fund table (`fund_columns`)."""
+
+    names: dict[int, str]  # value column -> fund name
+    symbols: dict[int, str]  # value column -> header text after the name; empty on a continuation
+    label_col: int
+    header_row: int | None  # index into `_rows(table)` of the fund header row; None on a continuation
+    spans: dict[int, tuple[float, float]]  # column -> (left, right) x extent of its single-column cells
+
+
+def fund_columns(doc: DoclingDocument, prefixes: Sequence[str]) -> dict[str, FundColumns]:
+    """table self_ref -> fund columns, for tables that split into one part per fund column.
+
+    A table splits on its own header when its first or second row has >= 2 single-column fund-name
+    cells (`fund_name`), every other cell of that row covers the label column, the body rows carry
+    text row labels in the first occupied column, and every body value covers a fund column. A
+    table with no fund header splits as a continuation when it directly follows a split table on
+    the same page, below it, has no `column_header` cells, the same column count and label column,
+    and its fund columns overlap the table above's by >= half the narrower width. No prefixes: {}."""
+    if not any(p.strip() for p in prefixes):
+        return {}
+    out: dict[str, FundColumns] = {}
+    above: tuple[TableItem, FundColumns] | None = None
+    for table in doc.tables:
+        if not table.prov or not table.data.table_cells:
+            continue  # empty riskometer grids between tables
+        columns = _own_fund_columns(table, prefixes) or (above and _continuation(doc, table, *above))
+        if columns:
+            out[table.self_ref] = columns
+            above = (table, columns)
+        else:
+            above = None
+    return out
+
+
+def _covers(cell: TableCell, col: int) -> bool:
+    return cell.start_col_offset_idx <= col < cell.end_col_offset_idx
+
+
+def _single_column(cell: TableCell) -> bool:
+    return cell.end_col_offset_idx - cell.start_col_offset_idx == 1
+
+
+def _column_spans(table: TableItem) -> dict[int, tuple[float, float]]:
+    spans: dict[int, tuple[float, float]] = {}
+    for c in table.data.table_cells:
+        if c.bbox is None or not _single_column(c) or not c.text.strip():
+            continue
+        left, right = sorted((c.bbox.l, c.bbox.r))
+        col = c.start_col_offset_idx
+        spans[col] = (min(left, spans[col][0]), max(right, spans[col][1])) if col in spans else (left, right)
+    return spans
+
+
+def _fund_body(body: list[Row], label_col: int, funds: set[int]) -> bool:
+    """Body rows of a fund table: >= 2 rows with a text row label and a fund value, no numeric row
+    label, and every other cell covering a fund column (a single full-width note row is fine)."""
+    labelled = 0
+    for row in body:
+        label = next((c for c in row if c.start_col_offset_idx == label_col and _single_column(c)), None)
+        values = [c for c in row if c is not label]
+        if label is not None and _is_numeric(label.text):
+            return False
+        if any(not any(_covers(c, col) for col in funds) for c in values):
+            return False
+        if any(_covers(c, label_col) for c in values) and len(row) > 1:
+            return False  # a label fused with a value (`Last 1 Year 13.13%`): not a fund-facts row
+        labelled += label is not None and bool(values)
+    return labelled >= 2
+
+
+def _own_fund_columns(table: TableItem, prefixes: Sequence[str]) -> FundColumns | None:
+    rows = _rows(table)
+    for index, row in enumerate(rows[:2]):
+        names = {c.start_col_offset_idx: fund_name(c.text, prefixes) for c in row if _single_column(c)}
+        found = {col: name for col, name in names.items() if name}
+        if len(found) >= 2:
+            break
+    else:
+        return None
+    body = rows[index + 1:]
+    label_col = _label_col(body)
+    if min(found) <= label_col:
+        return None
+    if any(c.start_col_offset_idx not in found and not _covers(c, label_col) for c in rows[index]):
+        return None  # another value header (`Scheme Benchmark*`, `Period`, a stray `Features`)
+    if not _fund_body(body, label_col, set(found)):
+        return None
+    return FundColumns(
+        names={col: name for col, (name, _) in found.items()},
+        symbols={col: rest for col, (_, rest) in found.items()},
+        label_col=label_col,
+        header_row=index,
+        spans=_column_spans(table),
+    )
+
+
+def _top_left(doc: DoclingDocument, item: TableItem) -> BoundingBox:
+    prov = item.prov[0]
+    return prov.bbox.to_top_left_origin(page_height=doc.pages[prov.page_no].size.height)
+
+
+def _continuation(doc: DoclingDocument, table: TableItem, above: TableItem, columns: FundColumns) -> FundColumns | None:
+    if table.prov[0].page_no != above.prov[0].page_no or table.data.num_cols != above.data.num_cols:
+        return None
+    if _top_left(doc, table).t < _top_left(doc, above).b - 5.0:
+        return None  # not below the table above
+    if any(c.column_header and c.start_col_offset_idx != columns.label_col and not _data_like(c.text) for c in table.data.table_cells):
+        return None  # a header naming its own columns (`Period | 1 Year | 3 Years`): another table
+    rows = _rows(table)
+    if _label_col(rows) != columns.label_col or not _fund_body(rows, columns.label_col, set(columns.names)):
+        return None
+    spans = _column_spans(table)
+    for col in columns.names:
+        if col not in spans or col not in columns.spans:
+            return None
+        (a_l, a_r), (b_l, b_r) = spans[col], columns.spans[col]
+        if min(a_r, b_r) - max(a_l, b_l) < 0.5 * min(a_r - a_l, b_r - b_l):
+            return None
+    return FundColumns(names=columns.names, symbols={}, label_col=columns.label_col, header_row=None, spans=spans)
+
+
+def _data_like(text: str) -> bool:
+    """A value, not a column name: a number or measure, `NA`/`Nil`, or a sentence (>= 6 words).
+    Docling flags a continuation's first data row (`SIP | NA | NA | NA`) as a column header."""
+    flat = " ".join(text.split())
+    return _is_numeric(flat) or _has_measure(flat) or flat.upper() in {"NA", "N.A.", "N/A", "NIL"} or len(flat.split()) >= 6
+
+
+def _fund_parts(rows: list[Row], columns: FundColumns) -> list[TablePart]:
+    """One key-value part per fund column (title = fund name, the header's symbol text first, then
+    `label: value` per row with a value in that column; a value spanning several fund columns goes
+    to each), then one shared part for full-width notes and rows above the header."""
+    flags = ["kv_panel_detected", "table_fund_columns_split"]
+    header = rows[columns.header_row] if columns.header_row is not None else []
+    body = rows[columns.header_row + 1:] if columns.header_row is not None else rows
+    shared: list[Line] = [(" ".join(c.text.strip() for c in row), row) for row in rows[: columns.header_row or 0]]
+    lines: dict[int, list[Line]] = {col: [] for col in columns.names}
+    for col in columns.names:
+        if columns.symbols.get(col):
+            lines[col].append((columns.symbols[col], [c for c in header if c.start_col_offset_idx == col]))
+    for row in body:
+        label = next((c for c in row if c.start_col_offset_idx == columns.label_col and _single_column(c)), None)
+        values = [c for c in row if c is not label]
+        if label is None and len(values) == 1 and sum(_covers(values[0], col) for col in columns.names) >= 2:
+            shared.append((values[0].text.strip(), values))
+            continue
+        text = _normalize_label(label.text) if label else ""
+        for col in columns.names:
+            mine = [c for c in values if _covers(c, col)]
+            if mine:
+                lines[col].append((_label_value(text, [c.text.strip() for c in mine]), mine))
+            elif text and not values:
+                lines[col].append((text, []))  # a label-only row (sub-header) belongs to every fund
+    parts = [
+        _part("key_value", lines[col], name, flags, [c for c in header if c.start_col_offset_idx == col])
+        for col, name in sorted(columns.names.items())
+        if lines[col]
+    ]
+    if shared:
+        parts.append(_part("key_value", shared, None, flags, []))
+    return parts

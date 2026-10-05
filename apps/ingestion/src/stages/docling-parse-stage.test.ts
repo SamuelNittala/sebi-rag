@@ -144,6 +144,17 @@ describe("DoclingParseStage", () => {
     expect(decodeDoclingParseArtifact(stored.bytes)).toEqual(result.parsed);
   });
 
+  test("sends the source's fundNamePrefixes to the Docling service and omits them when undeclared", async () => {
+    const seen: DoclingParseRequestOptions[] = [];
+    const capture: ParseFn = async (_bytes, options) => { seen.push(options); return response(); };
+
+    await createStage(new MemoryArtifactStore(rawBytes), capture).execute(input({ fundNamePrefixes: ["Mirae Asset"] }));
+    await createStage(new MemoryArtifactStore(rawBytes), capture).execute(input());
+
+    expect(seen[0]!.fundNamePrefixes).toEqual(["Mirae Asset"]);
+    expect(Object.hasOwn(seen[1]!, "fundNamePrefixes")).toBe(false);
+  });
+
   test("is stable across raw artifact locations, conversion times and workers, and leaks no local paths", async () => {
     const first = await createStage(new MemoryArtifactStore(rawBytes)).execute(input());
     const second = await createStage(

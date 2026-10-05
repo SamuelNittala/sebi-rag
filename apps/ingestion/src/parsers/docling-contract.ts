@@ -21,6 +21,7 @@ export const DOCLING_NORMALIZATION_FLAGS = [
   "heading_from_table_title",
   "table_rows_split",
   "table_cells_fused",
+  "table_fund_columns_split",
   "picture_text_recovered",
   "riskometer_text_extracted",
   "chart_pairs_extracted",
@@ -50,6 +51,7 @@ export const DOCLING_FLAGS_BY_CHUNK_TYPE: Readonly<Record<DoclingChunkType, read
     "kv_panel_detected",
     "heading_from_table_title",
     "table_rows_split",
+    "table_fund_columns_split",
   ],
   picture: [
     "ordinal_joined",

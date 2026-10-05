@@ -157,6 +157,12 @@ export type SourceParser = (typeof sourceParsers)[number];
 /** Per-source PDF parser selection; an absent config means unpdf. */
 export interface SourceParseConfig {
   readonly parser: SourceParser;
+  /**
+   * Fund-name prefixes (e.g. "Mirae Asset") the Docling normalizer uses to
+   * recognise fund-name header cells when splitting side-by-side fund tables
+   * into one chunk per fund. Omitted = no split; ignored by unpdf.
+   */
+  readonly fundNamePrefixes?: readonly string[];
 }
 
 /**

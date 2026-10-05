@@ -26,7 +26,7 @@ sources: []
 `;
 
 describe("source registry sync", () => {
-  test("committed manifests without a parse block keep their pre-Docling checksums", async () => {
+  test("committed manifests keep their pinned checksums", async () => {
     const desired = await loadAccessScopeManifests(new URL("../config/access-scopes/", import.meta.url));
     const scopeChecksum = (key: string) => prepareSourceRegistryRevision({
       version: 1,
@@ -35,18 +35,19 @@ describe("source registry sync", () => {
 
     // axis-mf and mirae-sif are the baselines computed before `parse` and
     // `documentType` existed. mirae-mf and the registry changed only because
-    // `mirae-mf-2026-factsheets` declares `documentType: Factsheet`; enabling
-    // Docling on a source (T20) changes them again.
+    // `mirae-mf-2026-factsheets` declares `documentType: Factsheet` and
+    // `parse: { parser: unpdf, fundNamePrefixes: [Mirae Asset] }` (T18k);
+    // enabling Docling on a source (T20) changes them again.
     expect(scopeChecksum("axis-mf")).toBe("4badf405b3c47129fdcc41f61eff55e799bcc92252ed60609b3aa5ad530e2d82");
     expect(scopeChecksum("mirae-sif")).toBe("d3a34e3089ce22b4d18154488b39ea9a298928463023f7c6ab83728fa464296a");
-    expect(scopeChecksum("mirae-mf")).toBe("181255cdefafc2a47fe09bb252a2589c83ae0caa0de33e237747f842f4b37b60");
+    expect(scopeChecksum("mirae-mf")).toBe("622c2062ee4fdcbebbd619d87943994e57a115c082631149a8ad0ec2f386584a");
     expect(prepareSourceRegistryRevision(desired).checksum)
-      .toBe("470458eb96c4477e96e134b36ec9d6dd9c86328d1394606a1b82dc2daba63461");
+      .toBe("5118848e1ed0d97b54d26d2eda15cc376a1dca430d11e97bfc4843442641a2c6");
   });
 
   test("a parse block changes the checksum and is kept in canonical desired state", async () => {
     const desired = await loadAccessScopeManifests(new URL("../config/access-scopes/", import.meta.url));
-    const [scope] = desired.accessScopes;
+    const scope = desired.accessScopes.find((candidate) => candidate.accessScopeKey === "axis-mf");
     const [source] = scope!.sources;
     const withParse = (parse: SourceParseConfig) => ({
       version: 1 as const,
@@ -85,13 +86,32 @@ describe("source registry sync", () => {
       .toBe(true);
   });
 
-  test("removing the committed documentType restores the pre-documentType checksums", async () => {
+  test("fundNamePrefixes change the checksum and are kept in canonical desired state", async () => {
+    const desired = await loadAccessScopeManifests(new URL("../config/access-scopes/", import.meta.url));
+    const scope = desired.accessScopes.find((candidate) => candidate.accessScopeKey === "axis-mf")!;
+    const [source] = scope.sources;
+    const withParse = (parse: SourceParseConfig) => prepareSourceRegistryRevision({
+      version: 1,
+      accessScopes: [{ ...scope, sources: [{ ...source!, parse }] }],
+    });
+    const parserOnly = withParse({ parser: "unpdf" });
+    const mirae = withParse({ parser: "unpdf", fundNamePrefixes: ["Mirae Asset"] });
+    const two = withParse({ parser: "unpdf", fundNamePrefixes: ["Mirae Asset", "Axis"] });
+
+    expect(mirae.checksum).not.toBe(parserOnly.checksum);
+    expect(two.checksum).not.toBe(mirae.checksum);
+    expect(mirae.desiredState.accessScopes[0]?.sources[0]?.parse)
+      .toEqual({ parser: "unpdf", fundNamePrefixes: ["Mirae Asset"] });
+    expect(Object.hasOwn(parserOnly.desiredState.accessScopes[0]!.sources[0]!.parse!, "fundNamePrefixes")).toBe(false);
+  });
+
+  test("removing the committed documentType and parse block restores the pre-Docling checksums", async () => {
     const desired = await loadAccessScopeManifests(new URL("../config/access-scopes/", import.meta.url));
     const stripped = {
       version: 1 as const,
       accessScopes: desired.accessScopes.map((scope) => ({
         ...scope,
-        sources: scope.sources.map(({ documentType: _documentType, ...source }) => source),
+        sources: scope.sources.map(({ documentType: _documentType, parse: _parse, ...source }) => source),
       })),
     };
     const mirae = stripped.accessScopes.filter((scope) => scope.accessScopeKey === "mirae-mf");

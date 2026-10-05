@@ -252,3 +252,31 @@ def test_values_in_table_only_on_unbound_charts(wires, stem):
         if "chart_values_in_table" in chunk["flags"]:
             assert chunk["type"] == "picture"
             assert {"chart_unpaired", "chart_multi_series_unparsed"} & set(chunk["flags"])
+
+
+P14_FUNDS = ["Mirae Asset Large Cap Fund", "Mirae Asset Large & Midcap Fund", "Mirae Asset Great Consumer Fund"]
+
+
+def test_fund_facts_chunks_hold_one_fund_each(wires):
+    wire = wires["mirae-fund-facts-p14"]
+    split = [c for c in wire["chunks"] if "table_fund_columns_split" in c["flags"]]
+    funds = [c for c in split if c["headings"][-1] in P14_FUNDS]
+    # budget row splits repeat the fund title on each piece
+    assert list(dict.fromkeys(c["headings"][-1] for c in funds)) == P14_FUNDS
+    assert all(c["type"] == "key_value" for c in split)
+    for chunk in funds:
+        others = [f for f in P14_FUNDS if f != chunk["headings"][-1]]
+        assert not any(o in chunk["text"] for o in others)
+    # each fund's boxes lie in its own column, left to right (Docling's cell boxes overlap their
+    # neighbour by up to ~11 pt, so a box may reach past the neighbour's edge but not its centre)
+    columns = [[c["bboxes"][0] for c in funds if c["headings"][-1] == f] for f in P14_FUNDS]
+    centres = [[(b["l"] + b["r"]) / 2 for b in boxes] for boxes in columns]
+    for (left, right), right_centres in zip(zip(columns, columns[1:]), centres[1:]):
+        assert max(b["r"] for b in left) < min(right_centres)
+        assert max((b["l"] + b["r"]) / 2 for b in left) < min(b["l"] for b in right)
+
+
+def test_riskometer_inside_a_fund_table_gets_its_column_fund(wires):
+    wire = wires["mirae-fund-facts-p14"]
+    [riskometer] = [c for c in wire["chunks"] if c["type"] == "picture" and "risk of the benchmark" in c["text"]]
+    assert riskometer["headings"][-1] == "Mirae Asset Great Consumer Fund"

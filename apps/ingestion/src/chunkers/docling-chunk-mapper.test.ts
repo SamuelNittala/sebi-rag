@@ -304,11 +304,17 @@ describe("mapDoclingChunks", () => {
       expect(chunkResult.chunks[0]!.text).toBe("Monthly Factsheet as on 31 August, 2026");
     });
 
-    test("fund facts p10 (many funds, none in headings): empty", async () => {
+    test("snapshot p10 split per fund column: each fund chunk names its own fund, the notes none", async () => {
       const wire = await golden("mirae-fund-facts-p10");
-      expect(fundNames(wire).every((name) => name === undefined)).toBe(true);
+      expect(fundNames(wire)).toEqual([
+        "Mirae Asset Large Cap Fund",
+        "Mirae Asset Large & Midcap Fund",
+        "Mirae Asset Great Consumer Fund",
+        undefined,
+        undefined,
+      ]);
       const { chunkResult } = mapDoclingChunks(wire);
-      expect(chunkResult.chunks[0]!.text.startsWith("Mirae Asset Equity Snapshot\nAugust 2026\n")).toBe(true);
+      expect(chunkResult.chunks[0]!.text.startsWith("Mirae Asset Equity Snapshot\nAugust 2026\nMirae Asset Large Cap Fund\n")).toBe(true);
     });
 
     test("passive p9 offerings list: empty, nothing prepended", async () => {

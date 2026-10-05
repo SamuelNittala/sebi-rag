@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { join, resolve } from "node:path";
 
 import { parseAccessScopeManifestYaml } from "../apps/pipeline/src/config/access-scope-manifest.ts";
-import { parseCompareArgs, resolveCompareDocumentType } from "./compare-pdf-parsers.ts";
+import {
+  parseCompareArgs,
+  resolveCompareDocumentType,
+  resolveCompareFundNamePrefixes,
+} from "./compare-pdf-parsers.ts";
 
 const repoRoot = resolve(import.meta.dir, "..");
 
@@ -16,6 +20,7 @@ describe("parseCompareArgs", () => {
     expect(args.pageRange).toBeNull();
     expect(args.sourceKey).toBeNull();
     expect(args.documentType).toBeNull();
+    expect(args.fundNamePrefixes).toBeNull();
     expect(args.outDir).toBe("/scratch/mf-rag-parse-compare/2026-10-02T10-20-30Z");
   });
 
@@ -49,6 +54,35 @@ describe("parseCompareArgs", () => {
     expect(() => parseCompareArgs(["--pdf", "a.pdf", "--document-type", "Brochure"], now)).toThrow(/--document-type/);
     expect(() => parseCompareArgs(["--pdf", "a.pdf", "--document-type", "Factsheet", "--source", "x"], now))
       .toThrow(/--source.*--document-type|--document-type.*--source/);
+  });
+});
+
+describe("--fund-name-prefix", () => {
+  const now = { tmpRoot: "/scratch", now: new Date() };
+  const manifest = async () => parseAccessScopeManifestYaml(
+    await Bun.file(join(repoRoot, "config/access-scopes/117-mirae-mf.yml")).text(),
+    "117-mirae-mf.yml",
+  );
+
+  test("collects repeated --fund-name-prefix flags in order", () => {
+    expect(parseCompareArgs(["--pdf", "a.pdf", "--fund-name-prefix", "Mirae Asset", "--fund-name-prefix", "Axis"], now)
+      .fundNamePrefixes).toEqual(["Mirae Asset", "Axis"]);
+    expect(() => parseCompareArgs(["--pdf", "a.pdf", "--fund-name-prefix"], now)).toThrow(/--fund-name-prefix/);
+  });
+
+  test("applies the --source manifest prefixes unless flags override them", async () => {
+    const scope = await manifest();
+
+    expect(resolveCompareFundNamePrefixes(scope, { sourceKey: "mirae-mf-2026-factsheets", fundNamePrefixes: null }))
+      .toEqual(["Mirae Asset"]);
+    expect(resolveCompareFundNamePrefixes(scope, { sourceKey: "mirae-mf-2026-factsheets", fundNamePrefixes: ["Mirae"] }))
+      .toEqual(["Mirae"]);
+    expect(resolveCompareFundNamePrefixes(scope, { sourceKey: "mirae-mf-2026-addenda", fundNamePrefixes: null }))
+      .toBeNull();
+    expect(resolveCompareFundNamePrefixes(scope, { sourceKey: null, fundNamePrefixes: ["Axis"] })).toEqual(["Axis"]);
+    expect(resolveCompareFundNamePrefixes(scope, { sourceKey: null, fundNamePrefixes: null })).toBeNull();
+    expect(() => resolveCompareFundNamePrefixes(scope, { sourceKey: "missing", fundNamePrefixes: null }))
+      .toThrow(/missing/);
   });
 });
 

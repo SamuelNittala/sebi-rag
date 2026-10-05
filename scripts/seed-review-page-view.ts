@@ -6,7 +6,11 @@
  *   DATABASE_URL=postgres://... bun run scripts/seed-review-page-view.ts \
  *     --artifact-root ./data/artifacts \
  *     (--pdf ~/Downloads/factsheet.pdf --docling-url http://127.0.0.1:8098 | --golden mirae-flexi-cap-p34-35) \
- *     [--document-type Factsheet] [--canonical-url https://example.com/factsheet.pdf]
+ *     [--document-type Factsheet] [--canonical-url https://example.com/factsheet.pdf] \
+ *     [--fund-name-prefix "Mirae Asset" ...]
+ *
+ * `--fund-name-prefix` (repeatable) is sent to the Docling service like a source's
+ * `parse.fundNamePrefixes`, enabling the side-by-side fund table split (T18k).
  *
  * Runs the real stage code: the raw PDF goes into a `FilesystemArtifactStore`
  * under `--artifact-root`, `DoclingParseStage` parses it (HTTP against a running
@@ -58,6 +62,7 @@ interface Args {
   readonly doclingUrl: string | null;
   readonly documentType: SourceDocumentType | null;
   readonly canonicalUrl: string;
+  readonly fundNamePrefixes: readonly string[];
 }
 
 function parseCliArgs(): Args {
@@ -69,6 +74,7 @@ function parseCliArgs(): Args {
       "docling-url": { type: "string" },
       "document-type": { type: "string", default: "Factsheet" },
       "canonical-url": { type: "string" },
+      "fund-name-prefix": { type: "string", multiple: true },
     },
     strict: true,
   });
@@ -86,6 +92,7 @@ function parseCliArgs(): Args {
     doclingUrl: values["docling-url"] ?? null,
     documentType,
     canonicalUrl: values["canonical-url"] ?? `https://example.com/review-page-view/${encodeURIComponent(basename(pdf))}`,
+    fundNamePrefixes: values["fund-name-prefix"] ?? [],
   };
 }
 
@@ -103,6 +110,7 @@ async function seedRegistry(database: Database, args: Args) {
     schedule: { enabled: false, cron: "0 3 * * *", timezone: "Asia/Kolkata" },
     fetch: { allowedHosts: [host], allowedPathPrefixes: ["/"], maxBytes: 100_000_000, timeoutMs: 60_000, maxRedirects: 1 },
     review: { policy: "risk_based" as const },
+    ...(args.fundNamePrefixes.length ? { parse: { parser: "docling" as const, fundNamePrefixes: args.fundNamePrefixes } } : {}),
     ...(args.documentType ? { documentType: args.documentType } : {}),
   };
   const desiredState: DesiredSourceRegistry = {
@@ -219,6 +227,7 @@ async function main(): Promise<void> {
     rawArtifact,
     filename: basename(args.pdf),
     canonicalUrl: args.canonicalUrl,
+    ...(args.fundNamePrefixes.length ? { fundNamePrefixes: args.fundNamePrefixes } : {}),
   });
   console.error(`  parsed ${parse.parsed.diagnostics.pageCount} pages, ${parse.parsed.chunks.length} chunks in ${((performance.now() - started) / 1000).toFixed(1)} s`);
   await db.insert(schema.stageAttempts).values({

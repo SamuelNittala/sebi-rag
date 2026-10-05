@@ -200,6 +200,22 @@ describe("assertDoclingParseResponse", () => {
     }, "chunks[0].flags[4] is not allowed on key_value chunks");
   });
 
+  test("table_fund_columns_split is a key_value-only flag", () => {
+    expect(DOCLING_FLAGS_BY_CHUNK_TYPE.key_value).toContain("table_fund_columns_split");
+    const response = minimalResponse();
+    response.chunks[0].flags.push("table_fund_columns_split");
+    response.diagnostics.flagCounts.table_fund_columns_split = 1;
+    expect(() => assertDoclingParseResponse(response)).not.toThrow();
+    expectRejected((response) => {
+      response.chunks.push({ ...textChunk(2), flags: ["table_fund_columns_split"] });
+      response.diagnostics.flagCounts.table_fund_columns_split = 1;
+    }, "chunks[2].flags[0] is not allowed on text chunks");
+    expectRejected((response) => {
+      response.chunks[1].flags.push("table_fund_columns_split");
+      response.diagnostics.flagCounts.table_fund_columns_split = 1;
+    }, "chunks[1].flags[2] is not allowed on picture chunks");
+  });
+
   test("rejects duplicate flags and missing required type flags", () => {
     expectRejected((response) => { response.chunks[0].flags.push("ordinal_joined"); }, "chunks[0].flags must be unique");
     expectRejected((response) => {

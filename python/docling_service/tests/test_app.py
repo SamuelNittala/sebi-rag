@@ -45,7 +45,7 @@ def test_health_reports_versions():
         "parserVersion": converter.parser_version(),
         "serviceVersion": "1.0.0",
         "doclingVersion": "2.132.0",
-        "normalizerVersion": "9",
+        "normalizerVersion": "10",
         "pipelineOptionsSha256": converter.pipeline_options_sha256(converter.build_pipeline_options()),
         "modelsLoaded": True,
         "busy": False,
@@ -291,3 +291,53 @@ def test_client_disconnected_detects_closed_peer_only():
     finally:
         server_side.close()
     assert client_disconnected({"gunicorn.socket": server_side}) is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Mirae Asset",  # not JSON
+        '"Mirae Asset"',  # not a list
+        "[]",
+        "[1]",
+        '["Mirae Asset", "Mirae Asset"]',
+        '[" Mirae Asset"]',
+        '["Mirae\\nAsset"]',
+        '["M"]',
+        json.dumps([f"Prefix {i}" for i in range(9)]),
+        json.dumps(["x" * 65]),
+    ],
+)
+def test_malformed_fund_name_prefixes_are_400(value):
+    response = client().post(
+        "/v1/parse", data=PDF, headers={"Content-Type": "application/pdf", "X-Content-Sha256": SHA, "X-Fund-Name-Prefixes": value},
+    )
+    assert response.status_code == 400
+    assert response.get_json()["code"] == "INVALID_PARSE_OPTIONS"
+
+
+def _capture_normalize(monkeypatch):
+    seen = {}
+
+    def fake(document, chunker, **kwargs):
+        seen.update(kwargs)
+        return {"pageCount": 2, "chunks": []}
+
+    monkeypatch.setattr(app_module, "normalize_document", fake)
+    return seen
+
+
+def test_fund_name_prefixes_reach_the_normalizer(monkeypatch):
+    seen = _capture_normalize(monkeypatch)
+    response = client().post(
+        "/v1/parse", data=PDF,
+        headers={"Content-Type": "application/pdf", "X-Content-Sha256": SHA, "X-Fund-Name-Prefixes": '["Mirae Asset", "Groww"]'},
+    )
+    assert response.status_code == 200
+    assert seen["fund_name_prefixes"] == ("Mirae Asset", "Groww")
+
+
+def test_no_fund_name_prefixes_header_means_no_split(monkeypatch):
+    seen = _capture_normalize(monkeypatch)
+    assert post(client()).status_code == 200
+    assert seen["fund_name_prefixes"] == ()

@@ -47,11 +47,16 @@ chart (`chart_unpaired` / `chart_multi_series_unparsed`) whose values all appear
 numeric tokens in the table and key-value chunks on its page is also flagged
 `chart_values_in_table` (values only partly in tables are not).
 
-A table that yields several chunks (sub-tables, budget row splits, key-value panels split by
+A side-by-side fund table (`tables.fund_columns`, enabled by the source's fund-name prefixes) yields
+one chunk group per fund column, each headed by that fund's name; a picture (riskometer) inside or
+below a split table on its page whose horizontal centre lies in exactly one fund column gets that
+fund's name as its last heading.
+
+A table that yields several chunks (sub-tables, fund columns, budget row splits, key-value panels split by
 budget) gives each chunk its own bbox: the union of the Docling cell bboxes behind its lines
 (the first piece of a part also covers the part's title and column header rows), converted to
-bottom-left-origin points and clipped to the table's bbox; where neighbouring pieces overlap
-vertically they meet halfway; a chunk whose cells have no bbox gets the table's. A table in
+bottom-left-origin points and clipped to the table's bbox; where vertically stacked neighbouring
+pieces overlap they meet halfway (side-by-side fund columns never do); a chunk whose cells have no bbox gets the table's. A table in
 one chunk keeps the table's bbox.
 """
 
@@ -59,6 +64,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import Sequence
 
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
@@ -112,14 +118,19 @@ def normalize_document(
     conversion_ms: int,
     header_sizes: dict[str, float] | None = None,
     chart_graphics: dict[str, ChartGraphics] | None = None,
+    fund_name_prefixes: Sequence[str] = (),
 ) -> dict:
     """`header_sizes` (self_ref -> rendered pt, `headings.header_font_sizes`) sets section header
     levels before chunking; None keeps Docling's (all level 1). `chart_graphics` (picture self_ref
-    -> `chart_graphics.picture_graphics`) enables chart title lines and colour pairing."""
+    -> `chart_graphics.picture_graphics`) enables chart title lines and colour pairing.
+    `fund_name_prefixes` (the source's, e.g. `Mirae Asset`) enables the side-by-side fund table
+    split (`tables.fund_columns`); empty keeps every table whole."""
     leveled = heading_rules.assign_header_levels(doc, header_sizes) if header_sizes else False
     changed = text_rules.repair_document_ordinals(doc)
     order = {item.self_ref: i for i, (item, _) in enumerate(doc.iterate_items(with_groups=False))}
-    table_parts = {t.self_ref: table_rules.normalize_table(t) for t in doc.tables}
+    fund_columns = table_rules.fund_columns(doc, fund_name_prefixes)
+    table_parts = {t.self_ref: table_rules.normalize_table(t, fund_columns.get(t.self_ref)) for t in doc.tables}
+    picture_funds = _picture_funds(doc, fund_columns)
     graphics = chart_graphics or {}
     legends = _outside_legends(doc, graphics)
     picture_results = {
@@ -131,12 +142,12 @@ def normalize_document(
     units = sorted(
         _units_from_chunker(doc, chunker, order, leveled, claims) + _furniture_units(doc, kept, order), key=lambda u: u.order,
     )
-    chunks = [c for unit in units for c in _wire_chunks(unit, doc, changed, table_parts, picture_results)]
+    chunks = [c for unit in units for c in _wire_chunks(unit, doc, changed, table_parts, picture_results, picture_funds)]
     missing = _as_of_header_units(doc, order, chunks)
     if missing:
         units = sorted(units + missing, key=lambda u: u.order)
         _inherit_headings(units)
-        chunks = [c for unit in units for c in _wire_chunks(unit, doc, changed, table_parts, picture_results)]
+        chunks = [c for unit in units for c in _wire_chunks(unit, doc, changed, table_parts, picture_results, picture_funds)]
     if not chunks:
         raise EmptyParsedContent()
     _flag_values_in_tables(chunks, picture_results)
@@ -160,6 +171,34 @@ def normalize_document(
             "conversionMs": conversion_ms,
         },
     }
+
+
+def _picture_funds(doc: DoclingDocument, fund_columns: dict[str, table_rules.FundColumns]) -> dict[str, str]:
+    """picture self_ref -> fund name, for pictures (riskometers) inside or below a split fund table
+    on its page whose horizontal centre lies in exactly one fund column; the nearest such table
+    above the picture decides."""
+    tables = [(t, fund_columns[t.self_ref]) for t in doc.tables if t.self_ref in fund_columns and len(t.prov) == 1]
+    out: dict[str, str] = {}
+    for picture in doc.pictures:
+        if len(picture.prov) != 1:
+            continue
+        prov = picture.prov[0]
+        height = doc.pages[prov.page_no].size.height
+        box = prov.bbox.to_top_left_origin(page_height=height)
+        centre = (box.l + box.r) / 2
+        above = [
+            (table_box.t, columns)
+            for table, columns in tables
+            if table.prov[0].page_no == prov.page_no
+            and (table_box := table.prov[0].bbox.to_top_left_origin(page_height=height)).t <= box.t
+        ]
+        if not above:
+            continue
+        columns = max(above, key=lambda a: a[0])[1]
+        hits = [name for col, name in columns.names.items() if col in columns.spans and columns.spans[col][0] <= centre <= columns.spans[col][1]]
+        if len(hits) == 1:
+            out[picture.self_ref] = hits[0]
+    return out
 
 
 def _outside_legends(doc: DoclingDocument, graphics: dict[str, ChartGraphics]) -> dict[str, list[TextItem]]:
@@ -436,7 +475,7 @@ def _drop_heading_lines(text: str, headings: list[str]) -> str:
     return "\n".join(line for line in lines if line.strip() not in headings).strip()
 
 
-def _wire_chunks(unit: _Unit, doc, changed, table_parts, picture_results) -> list[dict]:
+def _wire_chunks(unit: _Unit, doc, changed, table_parts, picture_results, picture_funds=None) -> list[dict]:
     headings = _clean_headings(unit.headings or [])
     refs = [i.self_ref for i in unit.items]
     ordinal = ["ordinal_joined"] if changed.intersection(refs) else []
@@ -472,6 +511,9 @@ def _wire_chunks(unit: _Unit, doc, changed, table_parts, picture_results) -> lis
     result = picture_results[refs[0]]
     if result.dropped:
         return []
+    fund = (picture_funds or {}).get(refs[0])
+    if fund and (not headings or headings[-1] != fund):
+        headings = [*headings, fund]
     body = _drop_heading_lines(result.text, headings)
     if not body:
         return []
@@ -533,7 +575,8 @@ def _meet_halfway(boxes: list[dict[int, list[float]] | None]) -> list[dict[int, 
             continue
         for page in upper.keys() & lower.keys():
             u, w = upper[page], lower[page]  # [l, t, r, b]
-            if w[1] < u[1] and w[3] < u[3] and w[1] > u[3]:
+            beside = min(u[2], w[2]) <= max(u[0], w[0])  # fund-column parts sit side by side
+            if not beside and w[1] < u[1] and w[3] < u[3] and w[1] > u[3]:
                 u[3] = w[1] = (u[3] + w[1]) / 2
     return out
 

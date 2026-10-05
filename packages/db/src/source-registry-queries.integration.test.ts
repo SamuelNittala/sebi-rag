@@ -8,6 +8,7 @@ import {
   createExternalAccessCode,
   createSourceKey,
   type DesiredSourceRegistry,
+  type SourceParseConfig,
 } from "@mf-rag/types";
 
 import * as schema from "./schema.ts";
@@ -93,7 +94,7 @@ integrationDescribe("source registry control plane", () => {
   });
 
   test("reconcile persists parse_config, null when the manifest omits parse", async () => {
-    const withParse = (parse?: { parser: "unpdf" | "docling" }): DesiredSourceRegistry => {
+    const withParse = (parse?: SourceParseConfig): DesiredSourceRegistry => {
       const registry = desiredRegistry(["factsheets", "scheme-documents"]);
       const scope = registry.accessScopes[0]!;
       return {
@@ -111,6 +112,12 @@ integrationDescribe("source registry control plane", () => {
 
     await reconcileSourceRegistry(db, withParse({ parser: "docling" }));
     expect(await parseConfigs()).toEqual({ factsheets: { parser: "docling" }, "scheme-documents": null });
+
+    await reconcileSourceRegistry(db, withParse({ parser: "docling", fundNamePrefixes: ["Mirae Asset"] }));
+    expect(await parseConfigs()).toEqual({
+      factsheets: { parser: "docling", fundNamePrefixes: ["Mirae Asset"] },
+      "scheme-documents": null,
+    });
 
     await reconcileSourceRegistry(db, withParse());
     expect(await parseConfigs()).toEqual({ factsheets: null, "scheme-documents": null });

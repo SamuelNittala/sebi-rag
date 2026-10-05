@@ -4,6 +4,7 @@
  *   bun run parse:compare -- --pdf <file.pdf> [--pdf <file.pdf> ...]
  *     [--scope config/access-scopes/117-mirae-mf.yml]
  *     [--source <sourceKey> | --document-type <SID|KIM|Factsheet|...>]
+ *     [--fund-name-prefix <text> ...]
  *     [--docling-url http://localhost:8090] [--docling-version <parserVersion>]
  *     [--pages FIRST-LAST] [--out <dir>]
  *
@@ -24,6 +25,11 @@
  * `--source` applies that scope source's manifest `documentType` (as the
  * scheduled CHUNK stage does); `--document-type` sets one directly. Without
  * either, docType comes from the filename/content heuristics.
+ *
+ * `--source` also sends that source's manifest `parse.fundNamePrefixes` to
+ * Docling (side-by-side fund table split, as the scheduled PARSE stage does);
+ * repeated `--fund-name-prefix` flags replace them. Without either, Docling
+ * gets no prefixes and splits no fund tables. unpdf ignores them.
  */
 
 import { createHash } from "node:crypto";
@@ -67,6 +73,7 @@ export interface CompareArgs {
   readonly pageRange: PageRange | null;
   readonly sourceKey: string | null;
   readonly documentType: SourceDocumentType | null;
+  readonly fundNamePrefixes: readonly string[] | null;
   readonly outDir: string;
 }
 
@@ -78,6 +85,7 @@ export function parseCompareArgs(argv: readonly string[], env: { readonly tmpRoo
   let pageRange: PageRange | null = null;
   let sourceKey: string | null = null;
   let documentType: SourceDocumentType | null = null;
+  const fundNamePrefixes: string[] = [];
   let outDir: string | null = null;
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index]!;
@@ -95,6 +103,7 @@ export function parseCompareArgs(argv: readonly string[], env: { readonly tmpRoo
       case "--pages": pageRange = parsePageRange(value()); break;
       case "--source": sourceKey = value(); break;
       case "--document-type": documentType = parseDocumentType(value()); break;
+      case "--fund-name-prefix": fundNamePrefixes.push(value()); break;
       case "--out": outDir = resolve(value()); break;
       default: throw new Error(`Unknown argument ${flag}.`);
     }
@@ -107,7 +116,17 @@ export function parseCompareArgs(argv: readonly string[], env: { readonly tmpRoo
   if (fromData === "" || (!fromData.startsWith("..") && !fromData.startsWith(sep) && !/^[A-Za-z]:/.test(fromData))) {
     throw new Error("--out must not be inside data/; reports are scratch output.");
   }
-  return { pdfs, scopePath, doclingUrl, doclingVersion, pageRange, sourceKey, documentType, outDir: resolvedOut };
+  return {
+    pdfs,
+    scopePath,
+    doclingUrl,
+    doclingVersion,
+    pageRange,
+    sourceKey,
+    documentType,
+    fundNamePrefixes: fundNamePrefixes.length > 0 ? fundNamePrefixes : null,
+    outDir: resolvedOut,
+  };
 }
 
 function parseDocumentType(value: string): SourceDocumentType {
@@ -123,9 +142,23 @@ export function resolveCompareDocumentType(
 ): SourceDocumentType | null {
   if (args.documentType) return args.documentType;
   if (!args.sourceKey) return null;
-  const source = manifest.sources.find((candidate) => String(candidate.sourceKey) === args.sourceKey);
-  if (!source) throw new Error(`Source ${args.sourceKey} is not in scope ${manifest.accessScopeKey}.`);
-  return source.documentType ?? null;
+  return findSource(manifest, args.sourceKey).documentType ?? null;
+}
+
+/** The Docling fund-name prefixes the comparison sends, mirroring the scheduled PARSE stage. */
+export function resolveCompareFundNamePrefixes(
+  manifest: Pick<AccessScopeManifest, "accessScopeKey" | "sources">,
+  args: Pick<CompareArgs, "sourceKey" | "fundNamePrefixes">,
+): readonly string[] | null {
+  if (args.fundNamePrefixes) return args.fundNamePrefixes;
+  if (!args.sourceKey) return null;
+  return findSource(manifest, args.sourceKey).parse?.fundNamePrefixes ?? null;
+}
+
+function findSource(manifest: Pick<AccessScopeManifest, "accessScopeKey" | "sources">, sourceKey: string) {
+  const source = manifest.sources.find((candidate) => String(candidate.sourceKey) === sourceKey);
+  if (!source) throw new Error(`Source ${sourceKey} is not in scope ${manifest.accessScopeKey}.`);
+  return source;
 }
 
 /** Holds the one raw PDF; parse outputs are returned by the stages, so `put` only describes them. */
@@ -153,6 +186,7 @@ interface ScopeContext {
   readonly knowledgeScope: KnowledgeScope;
   readonly ownership: ClassifiedKnowledgeOwnership;
   readonly documentType: SourceDocumentType | null;
+  readonly fundNamePrefixes: readonly string[] | null;
 }
 
 async function loadScope(args: CompareArgs): Promise<ScopeContext> {
@@ -160,6 +194,7 @@ async function loadScope(args: CompareArgs): Promise<ScopeContext> {
   return {
     key: manifest.accessScopeKey,
     documentType: resolveCompareDocumentType(manifest, args),
+    fundNamePrefixes: resolveCompareFundNamePrefixes(manifest, args),
     knowledgeScope: { ...manifest.classification },
     ownership: {
       visibilityScope: "TENANT",
@@ -219,7 +254,7 @@ async function compareOne(path: string, args: CompareArgs, scope: ScopeContext, 
   const started = performance.now();
   const [unpdf, docling] = await Promise.all([
     unpdfStage.execute(input),
-    doclingStage.execute(input).then((result) => {
+    doclingStage.execute({ ...input, ...(scope.fundNamePrefixes ? { fundNamePrefixes: scope.fundNamePrefixes } : {}) }).then((result) => {
       console.error(`  docling parsed ${filename} in ${((performance.now() - started) / 1000).toFixed(1)} s`);
       return result;
     }),
@@ -245,7 +280,7 @@ async function main(): Promise<number> {
   const args = parseCompareArgs(process.argv.slice(2), { tmpRoot: tmpdir(), now: new Date() });
   const scope = await loadScope(args);
   const doclingVersion = args.doclingVersion ?? (await fetchDoclingHealth(args.doclingUrl)).parserVersion;
-  console.error(`Docling ${doclingVersion} at ${args.doclingUrl}; scope ${scope.key}; documentType ${scope.documentType ?? "heuristic"}`);
+  console.error(`Docling ${doclingVersion} at ${args.doclingUrl}; scope ${scope.key}; documentType ${scope.documentType ?? "heuristic"}; fundNamePrefixes ${scope.fundNamePrefixes ? JSON.stringify(scope.fundNamePrefixes) : "none"}`);
 
   const comparisons: ParserComparison[] = [];
   const errors: { filename: string; code: string | null; message: string }[] = [];
@@ -272,6 +307,7 @@ async function main(): Promise<number> {
     scope: scope.key,
     sourceKey: args.sourceKey,
     documentType: scope.documentType,
+    fundNamePrefixes: scope.fundNamePrefixes,
     pageRange: args.pageRange,
     documents: comparisons,
     errors,

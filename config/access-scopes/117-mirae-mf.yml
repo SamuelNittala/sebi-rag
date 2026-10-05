@@ -95,6 +95,12 @@ sources:
       maxRedirects: 3
     review:
       policy: risk_based
+    # Fund-name prefixes for the Docling side-by-side fund table split (T18k). Inert while
+    # the parser is unpdf; T20 flips the parser to docling.
+    parse:
+      parser: unpdf
+      fundNamePrefixes:
+        - Mirae Asset
     # Factsheets cite "notice cum addendum no. ..." on many pages, which the
     # content heuristic would classify as Addendum; declare the type instead.
     documentType: Factsheet

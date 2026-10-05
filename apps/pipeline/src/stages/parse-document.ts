@@ -18,6 +18,8 @@ export interface ParseDocumentAdapter {
     readonly filename: string;
     readonly canonicalUrl: string;
     readonly parser: SourceParser;
+    /** Source `parse.fundNamePrefixes`; Docling splits side-by-side fund tables with them, unpdf ignores them. */
+    readonly fundNamePrefixes?: readonly string[];
     readonly signal?: AbortSignal;
   }): Promise<{ readonly artifact: ArtifactDescriptor }>;
 }
@@ -28,6 +30,7 @@ export interface ParseDocumentRepository {
     readonly filename: string;
     readonly canonicalUrl: string;
     readonly parser: SourceParser;
+    readonly fundNamePrefixes?: readonly string[];
   }>;
 }
 
@@ -68,6 +71,7 @@ export class ParseDocumentStage {
       filename: input.filename,
       canonicalUrl: input.canonicalUrl,
       parser: input.parser,
+      ...(input.fundNamePrefixes ? { fundNamePrefixes: input.fundNamePrefixes } : {}),
       signal: context.signal,
     });
     return {
@@ -107,11 +111,13 @@ export function createDatabaseParseDocumentRepository(db: Database): ParseDocume
       if (!sourceParsers.includes(parser)) {
         throw deterministicError("UNKNOWN_SOURCE_PARSER", "Source parse configuration names an unknown parser.");
       }
+      const fundNamePrefixes = row.parseConfig?.fundNamePrefixes;
       return {
         rawArtifact,
         filename: filenameFromUrl(row.document.canonicalUrl, row.document.logicalDocumentKey),
         canonicalUrl: row.document.canonicalUrl,
         parser,
+        ...(fundNamePrefixes ? { fundNamePrefixes } : {}),
       };
     },
   };

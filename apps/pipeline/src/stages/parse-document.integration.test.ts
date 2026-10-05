@@ -8,6 +8,7 @@ import {
   createLogicalDocumentKey,
   createSourceKey,
   type DesiredSourceRegistry,
+  type SourceParseConfig,
 } from "@mf-rag/types";
 import type { Database } from "@mf-rag/db";
 
@@ -29,7 +30,7 @@ integrationDescribe("PARSE input parser selection", () => {
       CASCADE`);
   }
 
-  async function seedVersion(parse?: { parser: "unpdf" | "docling" }) {
+  async function seedVersion(parse?: SourceParseConfig) {
     const suffix = crypto.randomUUID().slice(0, 8);
     const sourceKey = createSourceKey(`factsheets-${suffix}`);
     const registry: DesiredSourceRegistry = {
@@ -105,5 +106,16 @@ integrationDescribe("PARSE input parser selection", () => {
 
     expect(input.parser).toBe(expected as "unpdf" | "docling");
     expect(input.filename).toMatch(/\.pdf$/);
+    expect(Object.hasOwn(input, "fundNamePrefixes")).toBe(false);
+  });
+
+  test("returns the source's fundNamePrefixes with the parser", async () => {
+    const context = await seedVersion({ parser: "unpdf", fundNamePrefixes: ["Mirae Asset"] });
+    const repository = createDatabaseParseDocumentRepository(db as unknown as Database);
+
+    const input = await repository.loadInput(context);
+
+    expect(input.parser).toBe("unpdf");
+    expect(input.fundNamePrefixes).toEqual(["Mirae Asset"]);
   });
 });

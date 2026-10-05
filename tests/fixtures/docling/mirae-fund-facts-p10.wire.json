@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "producer": {
-    "parserVersion": "docling-2.132.0+norm-9+opts-da9fca75f112",
+    "parserVersion": "docling-2.132.0+norm-10+opts-da9fca75f112",
     "serviceVersion": "1.0.0",
     "doclingVersion": "2.132.0",
     "doclingCoreVersion": "2.99.0",
     "doclingIbmModelsVersion": "4.0.3",
-    "normalizerVersion": "9",
+    "normalizerVersion": "10",
     "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
   },
   "source": {
@@ -19,25 +19,26 @@
       "pageNumber": 1,
       "width": 594.96,
       "height": 841.92,
-      "text": "Mirae Asset Equity Snapshot\nAugust 2026\nType of Scheme, Mirae Asset Large Cap Fund = An open-ended equity scheme predominantly investing across large cap stocks. 2. Type of Scheme, Mirae Asset Large & Midcap Fund = An open-ended equity scheme predominantly investing across large cap and mid cap stocks. 2. Type of Scheme, Mirae Asset Great Consumer Fund = An open-ended equity scheme investing in consumption theme. 2\nTier-1 Benchmark Index, Mirae Asset Large Cap Fund = Nifty 100 (TRI). Tier-1 Benchmark Index, Mirae Asset Large & Midcap Fund = Nifty Large Midcap 250 (TRI). Tier-1 Benchmark Index, Mirae Asset Great Consumer Fund = Nifty India Consumption Index (TRI)\nTier-2 Benchmark Index, Mirae Asset Large Cap Fund = -. Tier-2 Benchmark Index, Mirae Asset Large & Midcap Fund = -. Tier-2 Benchmark Index, Mirae Asset Great Consumer Fund = -\nFund Manager, Mirae Asset Large Cap Fund = Mr. Gaurav Misra. Fund Manager, Mirae Asset Large & Midcap Fund = Mr. Neelesh Surana Mr. Ankit Jain. Fund Manager, Mirae Asset Great Consumer Fund = Mr. Siddhant Chhabria\nInception Date, Mirae Asset Large Cap Fund = 4th April 2008. Inception Date, Mirae Asset Large & Midcap Fund = 9th July 2010. Inception Date, Mirae Asset Great Consumer Fund = 29th March 2011\nNet AUM ₹ Crores, Mirae Asset Large Cap Fund = 38,166.23. Net AUM ₹ Crores, Mirae Asset Large & Midcap Fund = 45,811.35. Net AUM ₹ Crores, Mirae Asset Great Consumer Fund = 4,742.18\nAsset Allocation Equity (%), Mirae Asset Large Cap Fund = 99.33. Asset Allocation Equity (%), Mirae Asset Large & Midcap Fund = 99.07. Asset Allocation Equity (%), Mirae Asset Great Consumer Fund = 99.22\nAsset Allocation Non Equity (%), Mirae Asset Large Cap Fund = 0.17. Asset Allocation Non Equity (%), Mirae Asset Large & Midcap Fund = 0.17. Asset Allocation Non Equity (%), Mirae Asset Great Consumer Fund = 0.00\n~ Asset Allocation Equity Futures(%), Mirae Asset Large Cap Fund = 0.12. ~ Asset Allocation Equity Futures(%), Mirae Asset Large & Midcap Fund = -. ~ Asset Allocation Equity Futures(%), Mirae Asset Great Consumer Fund = -\nCash & Other Receivables(%) Details, Mirae Asset Large Cap Fund = 0.50. Cash & Other Receivables(%) Details, Mirae Asset Large & Midcap Fund = 0.76. Cash & Other Receivables(%) Details, Mirae Asset Great Consumer Fund = 0.78\n**Large Cap Portfolios, Mirae Asset Large Cap Fund = 85.77%. **Large Cap Portfolios, Mirae Asset Large & Midcap Fund = 46.99%. **Large Cap Portfolios, Mirae Asset Great Consumer Fund = 64.88%\nMid Cap, Mirae Asset Large Cap Fund = 9.74%. Mid Cap, Mirae Asset Large & Midcap Fund = 40.24%. Mid Cap, Mirae Asset Great Consumer Fund = 10.01%\nSmall Cap, Mirae Asset Large Cap Fund = 3.94%. Small Cap, Mirae Asset Large & Midcap Fund = 11.84%. Small Cap, Mirae Asset Great Consumer Fund = 24.33%\nNo. of Stocks, Mirae Asset Large Cap Fund = 73. No. of Stocks, Mirae Asset Large & Midcap Fund = 82. No. of Stocks, Mirae Asset Great Consumer Fund = 40\nTop 10 Holdings, Mirae Asset Large Cap Fund = 47.85%. Top 10 Holdings, Mirae Asset Large & Midcap Fund = 32.21%. Top 10 Holdings, Mirae Asset Great Consumer Fund = 52.57%\nTop 5 Sectors, Mirae Asset Large Cap Fund = 51.89%. Top 5 Sectors, Mirae Asset Large & Midcap Fund = 42.88%. Top 5 Sectors, Mirae Asset Great Consumer Fund = 76.97%\nBeta, Mirae Asset Large Cap Fund = 0.93. Beta, Mirae Asset Large & Midcap Fund = 0.97. Beta, Mirae Asset Great Consumer Fund = 0.97\n1 Year PTR^ Ratios, Mirae Asset Large Cap Fund = 0.42 times. 1 Year PTR^ Ratios, Mirae Asset Large & Midcap Fund = 0.97 times. 1 Year PTR^ Ratios, Mirae Asset Great Consumer Fund = 0.49 times\nInformation Ratio, Mirae Asset Large Cap Fund = -0.66. Information Ratio, Mirae Asset Large & Midcap Fund = -0.45. Information Ratio, Mirae Asset Great Consumer Fund = -0.53\n** Market Cap classifications are according to the half yearly data provided by AMFI*Data includes \"Partly Paid Shares\" .\n^ Portfolio Turnover Ratio\n~This is exposure to unhedged derivatives. Its contra entry is within Cash & Other Receivables (%)\nFor the latest and detailed AAUM disclosures, please visit: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/other-disclosure\nPlease visit the website for more details: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/addendum\n2 Pursuant to notice cum addendum no. 75/2026, the Type of the scheme has been changed with effect from August 25, 2026.\nData as on 31st August, 2026",
+      "text": "Mirae Asset Equity Snapshot\nAugust 2026\nMirae Asset Large Cap Fund\nType of Scheme: An open-ended equity scheme predominantly investing across large cap stocks. 2\nTier-1 Benchmark Index: Nifty 100 (TRI)\nTier-2 Benchmark Index: -\nFund Manager: Mr. Gaurav Misra\nInception Date: 4th April 2008\nNet AUM ₹ Crores: 38,166.23\nAsset Allocation Equity (%): 99.33\nAsset Allocation Non Equity (%): 0.17\n~ Asset Allocation Equity Futures(%): 0.12\nCash & Other Receivables(%) Details: 0.50\n**Large Cap Portfolios: 85.77%\nMid Cap: 9.74%\nSmall Cap: 3.94%\nNo. of Stocks: 73\nTop 10 Holdings: 47.85%\nTop 5 Sectors: 51.89%\nBeta: 0.93\n1 Year PTR^ Ratios: 0.42 times\nInformation Ratio: -0.66\nMirae Asset Large & Midcap Fund\nType of Scheme: An open-ended equity scheme predominantly investing across large cap and mid cap stocks. 2\nTier-1 Benchmark Index: Nifty Large Midcap 250 (TRI)\nTier-2 Benchmark Index: -\nFund Manager: Mr. Neelesh Surana Mr. Ankit Jain\nInception Date: 9th July 2010\nNet AUM ₹ Crores: 45,811.35\nAsset Allocation Equity (%): 99.07\nAsset Allocation Non Equity (%): 0.17\n~ Asset Allocation Equity Futures(%): -\nCash & Other Receivables(%) Details: 0.76\n**Large Cap Portfolios: 46.99%\nMid Cap: 40.24%\nSmall Cap: 11.84%\nNo. of Stocks: 82\nTop 10 Holdings: 32.21%\nTop 5 Sectors: 42.88%\nBeta: 0.97\n1 Year PTR^ Ratios: 0.97 times\nInformation Ratio: -0.45\nMirae Asset Great Consumer Fund\nType of Scheme: An open-ended equity scheme investing in consumption theme. 2\nTier-1 Benchmark Index: Nifty India Consumption Index (TRI)\nTier-2 Benchmark Index: -\nFund Manager: Mr. Siddhant Chhabria\nInception Date: 29th March 2011\nNet AUM ₹ Crores: 4,742.18\nAsset Allocation Equity (%): 99.22\nAsset Allocation Non Equity (%): 0.00\n~ Asset Allocation Equity Futures(%): -\nCash & Other Receivables(%) Details: 0.78\n**Large Cap Portfolios: 64.88%\nMid Cap: 10.01%\nSmall Cap: 24.33%\nNo. of Stocks: 40\nTop 10 Holdings: 52.57%\nTop 5 Sectors: 76.97%\nBeta: 0.97\n1 Year PTR^ Ratios: 0.49 times\nInformation Ratio: -0.53\n** Market Cap classifications are according to the half yearly data provided by AMFI*Data includes \"Partly Paid Shares\" .\n^ Portfolio Turnover Ratio\n~This is exposure to unhedged derivatives. Its contra entry is within Cash & Other Receivables (%)\nFor the latest and detailed AAUM disclosures, please visit: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/other-disclosure\nPlease visit the website for more details: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/addendum\n2 Pursuant to notice cum addendum no. 75/2026, the Type of the scheme has been changed with effect from August 25, 2026.\nData as on 31st August, 2026",
       "hasTable": true,
       "stats": {
         "textItems": 9,
         "tables": 1,
         "pictures": 1,
         "pictureTextChars": 0,
-        "bodyTextChars": 4418
+        "bodyTextChars": 2628
       }
     }
   ],
   "chunks": [
     {
       "chunkIndex": 0,
-      "type": "table",
-      "text": "Type of Scheme, Mirae Asset Large Cap Fund = An open-ended equity scheme predominantly investing across large cap stocks. 2. Type of Scheme, Mirae Asset Large & Midcap Fund = An open-ended equity scheme predominantly investing across large cap and mid cap stocks. 2. Type of Scheme, Mirae Asset Great Consumer Fund = An open-ended equity scheme investing in consumption theme. 2\nTier-1 Benchmark Index, Mirae Asset Large Cap Fund = Nifty 100 (TRI). Tier-1 Benchmark Index, Mirae Asset Large & Midcap Fund = Nifty Large Midcap 250 (TRI). Tier-1 Benchmark Index, Mirae Asset Great Consumer Fund = Nifty India Consumption Index (TRI)\nTier-2 Benchmark Index, Mirae Asset Large Cap Fund = -. Tier-2 Benchmark Index, Mirae Asset Large & Midcap Fund = -. Tier-2 Benchmark Index, Mirae Asset Great Consumer Fund = -\nFund Manager, Mirae Asset Large Cap Fund = Mr. Gaurav Misra. Fund Manager, Mirae Asset Large & Midcap Fund = Mr. Neelesh Surana Mr. Ankit Jain. Fund Manager, Mirae Asset Great Consumer Fund = Mr. Siddhant Chhabria\nInception Date, Mirae Asset Large Cap Fund = 4th April 2008. Inception Date, Mirae Asset Large & Midcap Fund = 9th July 2010. Inception Date, Mirae Asset Great Consumer Fund = 29th March 2011\nNet AUM ₹ Crores, Mirae Asset Large Cap Fund = 38,166.23. Net AUM ₹ Crores, Mirae Asset Large & Midcap Fund = 45,811.35. Net AUM ₹ Crores, Mirae Asset Great Consumer Fund = 4,742.18\nAsset Allocation Equity (%), Mirae Asset Large Cap Fund = 99.33. Asset Allocation Equity (%), Mirae Asset Large & Midcap Fund = 99.07. Asset Allocation Equity (%), Mirae Asset Great Consumer Fund = 99.22\nAsset Allocation Non Equity (%), Mirae Asset Large Cap Fund = 0.17. Asset Allocation Non Equity (%), Mirae Asset Large & Midcap Fund = 0.17. Asset Allocation Non Equity (%), Mirae Asset Great Consumer Fund = 0.00\n~ Asset Allocation Equity Futures(%), Mirae Asset Large Cap Fund = 0.12. ~ Asset Allocation Equity Futures(%), Mirae Asset Large & Midcap Fund = -. ~ Asset Allocation Equity Futures(%), Mirae Asset Great Consumer Fund = -\nCash & Other Receivables(%) Details, Mirae Asset Large Cap Fund = 0.50. Cash & Other Receivables(%) Details, Mirae Asset Large & Midcap Fund = 0.76. Cash & Other Receivables(%) Details, Mirae Asset Great Consumer Fund = 0.78\n**Large Cap Portfolios, Mirae Asset Large Cap Fund = 85.77%. **Large Cap Portfolios, Mirae Asset Large & Midcap Fund = 46.99%. **Large Cap Portfolios, Mirae Asset Great Consumer Fund = 64.88%\nMid Cap, Mirae Asset Large Cap Fund = 9.74%. Mid Cap, Mirae Asset Large & Midcap Fund = 40.24%. Mid Cap, Mirae Asset Great Consumer Fund = 10.01%\nSmall Cap, Mirae Asset Large Cap Fund = 3.94%. Small Cap, Mirae Asset Large & Midcap Fund = 11.84%. Small Cap, Mirae Asset Great Consumer Fund = 24.33%\nNo. of Stocks, Mirae Asset Large Cap Fund = 73. No. of Stocks, Mirae Asset Large & Midcap Fund = 82. No. of Stocks, Mirae Asset Great Consumer Fund = 40\nTop 10 Holdings, Mirae Asset Large Cap Fund = 47.85%. Top 10 Holdings, Mirae Asset Large & Midcap Fund = 32.21%. Top 10 Holdings, Mirae Asset Great Consumer Fund = 52.57%\nTop 5 Sectors, Mirae Asset Large Cap Fund = 51.89%. Top 5 Sectors, Mirae Asset Large & Midcap Fund = 42.88%. Top 5 Sectors, Mirae Asset Great Consumer Fund = 76.97%\nBeta, Mirae Asset Large Cap Fund = 0.93. Beta, Mirae Asset Large & Midcap Fund = 0.97. Beta, Mirae Asset Great Consumer Fund = 0.97\n1 Year PTR^ Ratios, Mirae Asset Large Cap Fund = 0.42 times. 1 Year PTR^ Ratios, Mirae Asset Large & Midcap Fund = 0.97 times. 1 Year PTR^ Ratios, Mirae Asset Great Consumer Fund = 0.49 times\nInformation Ratio, Mirae Asset Large Cap Fund = -0.66. Information Ratio, Mirae Asset Large & Midcap Fund = -0.45. Information Ratio, Mirae Asset Great Consumer Fund = -0.53",
+      "type": "key_value",
+      "text": "Type of Scheme: An open-ended equity scheme predominantly investing across large cap stocks. 2\nTier-1 Benchmark Index: Nifty 100 (TRI)\nTier-2 Benchmark Index: -\nFund Manager: Mr. Gaurav Misra\nInception Date: 4th April 2008\nNet AUM ₹ Crores: 38,166.23\nAsset Allocation Equity (%): 99.33\nAsset Allocation Non Equity (%): 0.17\n~ Asset Allocation Equity Futures(%): 0.12\nCash & Other Receivables(%) Details: 0.50\n**Large Cap Portfolios: 85.77%\nMid Cap: 9.74%\nSmall Cap: 3.94%\nNo. of Stocks: 73\nTop 10 Holdings: 47.85%\nTop 5 Sectors: 51.89%\nBeta: 0.93\n1 Year PTR^ Ratios: 0.42 times\nInformation Ratio: -0.66",
       "headings": [
         "Mirae Asset Equity Snapshot",
-        "August 2026"
+        "August 2026",
+        "Mirae Asset Large Cap Fund"
       ],
       "pages": [
         1
@@ -45,22 +46,86 @@
       "bboxes": [
         {
           "page": 1,
-          "l": 38.45,
-          "t": 761.37,
-          "r": 571.81,
-          "b": 207.46
+          "l": 189.34,
+          "t": 751.42,
+          "r": 306.2,
+          "b": 217.08
         }
       ],
       "itemRefs": [
         "#/tables/0"
       ],
       "flags": [
-        "ordinal_joined"
+        "ordinal_joined",
+        "kv_panel_detected",
+        "table_fund_columns_split"
       ],
       "picture": null
     },
     {
       "chunkIndex": 1,
+      "type": "key_value",
+      "text": "Type of Scheme: An open-ended equity scheme predominantly investing across large cap and mid cap stocks. 2\nTier-1 Benchmark Index: Nifty Large Midcap 250 (TRI)\nTier-2 Benchmark Index: -\nFund Manager: Mr. Neelesh Surana Mr. Ankit Jain\nInception Date: 9th July 2010\nNet AUM ₹ Crores: 45,811.35\nAsset Allocation Equity (%): 99.07\nAsset Allocation Non Equity (%): 0.17\n~ Asset Allocation Equity Futures(%): -\nCash & Other Receivables(%) Details: 0.76\n**Large Cap Portfolios: 46.99%\nMid Cap: 40.24%\nSmall Cap: 11.84%\nNo. of Stocks: 82\nTop 10 Holdings: 32.21%\nTop 5 Sectors: 42.88%\nBeta: 0.97\n1 Year PTR^ Ratios: 0.97 times\nInformation Ratio: -0.45",
+      "headings": [
+        "Mirae Asset Equity Snapshot",
+        "August 2026",
+        "Mirae Asset Large & Midcap Fund"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 318.59,
+          "t": 751.42,
+          "r": 435.45,
+          "b": 217.08
+        }
+      ],
+      "itemRefs": [
+        "#/tables/0"
+      ],
+      "flags": [
+        "ordinal_joined",
+        "kv_panel_detected",
+        "table_fund_columns_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 2,
+      "type": "key_value",
+      "text": "Type of Scheme: An open-ended equity scheme investing in consumption theme. 2\nTier-1 Benchmark Index: Nifty India Consumption Index (TRI)\nTier-2 Benchmark Index: -\nFund Manager: Mr. Siddhant Chhabria\nInception Date: 29th March 2011\nNet AUM ₹ Crores: 4,742.18\nAsset Allocation Equity (%): 99.22\nAsset Allocation Non Equity (%): 0.00\n~ Asset Allocation Equity Futures(%): -\nCash & Other Receivables(%) Details: 0.78\n**Large Cap Portfolios: 64.88%\nMid Cap: 10.01%\nSmall Cap: 24.33%\nNo. of Stocks: 40\nTop 10 Holdings: 52.57%\nTop 5 Sectors: 76.97%\nBeta: 0.97\n1 Year PTR^ Ratios: 0.49 times\nInformation Ratio: -0.53",
+      "headings": [
+        "Mirae Asset Equity Snapshot",
+        "August 2026",
+        "Mirae Asset Great Consumer Fund"
+      ],
+      "pages": [
+        1
+      ],
+      "bboxes": [
+        {
+          "page": 1,
+          "l": 449.04,
+          "t": 751.42,
+          "r": 563.48,
+          "b": 217.08
+        }
+      ],
+      "itemRefs": [
+        "#/tables/0"
+      ],
+      "flags": [
+        "ordinal_joined",
+        "kv_panel_detected",
+        "table_fund_columns_split"
+      ],
+      "picture": null
+    },
+    {
+      "chunkIndex": 3,
       "type": "text",
       "text": "** Market Cap classifications are according to the half yearly data provided by AMFI*Data includes \"Partly Paid Shares\" .\n^ Portfolio Turnover Ratio\n~This is exposure to unhedged derivatives. Its contra entry is within Cash & Other Receivables (%)\nFor the latest and detailed AAUM disclosures, please visit: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/other-disclosure\nPlease visit the website for more details: https://www.miraeassetmf.co.in/downloads/statutory-disclosure/addendum\n2 Pursuant to notice cum addendum no. 75/2026, the Type of the scheme has been changed with effect from August 25, 2026.",
       "headings": [
@@ -91,7 +156,7 @@
       "picture": null
     },
     {
-      "chunkIndex": 2,
+      "chunkIndex": 4,
       "type": "text",
       "text": "Data as on 31st August, 2026",
       "headings": [],
@@ -126,7 +191,9 @@
       "noText": 0
     },
     "flagCounts": {
-      "ordinal_joined": 2
+      "kv_panel_detected": 3,
+      "ordinal_joined": 4,
+      "table_fund_columns_split": 3
     },
     "conversionStatus": "success",
     "conversionMs": 0

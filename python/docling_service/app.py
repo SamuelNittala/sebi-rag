@@ -34,6 +34,7 @@ DOCLING_PARSE_MEDIA_TYPE = "application/vnd.mf-rag.docling-parse+json;version=1"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MESSAGES = {
     "CHECKSUM_MISMATCH": "X-Content-Sha256 does not match the request body",
+    "INVALID_PARSE_OPTIONS": "X-Fund-Name-Prefixes must be a JSON array of 1-8 distinct names",
     "UPLOAD_TOO_LARGE": "request body exceeds the upload limit",
     "UNSUPPORTED_MEDIA_TYPE": "request body must be a PDF sent as application/pdf",
     "PDF_PAGE_LIMIT_EXCEEDED": "PDF exceeds the page limit",
@@ -123,6 +124,30 @@ class ConversionGate:
         }
 
 
+MAX_FUND_NAME_PREFIXES = 8
+# Mirrors the manifest's `parse.fundNamePrefixes` rule (apps/pipeline/src/config/access-scope-manifest.ts).
+_FUND_NAME_PREFIX = re.compile(r"^[A-Za-z0-9&.'-](?:[A-Za-z0-9 &.'-]{0,62}[A-Za-z0-9&.'-])$")
+
+
+def fund_name_prefixes(header: str | None) -> tuple[str, ...] | None:
+    """The `X-Fund-Name-Prefixes` header (JSON array of the source's fund-name prefixes) as a tuple;
+    () when absent, None when malformed."""
+    if header is None:
+        return ()
+    try:
+        value = json.loads(header)
+    except ValueError:
+        return None
+    if (
+        not isinstance(value, list)
+        or not 1 <= len(value) <= MAX_FUND_NAME_PREFIXES
+        or not all(isinstance(v, str) and _FUND_NAME_PREFIX.match(v) for v in value)
+        or len(set(value)) != len(value)
+    ):
+        return None
+    return tuple(value)
+
+
 def _error(status: int, code: str) -> Response:
     response = jsonify({"code": code, "message": _MESSAGES[code]})
     response.status_code = status
@@ -170,6 +195,9 @@ def create_app(
         expected = request.headers.get("X-Content-Sha256", "").strip().lower()
         if not _SHA256.match(expected) or expected != sha256:
             return _error(400, "CHECKSUM_MISMATCH")
+        prefixes = fund_name_prefixes(request.headers.get("X-Fund-Name-Prefixes"))
+        if prefixes is None:
+            return _error(400, "INVALID_PARSE_OPTIONS")
         try:
             if converter.count_pages(body) > settings.max_pages:
                 return _error(422, "PDF_PAGE_LIMIT_EXCEEDED")
@@ -196,6 +224,7 @@ def create_app(
                     conversion_ms=conversion_ms,
                     header_sizes=header_font_sizes(document, body),
                     chart_graphics=picture_graphics(document, body),
+                    fund_name_prefixes=prefixes,
                 )
             finally:
                 gate.release()

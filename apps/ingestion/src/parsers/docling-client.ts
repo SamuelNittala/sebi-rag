@@ -9,8 +9,9 @@ import {
 /**
  * HTTP client for the internal Docling service (`POST /v1/parse`).
  *
- * Error mapping: 422 -> deterministic with the service code; 400/413/415 ->
- * deterministic; 5xx, network failures and other statuses -> transient; caller
+ * Error mapping: 422 -> deterministic with the service code; 400 with body code
+ * INVALID_PARSE_OPTIONS (malformed X-Fund-Name-Prefixes) -> deterministic
+ * DOCLING_INVALID_PARSE_OPTIONS; other 400s/413/415 -> deterministic; 5xx, network failures and other statuses -> transient; caller
  * aborts and deadlines propagate unchanged. Error messages never echo service
  * bodies, which may contain paths or stack traces.
  */
@@ -19,6 +20,12 @@ export interface DoclingParseRequestOptions {
   /** Must equal `producer.parserVersion`; a mismatch means the service changed under us. */
   readonly expectedParserVersion: string;
   readonly maxResponseBytes: number;
+  /**
+   * Fund-name prefixes for the normalizer's side-by-side fund table split, sent
+   * as the `X-Fund-Name-Prefixes` header (JSON array). Absent or empty sends no
+   * header, so the request is unchanged for sources that declare none.
+   */
+  readonly fundNamePrefixes?: readonly string[];
   readonly signal?: AbortSignal;
 }
 
@@ -28,7 +35,6 @@ export interface DoclingHealth {
 
 const SERVICE_CODE_PATTERN = /^[A-Z][A-Z0-9_]{0,63}$/;
 const DETERMINISTIC_STATUS_CODES: Readonly<Record<number, string>> = {
-  400: "DOCLING_CHECKSUM_REJECTED",
   413: "DOCLING_UPLOAD_TOO_LARGE",
   415: "DOCLING_UNSUPPORTED_MEDIA_TYPE",
 };
@@ -44,6 +50,9 @@ export async function parseWithDocling(
       "content-type": "application/pdf",
       "x-content-sha256": sha256,
       accept: DOCLING_PARSE_MEDIA_TYPE,
+      ...(options.fundNamePrefixes?.length
+        ? { "x-fund-name-prefixes": JSON.stringify(options.fundNamePrefixes) }
+        : {}),
     },
     body: bytes,
     signal: options.signal,
@@ -52,6 +61,12 @@ export async function parseWithDocling(
   if (response.status === 422) {
     const code = await serviceErrorCode(response, options);
     throw deterministic(code ?? "DOCLING_UNPROCESSABLE", "Docling service could not convert the document.");
+  }
+  if (response.status === 400) {
+    const code = await serviceErrorCode(response, options);
+    throw code === "INVALID_PARSE_OPTIONS"
+      ? deterministic("DOCLING_INVALID_PARSE_OPTIONS", "Docling service rejected the parse options.")
+      : deterministic("DOCLING_CHECKSUM_REJECTED", "Docling service rejected the request with HTTP 400.");
   }
   const statusCode = DETERMINISTIC_STATUS_CODES[response.status];
   if (statusCode) {

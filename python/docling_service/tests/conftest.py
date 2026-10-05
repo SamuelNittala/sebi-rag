@@ -30,10 +30,14 @@ PASSIVE_FOF_STEM = "mirae-passive-fof-p63"
 # mirae-passive-aug-2026.pdf p43: Nifty Bank ETF `Fund Information` key-value panel whose first data
 # row's value cell (`20th July 2023`) Docling flags as a column header.
 PASSIVE_FUND_INFO_STEM = "mirae-passive-fund-info-p43"
+# mirae-sep-2026.pdf p14: Fund Facts grid with three fund columns, a full-width note row and a riskometer inside it.
+FUND_FACTS_P14_STEM = "mirae-fund-facts-p14"
+# mirae-passive-aug-2026.pdf p92: Fund Facts grid that Docling reads as two tables, the lower one header-less.
+PASSIVE_FUND_FACTS_P92_STEM = "mirae-passive-fund-facts-p92"
 GOLDEN_STEMS = (
     FIXTURE_STEM, FUND_PERFORMANCE_STEM, FUND_FACTS_STEM, FUND_PERFORMANCE_P98_STEM, PASSIVE_ETF_STEM, SIP_PERFORMANCE_STEM,
     SIP_PERFORMANCE_P103_STEM, PASSIVE_OFFERINGS_STEM, PASSIVE_DONUTS_STEM, LIQUID_DONUTS_STEM,
-    PASSIVE_FOF_STEM, PASSIVE_FUND_INFO_STEM,
+    PASSIVE_FOF_STEM, PASSIVE_FUND_INFO_STEM, FUND_FACTS_P14_STEM, PASSIVE_FUND_FACTS_P92_STEM,
 )
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "contract" / "docling-parse-v1.schema.json"
 

@@ -146,15 +146,16 @@ describe("alignCandidatesToWire", () => {
 
   test("a candidate whose item refs no longer match is unmatched; its wire chunk is listed", async () => {
     const wire = await golden("mirae-fund-facts-p10");
-    const candidates = candidatesFor(wire).map((candidate) => candidate.origin === 1
+    // Chunk 3 is the page notes text chunk (its own item refs; chunks 0-2 are fund columns of one table).
+    const candidates = candidatesFor(wire).map((candidate) => candidate.origin === 3
       ? { ...candidate, metadata: { ...(candidate.metadata as object), sourceItemRefs: ["#/texts/999"] } }
       : candidate);
 
     const alignment = alignCandidatesToWire(candidates, wire.chunks);
 
-    expect(pairedOrigins(alignment)).toEqual([[0, 0], [2, 2]]);
-    expect(alignment.unmatchedCandidates.map((candidate) => candidate.origin)).toEqual([1]);
-    expect(alignment.unmatchedWire.map((chunk) => chunk.chunkIndex)).toEqual([1]);
+    expect(pairedOrigins(alignment)).toEqual([[0, 0], [1, 1], [2, 2], [4, 4]]);
+    expect(alignment.unmatchedCandidates.map((candidate) => candidate.origin)).toEqual([3]);
+    expect(alignment.unmatchedWire.map((chunk) => chunk.chunkIndex)).toEqual([3]);
   });
 
   test("sorts both inputs by chunk index without mutating them", async () => {
@@ -164,8 +165,8 @@ describe("alignCandidatesToWire", () => {
 
     const alignment = alignCandidatesToWire(candidates, wireChunks);
 
-    expect(pairedOrigins(alignment)).toEqual([[0, 0], [1, 1], [2, 2]]);
-    expect(candidates.map((candidate) => candidate.origin)).toEqual([2, 1, 0]);
+    expect(pairedOrigins(alignment)).toEqual([[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]]);
+    expect(candidates.map((candidate) => candidate.origin)).toEqual([4, 3, 2, 1, 0]);
   });
 });
 

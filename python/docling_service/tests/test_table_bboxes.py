@@ -135,3 +135,11 @@ def test_overlapping_neighbour_parts_meet_halfway():
     middle = round((title_top + title_top - 3.0) / 2, 2)
     assert upper["b"] == lower["t"] == middle
     assert upper["t"] == _expected(0, 2, 3)["t"] and lower["b"] == _expected(3, 6, 3)["b"]
+
+
+def test_side_by_side_parts_never_meet_halfway():
+    """Fund-column parts sit next to each other; only vertically stacked pieces that overlap
+    horizontally move their edges."""
+    left = {1: [50.0, 700.0, 160.0, 600.0]}
+    right = {1: [170.0, 690.0, 280.0, 590.0]}  # lower top and bottom, but beside the left box
+    assert chunks._meet_halfway([left, right]) == [left, right]

@@ -4,6 +4,7 @@ import type {
   AccessScopeManifest,
   DesiredSourceRegistry,
   SourceManifest,
+  SourceParseConfig,
 } from "@mf-rag/types";
 import {
   createAccessScopeKey,
@@ -363,6 +364,14 @@ function canonicalScope(scope: AccessScopeManifest): AccessScopeManifest {
   };
 }
 
+// Prefixes keep their declared order: they reach the Docling request header as declared.
+function canonicalParse(parse: SourceParseConfig): SourceParseConfig {
+  return {
+    parser: parse.parser,
+    ...(parse.fundNamePrefixes ? { fundNamePrefixes: [...parse.fundNamePrefixes] } : {}),
+  };
+}
+
 function canonicalSource(source: SourceManifest): SourceManifest {
   return {
     sourceKey: source.sourceKey,
@@ -372,7 +381,7 @@ function canonicalSource(source: SourceManifest): SourceManifest {
     schedule: source.schedule,
     fetch: source.fetch,
     review: source.review,
-    ...(source.parse ? { parse: { parser: source.parse.parser } } : {}),
+    ...(source.parse ? { parse: canonicalParse(source.parse) } : {}),
     ...(source.documentType ? { documentType: source.documentType } : {}),
   };
 }
