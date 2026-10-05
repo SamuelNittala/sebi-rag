@@ -343,15 +343,18 @@ function distinctFundCount(chunks: ChunkResult["chunks"]): number {
 
 /**
  * Per-chunk scope, strategy, canonical name, scheme category and scheme type for a multi-fund
- * document, derived from the chunk's own fund only. A chunk that names no fund gets nulls. Scheme
- * category and type reuse the content extractors (no new classifier); they read the fund name,
- * which is the only text reliably about this chunk's fund.
+ * document, derived from the chunk's own fund only. A chunk that names no fund gets nulls and the
+ * AMC-wide scope (`amc`, or `sif_umbrella` in mirae_sif): it covers several of the AMC's schemes
+ * (offerings lists, fund-facts tables), which is a known scope, not missing metadata. Scheme category and type reuse the content extractors
+ * (no new classifier); they read the fund name, which is the only text reliably about this chunk's fund.
  */
 function perChunkFundMetadata(
   fundName: string | null,
   document: { filename: string; documentType: string | null; sourceCollection: string },
 ): Partial<CandidateChunkMetadata> {
-  const scope = classifyDocumentScope({
+  // Same convention as classifyDocumentScope for AMC-wide content (SAI): SIF umbrella in mirae_sif.
+  const amcWideScope = document.sourceCollection === "mirae_sif" ? "sif_umbrella" as const : "amc" as const;
+  const scope = fundName === null ? amcWideScope : classifyDocumentScope({
     filename: document.filename,
     documentType: document.documentType,
     sourceCollection: document.sourceCollection,

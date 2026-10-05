@@ -426,7 +426,11 @@ describe("document-level metadata does not leak onto multi-fund factsheet chunks
     expect(offerings!.metadata.canonicalStrategyName ?? null).toBeNull();
     expect(offerings!.metadata.schemeCategory ?? null).toBeNull();
     expect(offerings!.metadata.schemeType ?? null).toBeNull();
-    expect(offerings!.metadata.documentScope).toBe("unknown");
+    // Content about several of the AMC's schemes is AMC-scoped, not unknown, so review isn't
+    // flooded with REQUIRED_METADATA_MISSING warnings on every multi-fund chunk.
+    expect(offerings!.metadata.documentScope).toBe("amc");
+    expect(inspection.prepared.report.findings.filter((f) =>
+      f.candidateId === offerings!.id && f.ruleCode === "REQUIRED_METADATA_MISSING")).toHaveLength(0);
 
     // Each stamped chunk gets its own fund and a strategy derived from it, never the cover fund.
     expect(cover!.metadata.fundName).toBe("Mirae Asset Multi Factor Passive FOF");
@@ -442,6 +446,16 @@ describe("document-level metadata does not leak onto multi-fund factsheet chunks
     // No candidate carries the cover fund's strategy as a document-wide value.
     const coverStrategy = "mirae-asset-multi-factor-passive-fof";
     expect(inspection.prepared.candidates.filter((c) => c.metadata.strategyId === coverStrategy)).toHaveLength(1);
+  });
+
+  test("in the SIF collection a multi-fund chunk without its own fund is SIF-umbrella scoped", async () => {
+    const { parsed } = await doclingArtifact(rawBytes, multiFundResponse, factsheetName);
+    const inspection = preparePdfChunkInspection({
+      parsed, sourceDocumentId: "source-document-1", ownership,
+      knowledgeScope: { ...knowledgeScope, sourceCollection: "mirae_sif" }, documentType: "Factsheet",
+    });
+    const offerings = inspection.prepared.candidates.find((c) => (c.metadata.fundName ?? null) === null);
+    expect(offerings?.metadata.documentScope).toBe("sif_umbrella");
   });
 
   test("regression: a document fund never reaches a chunk without its own fund on a multi-fund Factsheet", async () => {
