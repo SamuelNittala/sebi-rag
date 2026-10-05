@@ -760,3 +760,121 @@ def test_sip_p104_six_funds(sip_p104_doc):
     assert "Add. Benchmark Return & (%), 5 Years = 5.95" in short_term
     # `as Since Inception`: a title word bled into the header cell.
     assert "Total Amount Invested (in Rs.), Since Inception = 10,10,000." in short_term and "as Since" not in short_term
+
+
+# --- Key-value panels whose first data row Docling flags as a column header (passive p43) ---
+
+
+def test_fund_information_panel_despite_a_flagged_date_row(passive_fund_info_doc):
+    # p43 #/tables/0: Docling flags the `20th July 2023` value cell of the first data row as a
+    # column header and assigns it to the `Fund Managers` row. The panel has no real header row;
+    # it must stay a key-value panel with the date realigned to `Allotment Date`.
+    part = normalized(passive_fund_info_doc, "#/tables/0")
+    assert part.kind == "key_value"
+    assert part.text.split("\n") == [
+        "Fund Managers : Ms. Ekta Gala Mr. Ritesh Patel",
+        "Allotment Date: 20th July 2023",
+        "Benchmark: Nifty Bank Index (TRI)",
+        "Net AUM (Cr.): 313.7953",
+        "Tracking Error Value ~ 1 Year Tracking Error is: 0.03%",
+        "Exit Load: Please refer page no.97",
+        "Plan Available: The Scheme does not offer any Plans/Options for investment",
+    ]
+    assert part.text.count("20th July 2023") == 1
+    assert "kv_panel_detected" in part.flags
+
+
+def test_two_column_panel_starting_with_a_flagged_date_value():
+    # A date value in the first row that Docling marks as a column header is a value, not a header.
+    table = _grid(
+        [
+            [(0, 1, "Allotment Date :", False), (1, 2, "20th July 2023", True)],
+            [(0, 1, "Benchmark:", False), (1, 2, "Nifty Bank Index (TRI)", False)],
+            [(0, 1, "Net AUM (Cr.):", False), (1, 2, "313.7953", False)],
+            [(0, 1, "Exit Load:", False), (1, 2, "Please refer page no.97", False)],
+        ],
+        2,
+    )
+    [part] = tables.normalize_table(table)
+    assert part.kind == "key_value"
+    assert part.text.split("\n") == [
+        "Allotment Date: 20th July 2023",
+        "Benchmark: Nifty Bank Index (TRI)",
+        "Net AUM (Cr.): 313.7953",
+        "Exit Load: Please refer page no.97",
+    ]
+    assert "kv_panel_detected" in part.flags
+
+
+def test_two_column_panel_starting_with_a_flagged_text_value():
+    # A text value Docling flags as a column header would also break header promotion.
+    table = _grid(
+        [
+            [(0, 1, "Benchmark:", False), (1, 2, "Nifty Bank Index (TRI)", True)],
+            [(0, 1, "Net AUM (Cr.):", False), (1, 2, "313.7953", False)],
+            [(0, 1, "Exit Load:", False), (1, 2, "Please refer page no.97", False)],
+        ],
+        2,
+    )
+    [part] = tables.normalize_table(table)
+    assert part.kind == "key_value"
+    assert part.text.split("\n") == [
+        "Benchmark: Nifty Bank Index (TRI)",
+        "Net AUM (Cr.): 313.7953",
+        "Exit Load: Please refer page no.97",
+    ]
+
+
+def test_two_column_panel_starting_with_a_flagged_number_value():
+    # A numeric value flagged as a column header stays a value too (the existing measure guard,
+    # now independent of the KV path).
+    table = _grid(
+        [
+            [(0, 1, "Net AUM (Cr.):", False), (1, 2, "313.7953", True)],
+            [(0, 1, "Benchmark:", False), (1, 2, "Nifty Bank Index (TRI)", False)],
+            [(0, 1, "Exit Load:", False), (1, 2, "Please refer page no.97", False)],
+        ],
+        2,
+    )
+    [part] = tables.normalize_table(table)
+    assert part.kind == "key_value"
+    assert part.text.split("\n") == [
+        "Net AUM (Cr.): 313.7953",
+        "Benchmark: Nifty Bank Index (TRI)",
+        "Exit Load: Please refer page no.97",
+    ]
+
+
+def test_a_real_two_column_grid_with_a_header_row_stays_a_grid():
+    # A genuine header row (`Period | Mirae Asset Nifty Bank ETF`) above value rows must stay a
+    # grid with triplets, not be mistaken for a key-value panel.
+    table = _grid(
+        [
+            [(0, 1, "Period", True), (1, 2, "Mirae Asset Nifty Bank ETF", True)],
+            [(0, 1, "Last 1 Year", False), (1, 2, "2.91%", False)],
+            [(0, 1, "Last 3 Years", False), (1, 2, "8.57%", False)],
+            [(0, 1, "Since Inception", False), (1, 2, "8.01%", False)],
+        ],
+        2,
+    )
+    [part] = tables.normalize_table(table)
+    assert part.kind == "table"
+    assert part.text.split("\n") == [
+        "Last 1 Year, Mirae Asset Nifty Bank ETF = 2.91%",
+        "Last 3 Years, Mirae Asset Nifty Bank ETF = 8.57%",
+        "Since Inception, Mirae Asset Nifty Bank ETF = 8.01%",
+    ]
+
+
+def test_a_label_colon_row_flagged_as_header_is_never_promoted():
+    # Even outside a key-value panel, a row whose first cell is a `label:` is never a header.
+    table = _grid(
+        [
+            [(0, 1, "Exit Load:", True), (1, 2, "Please refer page no.97", True), (2, 3, "Nil after 1 year", True)],
+            [(0, 1, "Last 1 Year", False), (1, 2, "2.91%", False), (2, 3, "3.06%", False)],
+        ],
+        3,
+    )
+    [part] = tables.normalize_table(table)
+    # The `Exit Load:` row did not become a column header for `Last 1 Year`.
+    assert not any(line.startswith("Last 1 Year, Please refer") for line in part.text.split("\n"))

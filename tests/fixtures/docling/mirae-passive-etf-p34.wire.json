@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "producer": {
-    "parserVersion": "docling-2.132.0+norm-8+opts-da9fca75f112",
+    "parserVersion": "docling-2.132.0+norm-9+opts-da9fca75f112",
     "serviceVersion": "1.0.0",
     "doclingVersion": "2.132.0",
     "doclingCoreVersion": "2.99.0",
     "doclingIbmModelsVersion": "4.0.3",
-    "normalizerVersion": "8",
+    "normalizerVersion": "9",
     "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
   },
   "source": {
@@ -19,14 +19,14 @@
       "pageNumber": 1,
       "width": 930.0,
       "height": 1315.92,
-      "text": "MIRAE ASSET NIFTY 500 HEALTHCARE ETF\nNSE Symbol: HEALTHCARE , BSE Scrip Code: 544701\n(Exchange Traded Fund (ETF) - An open-ended scheme replicating/tracking Nifty 500 Healthcare ETF Total Return Index)\nMonthly Factsheet as on 31 July, 2026\nFund Information\nFund Managers : Ms. Ekta Gala Mr. Ritesh Patel\nAllotment Date : 10th February 2026\nBenchmark Net AUM (Cr.) Nifty 500 Healthcare (TRI) 13.9946\nBenchmark Tracking Error Value ~ Since Inception Tracking Error is Nifty 500 Healthcare (TRI) 0.21%\nBenchmark Exit Load: Nifty 500 Healthcare (TRI) Please refer page no.94\nBenchmark Plan Available: Nifty 500 Healthcare (TRI) The Scheme does not offer any Plans/Options for investment\nMinimum Investment Amount\nMarket Maker: Application for subscription of Units directly with the Fund in Creation Unit Size at NAV based prices in exchange of Portfolio Deposit and Cash Component.\nLarge Investors: Minimum amount of Rs. 25 crores for transacting directly with the AMC.\nOther investors (including Market Maker, Large Investors and Regulated Entities): Units of the Scheme can be subscribed (in lots of 1 Unit) during the trading hours on all trading days on the NSE and BSE on which the Units are listed.\nOn exchange ( in multiple of 1 units) Directly with AMC ( in multiple of 2,00,000 units)\nNet Asset Value (NAV)\n₹ 21.6424 (Per Unit)\nMarket Makers\nMirae Asset Capital Markets (India) Private Limited East India Securities Limited Kanjalochana Finserve Private Limited Parwati Capital Market Private Limited Vaibhav Stock & Derivatives Broking Private Limited IRage Broking Services LLP Junomoneta Finsol Pvt Ltd Motilal Oswal Financial Services Limited Obsidian Investment Pvt Ltd^^\nEureka Stock & Shares Broking Services Ltd^^^\nOthers\nLive iNav is updated on Mirae Asset Mutual Fund website.\nNSE Symbol: HEALTHCARE\nBSE Code: 544701\nBloomberg Code: MANHCRG IN EQUITY Reuters Code: MIRA.NS\nBase Expense Ratio: 0.14%\nPortfolio Top 10 Holdings\nEquity Shares\nSun Pharmaceutical Industries Ltd.: 10.06%\nDivi's Laboratories Ltd.: 7.36%\nApollo Hospitals Enterprise Ltd.: 6.63%\nCipla Ltd.: 5.96%\nMax Healthcare Institute Ltd.: 5.88%\nTorrent Pharmaceuticals Ltd.: 5.40%\nLaurus Labs Ltd.: 5.08%\nDr. Reddy's Laboratories Ltd.: 5.03%\nLupin Ltd.: 4.22%\nFortis Healthcare Ltd.: 3.54%\nOther Equities: 40.65%\nEquity Holding Total: 99.81%\nCash & Other Receivables: 0.19%\nTotal: 100.00%\nSector Allocation^\n^Industrywise classification as recommended by AMFI\nPharmaceuticals & Biotechnology: 75.43%\nHealthcare Services: 23.92%\nHealthcare Equipment & Supplies: 0.47%\nPursuant to clause 14.2.2 of Chapter 14 in SEBI master circular dated March 20, 2026, the scheme is in existence for less than 6 months, hence performance shall not be provided. ^^Pursuant to notice cum addendum no. 37/2026, a Market Maker has been added w.e.f May 04, 2026.\n^^^Pursuant to notice cum addendum no. 51/2026, a Market Maker has been added w.e.f June 19, 2026.\nMIRAE ASSET NIFTY 500 HEALTHCARE ETF",
+      "text": "MIRAE ASSET NIFTY 500 HEALTHCARE ETF\nNSE Symbol: HEALTHCARE , BSE Scrip Code: 544701\n(Exchange Traded Fund (ETF) - An open-ended scheme replicating/tracking Nifty 500 Healthcare ETF Total Return Index)\nMonthly Factsheet as on 31 July, 2026\nFund Information\nFund Managers : Ms. Ekta Gala Mr. Ritesh Patel\nAllotment Date: 10th February 2026\nBenchmark: Nifty 500 Healthcare (TRI)\nNet AUM (Cr.): 13.9946\nTracking Error Value ~ Since Inception Tracking Error is: 0.21%\nExit Load: Please refer page no.94\nPlan Available: The Scheme does not offer any Plans/Options for investment\nMinimum Investment Amount\nMarket Maker: Application for subscription of Units directly with the Fund in Creation Unit Size at NAV based prices in exchange of Portfolio Deposit and Cash Component.\nLarge Investors: Minimum amount of Rs. 25 crores for transacting directly with the AMC.\nOther investors (including Market Maker, Large Investors and Regulated Entities): Units of the Scheme can be subscribed (in lots of 1 Unit) during the trading hours on all trading days on the NSE and BSE on which the Units are listed.\nOn exchange ( in multiple of 1 units) Directly with AMC ( in multiple of 2,00,000 units)\nNet Asset Value (NAV)\n₹ 21.6424 (Per Unit)\nMarket Makers\nMirae Asset Capital Markets (India) Private Limited East India Securities Limited Kanjalochana Finserve Private Limited Parwati Capital Market Private Limited Vaibhav Stock & Derivatives Broking Private Limited IRage Broking Services LLP Junomoneta Finsol Pvt Ltd Motilal Oswal Financial Services Limited Obsidian Investment Pvt Ltd^^\nEureka Stock & Shares Broking Services Ltd^^^\nOthers\nLive iNav is updated on Mirae Asset Mutual Fund website.\nNSE Symbol: HEALTHCARE\nBSE Code: 544701\nBloomberg Code: MANHCRG IN EQUITY Reuters Code: MIRA.NS\nBase Expense Ratio: 0.14%\nPortfolio Top 10 Holdings\nEquity Shares\nSun Pharmaceutical Industries Ltd.: 10.06%\nDivi's Laboratories Ltd.: 7.36%\nApollo Hospitals Enterprise Ltd.: 6.63%\nCipla Ltd.: 5.96%\nMax Healthcare Institute Ltd.: 5.88%\nTorrent Pharmaceuticals Ltd.: 5.40%\nLaurus Labs Ltd.: 5.08%\nDr. Reddy's Laboratories Ltd.: 5.03%\nLupin Ltd.: 4.22%\nFortis Healthcare Ltd.: 3.54%\nOther Equities: 40.65%\nEquity Holding Total: 99.81%\nCash & Other Receivables: 0.19%\nTotal: 100.00%\nSector Allocation^\n^Industrywise classification as recommended by AMFI\nPharmaceuticals & Biotechnology: 75.43%\nHealthcare Services: 23.92%\nHealthcare Equipment & Supplies: 0.47%\nPursuant to clause 14.2.2 of Chapter 14 in SEBI master circular dated March 20, 2026, the scheme is in existence for less than 6 months, hence performance shall not be provided. ^^Pursuant to notice cum addendum no. 37/2026, a Market Maker has been added w.e.f May 04, 2026.\n^^^Pursuant to notice cum addendum no. 51/2026, a Market Maker has been added w.e.f June 19, 2026.\nMIRAE ASSET NIFTY 500 HEALTHCARE ETF",
       "hasTable": true,
       "stats": {
         "textItems": 27,
         "tables": 2,
         "pictures": 12,
         "pictureTextChars": 142,
-        "bodyTextChars": 2822
+        "bodyTextChars": 2713
       }
     }
   ],
@@ -85,7 +85,7 @@
     {
       "chunkIndex": 2,
       "type": "key_value",
-      "text": "Allotment Date : 10th February 2026\nBenchmark Net AUM (Cr.) Nifty 500 Healthcare (TRI) 13.9946\nBenchmark Tracking Error Value ~ Since Inception Tracking Error is Nifty 500 Healthcare (TRI) 0.21%\nBenchmark Exit Load: Nifty 500 Healthcare (TRI) Please refer page no.94\nBenchmark Plan Available: Nifty 500 Healthcare (TRI) The Scheme does not offer any Plans/Options for investment",
+      "text": "Allotment Date: 10th February 2026\nBenchmark: Nifty 500 Healthcare (TRI)\nNet AUM (Cr.): 13.9946\nTracking Error Value ~ Since Inception Tracking Error is: 0.21%\nExit Load: Please refer page no.94\nPlan Available: The Scheme does not offer any Plans/Options for investment",
       "headings": [
         "MIRAE ASSET NIFTY 500 HEALTHCARE ETF",
         "Fund Information",

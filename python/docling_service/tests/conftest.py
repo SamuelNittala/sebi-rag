@@ -27,10 +27,13 @@ LIQUID_DONUTS_STEM = "mirae-liquid-fund-p51"
 # mirae-passive-aug-2026.pdf p63: Overall Asset Allocation donut whose legend lies below Docling's picture bbox;
 # its values (100.01%, -0.01%) also appear in the Portfolio Holdings table.
 PASSIVE_FOF_STEM = "mirae-passive-fof-p63"
+# mirae-passive-aug-2026.pdf p43: Nifty Bank ETF `Fund Information` key-value panel whose first data
+# row's value cell (`20th July 2023`) Docling flags as a column header.
+PASSIVE_FUND_INFO_STEM = "mirae-passive-fund-info-p43"
 GOLDEN_STEMS = (
     FIXTURE_STEM, FUND_PERFORMANCE_STEM, FUND_FACTS_STEM, FUND_PERFORMANCE_P98_STEM, PASSIVE_ETF_STEM, SIP_PERFORMANCE_STEM,
     SIP_PERFORMANCE_P103_STEM, PASSIVE_OFFERINGS_STEM, PASSIVE_DONUTS_STEM, LIQUID_DONUTS_STEM,
-    PASSIVE_FOF_STEM,
+    PASSIVE_FOF_STEM, PASSIVE_FUND_INFO_STEM,
 )
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "contract" / "docling-parse-v1.schema.json"
 
@@ -67,6 +70,11 @@ def sip_p103_doc() -> DoclingDocument:
 @pytest.fixture
 def sip_p104_doc() -> DoclingDocument:
     return load_doc(SIP_PERFORMANCE_STEM)
+
+
+@pytest.fixture
+def passive_fund_info_doc() -> DoclingDocument:
+    return load_doc(PASSIVE_FUND_INFO_STEM)
 
 
 def graphics_for(stem: str, doc: DoclingDocument) -> dict:

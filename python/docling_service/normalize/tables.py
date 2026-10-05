@@ -130,12 +130,20 @@ def _normalize_rows(rows: list[Row], num_cols: int) -> TablePart:
         head += rows[0]
         rows = rows[1:]
         flags.append("heading_from_table_title")
-    has_column_header = any(c.column_header for row in rows for c in row)
+    # A value-like cell that Docling flags as a column header is a stray value, not a header
+    # (p43 `Fund Information`: the `20th July 2023` value cell). Such flags do not count as a real
+    # column header, so the key-value panel is not turned into a grid.
+    has_column_header = any(
+        c.column_header for row in rows for c in row if not (_is_numeric(c.text) or _has_measure(c.text))
+    )
     fund = _fund_name(title)
 
-    if not has_column_header and _is_key_value_panel(rows, num_cols):
+    # Two-column panels are detected as key-value before any header handling, so a spurious
+    # `column_header` flag on a value cell cannot turn the panel into a grid. Grids with a real
+    # header row (`Period | <fund>`) are not key-value panels (`_is_key_value_panel`) and fall through.
+    if _is_key_value_panel(rows, num_cols) and (num_cols == 2 or not has_column_header):
         kind: Literal["table", "key_value"] = "key_value"
-        lines = _key_value_lines(rows)
+        lines = _key_value_lines(_realign_flagged_values(rows))
         flags.append("kv_panel_detected")
     else:
         kind = "table"
@@ -148,8 +156,16 @@ def _normalize_rows(rows: list[Row], num_cols: int) -> TablePart:
             if has_column_header and rows and any(_has_measure(c.text) for c in rows[0]):
                 header_count = 0  # Docling flagged a data row (`Index Value ... | ... is 22,022.970 ...`)
             elif has_column_header:
-                header_count = next((i for i, row in enumerate(rows) if not any(c.column_header for c in row)), len(rows))
-            elif len(rows) > 1 and len(rows[0]) >= 2 and not any(_is_numeric(c.text) or _has_measure(c.text) for c in rows[0]):
+                header_count = next(
+                    (i for i, row in enumerate(rows) if _is_label_row(row) or not any(c.column_header for c in row)),
+                    len(rows),
+                )
+            elif (
+                len(rows) > 1
+                and len(rows[0]) >= 2
+                and not _is_label_row(rows[0])
+                and not any(_is_numeric(c.text) or _has_measure(c.text) for c in rows[0])
+            ):
                 header_count = 1
                 flags.append("table_header_promoted")
             else:
@@ -295,11 +311,36 @@ def _is_numeric(text: str) -> bool:
 
 
 _MEASURE = re.compile(r"\d[.,]\d|\d\s?%")
+# A date is a value, never header text: `20th July 2023`, `Aug 31, 2026`, `August 2026`, `31/08/2026`.
+_MONTH = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*"
+# Anchored: the whole cell is a date (optionally with a leading footnote marker). A fund name that
+# merely contains a month and year (`Mirae Asset Nifty SDL Jun 2027 Index Fund`) is not a date value.
+_DATE_VALUE = re.compile(
+    rf"^[*^#$@†\s]*(?:"
+    rf"\d{{1,2}}\s?(?:st|nd|rd|th)?\s+{_MONTH}\.?,?\s+\d{{4}}"
+    rf"|{_MONTH}\.?\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+\d{{4}}"
+    rf"|{_MONTH}\.?,?\s+\d{{4}}"
+    rf"|\d{{1,2}}[/.-]\d{{1,2}}[/.-]\d{{2,4}})\s*$",
+    re.IGNORECASE,
+)
 
 
 def _has_measure(text: str) -> bool:
-    """A decimal, grouped number or percentage: data, not header text (`FY 23`, `2026` are fine)."""
-    return _MEASURE.search(text) is not None
+    """A decimal, grouped number or percentage, or a cell whose whole value is a date: data, not
+    header text (`FY 23`, `2026`, a fund name holding a month and year are header text; a cell that
+    is just `20th July 2023` is a value)."""
+    return _MEASURE.search(text) is not None or _DATE_VALUE.match(text.strip()) is not None
+
+
+def _is_label_cell(cell: TableCell) -> bool:
+    """True when the cell text, after whitespace and footnote markers, ends in `:` (`Benchmark:`,
+    `Exit Load :`): a key-value label, never a column header."""
+    return cell.text.strip().rstrip("*^#$@† ").rstrip().endswith(":")
+
+
+def _is_label_row(row: Row) -> bool:
+    """A row led by a `label:` cell (its first cell by column); such a row is never a header."""
+    return bool(row) and _is_label_cell(min(row, key=lambda c: c.start_col_offset_idx))
 
 
 def _is_labelled_row(row: Row) -> bool:
@@ -321,6 +362,59 @@ def _is_key_value_panel(rows: list[Row], num_cols: int) -> bool:
     )
 
 
+def _normalize_label(text: str) -> str:
+    """Collapse whitespace and drop a space before a trailing colon (`Allotment Date :` -> `Allotment Date:`)."""
+    label = " ".join(text.split())
+    return re.sub(r"\s+:$", ":", label)
+
+
+def _vertical_overlap(a: BoundingBox, b: BoundingBox) -> float:
+    """Height of the vertical overlap of two TOPLEFT bboxes on the same page (0 when disjoint)."""
+    at, ab = sorted((a.t, a.b))
+    bt, bb = sorted((b.t, b.b))
+    return max(0.0, min(ab, bb) - max(at, bt))
+
+
+def _realign_flagged_values(rows: list[Row]) -> list[Row]:
+    """Docling sometimes assigns a key-value panel's value cell to the wrong row and marks it a
+    column header (p43: `20th July 2023` lands on the `Fund Managers` row, while `Allotment Date :`
+    gets no value). Move a value cell that Docling flagged as a column header to the label-only row
+    whose bbox it vertically aligns with, when its own row already carries a value or a label with no
+    free slot. Needs cell bboxes; otherwise the rows are returned unchanged."""
+    label_col = _label_col(rows)
+    strays = [
+        (r, c)
+        for r, row in enumerate(rows)
+        for c in row
+        if c.column_header and c.start_col_offset_idx != label_col and c.bbox is not None
+    ]
+    if not strays:
+        return rows
+    out = [list(row) for row in rows]
+    for r, cell in strays:
+        own = [c for c in out[r] if c is not cell and c.start_col_offset_idx == label_col and c.bbox is not None]
+        # Only move a stray that does not line up with its own row's label (it was mis-rowed).
+        if not own or any(_vertical_overlap(cell.bbox, c.bbox) > 0 for c in own):
+            continue
+        candidates = [
+            (t, c)
+            for t, target in enumerate(out)
+            if t != r
+            for c in target
+            if c.start_col_offset_idx == label_col
+            and c.bbox is not None
+            and not any(v.start_col_offset_idx != label_col for v in target)  # label-only row
+            and _vertical_overlap(cell.bbox, c.bbox) > 0
+        ]
+        if len(candidates) != 1:
+            continue
+        target_index = candidates[0][0]
+        out[r] = [c for c in out[r] if c is not cell]
+        out[target_index] = sorted([*out[target_index], cell.model_copy(update={"column_header": False})],
+                                   key=lambda c: c.start_col_offset_idx)
+    return [row for row in out if row]
+
+
 def _key_value_lines(rows: list[Row]) -> list[Line]:
     lines: list[Line] = []
     sub_header: tuple[str, list[int], list[str]] | None = None  # (prefix, value columns, labels)
@@ -328,7 +422,7 @@ def _key_value_lines(rows: list[Row]) -> list[Line]:
     for index, row in enumerate(rows):
         if len(row) == 1:
             sub_header = None
-            lines.append((row[0].text.strip(), (*pending, *row)))
+            lines.append((_normalize_label(row[0].text), (*pending, *row)))
             pending = []
             continue
         first, rest = row[0], row[1:]
@@ -342,7 +436,8 @@ def _key_value_lines(rows: list[Row]) -> list[Line]:
         sub_header = None
         following = rows[index + 1] if index + 1 < len(rows) else None
         if (
-            first.text.rstrip().endswith(":")
+            len(rest) >= 2
+            and first.text.rstrip().endswith(":")
             and not any(_is_numeric(c.text) for c in rest)
             and following is not None
             and [c.start_col_offset_idx for c in following[1:]] == columns
@@ -351,9 +446,9 @@ def _key_value_lines(rows: list[Row]) -> list[Line]:
             sub_header = (first.text.strip().rstrip(":").strip(), columns, [c.text.strip() for c in rest])
             pending += row
             continue
-        label = first.text.strip()
-        separator = " " if label.endswith(":") else ": "
-        lines.append((label + separator + " ".join(c.text.strip() for c in rest), (*pending, *row)))
+        label = _normalize_label(first.text)
+        separator = "" if label.endswith(":") else ":"
+        lines.append((f"{label}{separator} " + " ".join(c.text.strip() for c in rest), (*pending, *row)))
         pending = []
     return _attach_pending(lines, pending)
 

@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "producer": {
-    "parserVersion": "docling-2.132.0+norm-8+opts-da9fca75f112",
+    "parserVersion": "docling-2.132.0+norm-9+opts-da9fca75f112",
     "serviceVersion": "1.0.0",
     "doclingVersion": "2.132.0",
     "doclingCoreVersion": "2.99.0",
     "doclingIbmModelsVersion": "4.0.3",
-    "normalizerVersion": "8",
+    "normalizerVersion": "9",
     "pipelineOptionsSha256": "da9fca75f1125ec581ee98e9799578d12b3ec1b767c77c3f9544a2631d71fbb8"
   },
   "source": {
@@ -19,14 +19,14 @@
       "pageNumber": 1,
       "width": 930.0,
       "height": 1315.92,
-      "text": "MIRAE ASSET NIFTY MIDSMALLCAP400 MOMENTUM QUALITY 100 ETF FUND OF FUND\n(Fund of Fund - An open ended fund of fund scheme investing in units of Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF)\nMonthly Factsheet as on 31 July, 2026\nFund Information\nFund Managers: Ms. Ekta Gala Mr. Akshay Udeshi\nAllotment Date : 30th May 2024\nBenchmark Net AUM (Cr.) Nifty MidSmallcap400 Momentum Quality 100 (TRI) 283.243\nBenchmark Exit Load: Nifty MidSmallcap400 Momentum Quality 100 (TRI) Please refer page no.105\nBenchmark Plan Available: Nifty MidSmallcap400 Momentum Quality 100 (TRI) Regular Plan and Direct Plan\nMinimum Investment Amount\n₹5,000/- and in multiples of ₹1/- thereafter. Minimum Additional Application Amount: ₹1,000/- per application and in multiples of ₹1/- thereafter\nNet Asset Value (NAV)\nGrowth, Direct = ₹10.325. Growth, Regular = ₹10.204\nIDCW, Direct = ₹10.325. IDCW, Regular = ₹10.210\nBase Expense Ratio\nRegular Plan: 0.52%\nDirect Plan: 0.03%\nInvestors may note that they have to bear recurring expense if the underlying scheme in addition to the expenses of this scheme. The BER of underlying scheme i.e Mirae Asset Nifty Midsmallcap400 Momentum Quality 100 ETF is 0.37%\nPortfolio Holdings\nExchange Traded Funds\nMirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF: 100.01%\nExchange Traded Funds Total: 100.01%\nCash & Other Receivables\nTREPS/Reverse Repo: 0.79%\nNet Receivables / (Payables): -0.81%\nCash & Other Receivables Total: -0.01%\nTotal: 100.00%\nOverall Asset Allocation\nMirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF: 100.01%\nCash & Other Receivables\n-0.01%\nPerformance Report\nLast 1 Year, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = 4.09%. Last 1 Year, Scheme Benchmark* = 5.59%. Last 1 Year, Additional Benchmark** = -0.43%\nSince Inception, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = 0.94%. Since Inception, Scheme Benchmark* = 3.04%. Since Inception, Additional Benchmark** = 5.14%\nValue of Rs. 10000 invested Since Inception, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = ₹10,204. Value of Rs. 10000 invested Since Inception, Scheme Benchmark* = ₹10,671. Value of Rs. 10000 invested Since Inception, Additional Benchmark** = ₹11,148\nNAV as on 31st July, 2026, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = ₹10.204\nIndex Value 31st July, 2026, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = Index Value of Scheme Benchmark is ₹66,353.220 and Nifty 50 (TRI) is ₹37,000.720\nAllotment Date, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = 30th May 2024\nScheme Benchmark, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = *Nifty MidSmallcap400 Momentum Quality 100 (TRI)\nAdditional Benchmark, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = **Nifty 50 (TRI)\nFund Managers : Ms. Ekta Gala (since May 30, 2024), Mr. Akshay Udeshi (since March 12, 2025)\nNote: Returns (%) for less than 1 year calculated on simple annualized basis, others are CAGR- Compounded Annualized Growth returns. Latest available NAV has been taken for return calculation wherever applicable\nPast Performance may or may not be sustained in future.\nNote:1. Different Plans under the scheme has different expense structure. The reference and details provided here in are of Regular Plan - Growth Option\nPlease visit the website for more details https://www.miraeassetmf.co.in/downloads/statutory-disclosure/addendum\nThe performance of other funds managed by the same fund manager is given in the respective page of the schemes and on page No. 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127\nNote: For computation of since inception returns (%) the allotment NAV has been taken as ₹10.00\nMIRAE ASSET NIFTY MIDSMALLCAP400 MOMENTUM QUALITY 100 ETF FUND OF FUND",
+      "text": "MIRAE ASSET NIFTY MIDSMALLCAP400 MOMENTUM QUALITY 100 ETF FUND OF FUND\n(Fund of Fund - An open ended fund of fund scheme investing in units of Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF)\nMonthly Factsheet as on 31 July, 2026\nFund Information\nFund Managers: Ms. Ekta Gala Mr. Akshay Udeshi\nAllotment Date: 30th May 2024\nBenchmark: Nifty MidSmallcap400 Momentum Quality 100 (TRI)\nNet AUM (Cr.): 283.243\nExit Load: Please refer page no.105\nPlan Available: Regular Plan and Direct Plan\nMinimum Investment Amount\n₹5,000/- and in multiples of ₹1/- thereafter. Minimum Additional Application Amount: ₹1,000/- per application and in multiples of ₹1/- thereafter\nNet Asset Value (NAV)\nGrowth, Direct = ₹10.325. Growth, Regular = ₹10.204\nIDCW, Direct = ₹10.325. IDCW, Regular = ₹10.210\nBase Expense Ratio\nRegular Plan: 0.52%\nDirect Plan: 0.03%\nInvestors may note that they have to bear recurring expense if the underlying scheme in addition to the expenses of this scheme. The BER of underlying scheme i.e Mirae Asset Nifty Midsmallcap400 Momentum Quality 100 ETF is 0.37%\nPortfolio Holdings\nExchange Traded Funds\nMirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF: 100.01%\nExchange Traded Funds Total: 100.01%\nCash & Other Receivables\nTREPS/Reverse Repo: 0.79%\nNet Receivables / (Payables): -0.81%\nCash & Other Receivables Total: -0.01%\nTotal: 100.00%\nOverall Asset Allocation\nMirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF: 100.01%\nCash & Other Receivables\n-0.01%\nPerformance Report\nLast 1 Year, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = 4.09%. Last 1 Year, Scheme Benchmark* = 5.59%. Last 1 Year, Additional Benchmark** = -0.43%\nSince Inception, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = 0.94%. Since Inception, Scheme Benchmark* = 3.04%. Since Inception, Additional Benchmark** = 5.14%\nValue of Rs. 10000 invested Since Inception, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = ₹10,204. Value of Rs. 10000 invested Since Inception, Scheme Benchmark* = ₹10,671. Value of Rs. 10000 invested Since Inception, Additional Benchmark** = ₹11,148\nNAV as on 31st July, 2026, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = ₹10.204\nIndex Value 31st July, 2026, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = Index Value of Scheme Benchmark is ₹66,353.220 and Nifty 50 (TRI) is ₹37,000.720\nAllotment Date, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = 30th May 2024\nScheme Benchmark, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = *Nifty MidSmallcap400 Momentum Quality 100 (TRI)\nAdditional Benchmark, Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund = **Nifty 50 (TRI)\nFund Managers : Ms. Ekta Gala (since May 30, 2024), Mr. Akshay Udeshi (since March 12, 2025)\nNote: Returns (%) for less than 1 year calculated on simple annualized basis, others are CAGR- Compounded Annualized Growth returns. Latest available NAV has been taken for return calculation wherever applicable\nPast Performance may or may not be sustained in future.\nNote:1. Different Plans under the scheme has different expense structure. The reference and details provided here in are of Regular Plan - Growth Option\nPlease visit the website for more details https://www.miraeassetmf.co.in/downloads/statutory-disclosure/addendum\nThe performance of other funds managed by the same fund manager is given in the respective page of the schemes and on page No. 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127\nNote: For computation of since inception returns (%) the allotment NAV has been taken as ₹10.00\nMIRAE ASSET NIFTY MIDSMALLCAP400 MOMENTUM QUALITY 100 ETF FUND OF FUND",
       "hasTable": true,
       "stats": {
         "textItems": 19,
         "tables": 5,
         "pictures": 10,
         "pictureTextChars": 13,
-        "bodyTextChars": 3794
+        "bodyTextChars": 3679
       }
     }
   ],
@@ -59,7 +59,7 @@
     {
       "chunkIndex": 1,
       "type": "key_value",
-      "text": "Fund Managers: Ms. Ekta Gala Mr. Akshay Udeshi\nAllotment Date : 30th May 2024\nBenchmark Net AUM (Cr.) Nifty MidSmallcap400 Momentum Quality 100 (TRI) 283.243\nBenchmark Exit Load: Nifty MidSmallcap400 Momentum Quality 100 (TRI) Please refer page no.105\nBenchmark Plan Available: Nifty MidSmallcap400 Momentum Quality 100 (TRI) Regular Plan and Direct Plan",
+      "text": "Fund Managers: Ms. Ekta Gala Mr. Akshay Udeshi\nAllotment Date: 30th May 2024\nBenchmark: Nifty MidSmallcap400 Momentum Quality 100 (TRI)\nNet AUM (Cr.): 283.243\nExit Load: Please refer page no.105\nPlan Available: Regular Plan and Direct Plan",
       "headings": [
         "MIRAE ASSET NIFTY MIDSMALLCAP400 MOMENTUM QUALITY 100 ETF FUND OF FUND",
         "Monthly Factsheet as on 31 July, 2026",
@@ -147,7 +147,7 @@
     },
     {
       "chunkIndex": 4,
-      "type": "table",
+      "type": "key_value",
       "text": "Regular Plan: 0.52%\nDirect Plan: 0.03%",
       "headings": [
         "MIRAE ASSET NIFTY MIDSMALLCAP400 MOMENTUM QUALITY 100 ETF FUND OF FUND",
@@ -169,7 +169,8 @@
         "#/tables/2"
       ],
       "flags": [
-        "mixed_chunk_split"
+        "mixed_chunk_split",
+        "kv_panel_detected"
       ],
       "picture": null
     },
@@ -396,7 +397,7 @@
       "chart_unpaired": 1,
       "chart_values_in_table": 1,
       "heading_from_table_title": 3,
-      "kv_panel_detected": 2,
+      "kv_panel_detected": 3,
       "mixed_chunk_split": 8,
       "ordinal_joined": 2,
       "picture_text_recovered": 1,
