@@ -52,3 +52,6 @@ ENV/
 
 # Bun
 bun.lockb
+
+# Local eval reports
+docs/eval-runs/
