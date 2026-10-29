@@ -222,4 +222,4 @@ See the [jailbreak tests](scripts/test-jailbreak-direct.ts) for details.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
